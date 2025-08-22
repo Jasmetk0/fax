@@ -2,9 +2,15 @@
 {% block content %}
 <div class="relative bg-cover bg-center min-h-full" style="background-image: url('https://placehold.co/1600x900');">
     <div class="pt-12 md:pt-16 flex justify-center">
-        <div class="w-full max-w-md relative">
-            <input type="text" placeholder="Search Woorld…" class="w-full p-2 rounded shadow text-black" />
-        </div>
+        <form action="/search" method="get" class="w-full max-w-md relative">
+            <input
+                name="q"
+                type="search"
+                placeholder="Search Woorld…"
+                class="w-full p-2 rounded shadow text-black"
+                aria-label="Search Woorld"
+            />
+        </form>
     </div>
     <div class="max-w-6xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-4 mt-8 md:mt-10">
         <a href="/wiki/" class="bg-white bg-opacity-80 rounded p-4 flex flex-col items-center text-center space-y-2">

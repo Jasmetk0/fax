@@ -1,6 +1,8 @@
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import include, path
 from django.views.generic import TemplateView
+
+from search import views as search_views
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -8,6 +10,7 @@ urlpatterns = [
     path("wiki/", include("wiki.urls")),
     path("maps/", include("maps.urls")),
     path("livesport/", include("sports.urls")),
+    path("search", search_views.search, name="search"),
     path(
         "manifest.json",
         TemplateView.as_view(
