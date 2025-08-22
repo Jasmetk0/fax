@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="max-w-4xl mx-auto py-6">
+  <form action="/search" method="get" class="mb-6">
+    <input
+      name="q"
+      value="{{ q|default:'' }}"
+      type="search"
+      placeholder="Search Woorld…"
+      class="w-full h-12 rounded-2xl border px-4"
+      aria-label="Search Woorld"
+    />
+  </form>
+
+  {% if q %}
+    <p class="text-sm text-muted-foreground mb-4">
+      Výsledky pro „{{ q }}“ ({{ results|length }})
+    </p>
+
+    <div class="space-y-4">
+      {% for r in results %}
+        <a href="{{ r.url }}" class="block rounded-xl border p-4 hover:shadow focus:outline-none focus:ring">
+          <div class="text-xs uppercase tracking-wide opacity-70">{{ r.type }}</div>
+          <h3 class="text-lg font-semibold">{{ r.title }}</h3>
+          {% if r.snippet %}
+            <p class="text-sm mt-1">{{ r.snippet }}</p>
+          {% endif %}
+        </a>
+      {% empty %}
+        <div class="text-sm">Nic jsme nenašli. Zkuste kratší nebo jiné klíčové slovo.</div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="text-sm text-muted-foreground">Zadejte dotaz a stiskněte Enter.</div>
+  {% endif %}
+</section>
+{% endblock %}
