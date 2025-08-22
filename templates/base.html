@@ -7,49 +7,32 @@
     <link rel="manifest" href="/manifest.json">
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="flex h-screen">
-    <aside class="w-64 bg-gray-200 p-4">
-        <nav>
-            <ul>
-                <li><a href="/" class="text-blue-700">Shell</a></li>
-                <li><a href="/wiki/" class="text-blue-700">Wiki</a></li>
-                <li><a href="/maps/" class="text-blue-700">Maps</a></li>
-                <li><a href="/livesport/" class="text-blue-700">LiveSport</a></li>
-            </ul>
-        </nav>
-    </aside>
-    <div class="flex-1 flex flex-col">
-        <header class="sticky top-0 z-[1000] flex items-center bg-gray-800 text-white px-4 py-2 space-x-2">
-            <div class="flex items-center space-x-2">
-                <button class="p-1 rounded hover:bg-gray-700" disabled>&#8592;</button>
-                <button class="p-1 rounded hover:bg-gray-700" disabled>&#8594;</button>
-                <button class="p-1 rounded hover:bg-gray-700" disabled>&#8635;</button>
-                <a href="/" class="ml-2 font-bold">FAX</a>
-            </div>
-            <div class="flex-1 flex justify-center px-4">
-                <input type="text" placeholder="Search Woorld…" class="w-full max-w-4xl p-1 rounded text-black" />
-            </div>
-            <div class="flex items-center space-x-4">
-                <a href="#" class="p-1 hover:bg-gray-700 rounded">👤</a>
-                <div class="relative">
-                    <button id="menu-btn" class="p-1 hover:bg-gray-700 rounded">…</button>
-                    <div id="menu-dropdown" class="hidden absolute right-0 mt-2 w-40 bg-white text-black rounded shadow-lg">
-                        <a href="#" class="block px-4 py-2 hover:bg-gray-100">Nová karta</a>
-                        <a href="#" class="block px-4 py-2 hover:bg-gray-100">Nové okno</a>
-                        <a href="#" class="block px-4 py-2 hover:bg-gray-100">Nastavení</a>
-                    </div>
+<body class="flex flex-col h-screen">
+    <header class="sticky top-0 z-[1000] flex items-center bg-gray-800 text-white px-4 py-2 space-x-2">
+        <div class="flex items-center space-x-2">
+            <button id="back-btn" class="p-1 rounded hover:bg-gray-700">&#8592;</button>
+            <button id="forward-btn" class="p-1 rounded hover:bg-gray-700">&#8594;</button>
+            <button id="reload-btn" class="p-1 rounded hover:bg-gray-700">&#8635;</button>
+            <a href="/" class="ml-2 font-bold">FAX</a>
+        </div>
+        <div class="flex-1 flex justify-center px-4">
+            <input type="text" placeholder="Search Woorld…" class="w-full max-w-4xl p-1 rounded text-black" />
+        </div>
+        <div class="flex items-center space-x-4">
+            <a href="#" class="p-1 hover:bg-gray-700 rounded">👤</a>
+            <div class="relative">
+                <button id="menu-btn" class="p-1 hover:bg-gray-700 rounded">…</button>
+                <div id="menu-dropdown" class="hidden absolute right-0 mt-2 w-40 bg-white text-black rounded shadow-lg">
+                    <a href="#" class="block px-4 py-2 hover:bg-gray-100">Nová karta</a>
+                    <a href="#" class="block px-4 py-2 hover:bg-gray-100">Nové okno</a>
+                    <a href="#" class="block px-4 py-2 hover:bg-gray-100">Nastavení</a>
                 </div>
             </div>
-        </header>
-        <div class="bg-gray-700 text-white px-4 py-2 flex space-x-4">
-            <div class="bg-gray-900 px-3 py-1 rounded">Wiki</div>
-            <div class="bg-gray-600 px-3 py-1 rounded">Maps</div>
-            <div class="bg-gray-600 px-3 py-1 rounded">LiveSport</div>
         </div>
-        <main class="p-4 pt-4 flex-1 overflow-y-auto">
-            {% block content %}{% endblock %}
-        </main>
-    </div>
+    </header>
+    <main class="p-4 pt-4 flex-1 overflow-y-auto">
+        {% block content %}{% endblock %}
+    </main>
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         const menuBtn = document.getElementById('menu-btn');
@@ -59,6 +42,12 @@
                 dropdown.classList.toggle('hidden');
             });
         }
+        const backBtn = document.getElementById('back-btn');
+        const forwardBtn = document.getElementById('forward-btn');
+        const reloadBtn = document.getElementById('reload-btn');
+        if (backBtn) backBtn.addEventListener('click', () => window.history.back());
+        if (forwardBtn) forwardBtn.addEventListener('click', () => window.history.forward());
+        if (reloadBtn) reloadBtn.addEventListener('click', () => window.location.reload());
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/service-worker.js');
         }
