@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="text-2xl font-bold mb-4">{{ article.title }}</h1>
+<div>{{ article.content_html|safe }}</div>
+<a href="{% url 'wiki:article-edit' article.slug %}" class="text-blue-500">Edit</a>
+{% endblock %}
