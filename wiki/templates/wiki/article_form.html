@@ -37,6 +37,7 @@
       });
 
       function openWikiLinkDialog(editor){
+        const selected = editor.codemirror.getSelection();
         const overlay = document.createElement('div');
         overlay.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-[900]';
         overlay.innerHTML = `
@@ -47,20 +48,34 @@
         document.body.appendChild(overlay);
         const input = overlay.querySelector('#wikilink-input');
         const list = overlay.querySelector('#wikilink-list');
+        let results = [];
         input.addEventListener('input', async () => {
           const resp = await fetch('/wiki/suggest/?q=' + encodeURIComponent(input.value));
           const data = await resp.json();
+          results = data;
           list.innerHTML = data.map(it => `<option value="${it.title}"></option>`).join('');
         });
         input.addEventListener('keydown', e => {
           if(e.key === 'Enter'){
-            editor.codemirror.replaceSelection('[[' + input.value + ']]');
+            const match = results.find(it => it.title.toLowerCase() === input.value.toLowerCase());
+            const slug = match ? match.slug : slugify(input.value);
+            const label = selected || input.value;
+            editor.codemirror.replaceSelection(`[[${slug}|${label}]]`);
             document.body.removeChild(overlay);
           } else if(e.key === 'Escape'){
             document.body.removeChild(overlay);
           }
         });
         input.focus();
+      }
+
+      function slugify(str){
+        return str
+          .toLowerCase()
+          .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+          .replace(/[^\w\s-]/g, '')
+          .trim()
+          .replace(/\s+/g, '-');
       }
     }
   });
