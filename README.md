@@ -2,6 +2,13 @@
 
 Prototype Django portal with wiki, maps, and live sports sections.
 
+## Apps
+
+- shell
+- wiki
+- maps
+- sports
+
 ## Development
 
 ```bash
