@@ -17,6 +17,7 @@ def test_article_detail(client):
     url = reverse("wiki:article-detail", args=[article.slug])
     resp = client.get(url)
     assert resp.status_code == 200
-    
+
+
 def test_placeholder():
     assert True
