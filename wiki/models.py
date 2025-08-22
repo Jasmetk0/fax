@@ -17,6 +17,7 @@ class Tag(models.Model):
     def __str__(self) -> str:  # pragma: no cover - simple repr
         return self.name
 
+
 class Category(models.Model):
     name = models.CharField(max_length=100, unique=True)
     slug = models.SlugField(unique=True, blank=True)
@@ -33,6 +34,7 @@ class Category(models.Model):
 
     def __str__(self) -> str:  # pragma: no cover - simple repr
         return self.name
+
 
 class Article(models.Model):
     title = models.CharField(max_length=200, unique=True)

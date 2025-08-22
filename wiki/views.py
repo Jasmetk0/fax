@@ -37,6 +37,7 @@ class ArticleListView(ListView):
         context["categories"] = categories
         return context
 
+
 class ArticleDetailView(DetailView):
     model = Article
     template_name = "wiki/article_detail.html"
@@ -60,7 +61,7 @@ class ArticleUpdateView(UpdateView):
     slug_url_kwarg = "slug"
     success_url = reverse_lazy("wiki:article-list")
 
-    
+
 class CategoryListView(StaffRequiredMixin, ListView):
     model = Category
     template_name = "wiki/category_list.html"
