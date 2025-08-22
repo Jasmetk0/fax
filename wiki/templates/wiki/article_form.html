@@ -12,6 +12,7 @@
   document.addEventListener('DOMContentLoaded', function() {
     const textarea = document.getElementById('id_content_md');
     if (textarea) {
+      textarea.removeAttribute('required');
       const mde = new SimpleMDE({
         element: textarea,
         toolbar: [

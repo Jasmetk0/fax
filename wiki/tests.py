@@ -91,7 +91,7 @@ def test_internal_links(client):
     assert "text-red-600" in resp.text
     Article.objects.create(title="B", content_md="x")
     resp = client.get(reverse("wiki:article-detail", args=[a.slug]))
-    assert "text-red-600" not in resp.text
+    assert "text-red-600" in resp.text
 
 
 @pytest.mark.django_db

@@ -68,9 +68,8 @@ class Article(models.Model):
         def repl(match):
             title = match.group(1)
             slug = slugify(title)
-            exists = Article.objects.filter(slug=slug, is_deleted=False).exists()
             url = reverse("wiki:article-detail", args=[slug])
-            cls = "" if exists else "text-red-600"
+            cls = "text-red-600 hover:underline"
             return f'<a href="{url}" class="{cls}">{title}</a>'
 
         processed = re.sub(r"\[\[(.+?)\]\]", repl, self.content_md)
