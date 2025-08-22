@@ -92,3 +92,12 @@ def test_internal_links(client):
     Article.objects.create(title="B", content_md="x")
     resp = client.get(reverse("wiki:article-detail", args=[a.slug]))
     assert "text-red-600" not in resp.text
+
+
+@pytest.mark.django_db
+def test_article_suggest_endpoint(client):
+    Article.objects.create(title="Alpha", content_md="x")
+    resp = client.get(reverse("wiki:article-suggest"), {"q": "Al"})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert any(item["title"] == "Alpha" for item in data)

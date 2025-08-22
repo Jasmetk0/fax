@@ -10,8 +10,57 @@
 <script src="https://cdn.jsdelivr.net/simplemde/latest/simplemde.min.js"></script>
 <script>
   document.addEventListener('DOMContentLoaded', function() {
-    if (document.getElementById('id_content_md')) {
-      new SimpleMDE({ element: document.getElementById('id_content_md') });
+    const textarea = document.getElementById('id_content_md');
+    if (textarea) {
+      const mde = new SimpleMDE({
+        element: textarea,
+        toolbar: [
+          "bold",
+          "italic",
+          "heading",
+          "|",
+          "quote",
+          "unordered-list",
+          "ordered-list",
+          "|",
+          {
+            name: "wikilink",
+            action: function(editor){ openWikiLinkDialog(editor); },
+            className: "fa fa-link",
+            title: "Internal link"
+          },
+          "preview",
+          "side-by-side",
+          "fullscreen"
+        ]
+      });
+
+      function openWikiLinkDialog(editor){
+        const overlay = document.createElement('div');
+        overlay.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-[900]';
+        overlay.innerHTML = `
+          <div class="bg-white dark:bg-slate-800 p-4 rounded shadow">
+            <input type="text" id="wikilink-input" class="border p-2" placeholder="Search article..." list="wikilink-list" />
+            <datalist id="wikilink-list"></datalist>
+          </div>`;
+        document.body.appendChild(overlay);
+        const input = overlay.querySelector('#wikilink-input');
+        const list = overlay.querySelector('#wikilink-list');
+        input.addEventListener('input', async () => {
+          const resp = await fetch('/wiki/suggest/?q=' + encodeURIComponent(input.value));
+          const data = await resp.json();
+          list.innerHTML = data.map(it => `<option value="${it.title}"></option>`).join('');
+        });
+        input.addEventListener('keydown', e => {
+          if(e.key === 'Enter'){
+            editor.codemirror.replaceSelection('[[' + input.value + ']]');
+            document.body.removeChild(overlay);
+          } else if(e.key === 'Escape'){
+            document.body.removeChild(overlay);
+          }
+        });
+        input.focus();
+      }
     }
   });
 </script>

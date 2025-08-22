@@ -9,10 +9,11 @@ from django.views.generic import (
 )
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.forms import inlineformset_factory
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 import difflib
 
-from .models import Article, Category, CategoryArticle, ArticleRevision
+from .models import Article, ArticleRevision, Category, CategoryArticle
 
 
 class StaffRequiredMixin(LoginRequiredMixin, UserPassesTestMixin):
@@ -212,3 +213,10 @@ class CategoryDeleteView(StaffRequiredMixin, DeleteView):
     slug_field = "slug"
     slug_url_kwarg = "slug"
     success_url = reverse_lazy("wiki:category-list")
+
+
+def article_suggest(request):
+    q = request.GET.get("q", "")
+    articles = Article.objects.filter(title__icontains=q, is_deleted=False)[:5]
+    data = [{"title": a.title, "slug": a.slug} for a in articles]
+    return JsonResponse(data, safe=False)

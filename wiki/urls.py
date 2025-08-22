@@ -5,6 +5,7 @@ app_name = "wiki"
 
 urlpatterns = [
     path("", views.ArticleListView.as_view(), name="article-list"),
+    path("suggest/", views.article_suggest, name="article-suggest"),
     path("create/", views.ArticleCreateView.as_view(), name="article-create"),
     path("categories/", views.CategoryListView.as_view(), name="category-list"),
     path(
