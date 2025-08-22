@@ -65,14 +65,17 @@ class Article(models.Model):
         super().save(*args, **kwargs)
 
     def content_html(self) -> str:
+        pattern = r"\[\[([^|\]]+)(?:\|([^\]]+))?\]\]"
+
         def repl(match):
-            title = match.group(1)
-            slug = slugify(title)
+            target = match.group(1)
+            label = match.group(2) or target
+            slug = slugify(target)
             url = reverse("wiki:article-detail", args=[slug])
             cls = "text-red-600 hover:underline"
-            return f'<a href="{url}" class="{cls}">{title}</a>'
+            return f'<a href="{url}" class="{cls}">{label}</a>'
 
-        processed = re.sub(r"\[\[(.+?)\]\]", repl, self.content_md)
+        processed = re.sub(pattern, repl, self.content_md)
         html = markdown.markdown(processed)
         allowed = list(bleach.sanitizer.ALLOWED_TAGS) + [
             "p",

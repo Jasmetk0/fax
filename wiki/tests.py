@@ -1,5 +1,6 @@
 import pytest
 from django.urls import reverse
+from django.utils.text import slugify
 from .models import Article, Category, CategoryArticle, ArticleRevision
 
 
@@ -92,6 +93,18 @@ def test_internal_links(client):
     Article.objects.create(title="B", content_md="x")
     resp = client.get(reverse("wiki:article-detail", args=[a.slug]))
     assert "text-red-600" in resp.text
+
+
+@pytest.mark.django_db
+def test_internal_links_with_label(client):
+    article = Article.objects.create(
+        title="A", content_md="[[Střední Evropa|střední Evropě]]"
+    )
+    resp = client.get(reverse("wiki:article-detail", args=[article.slug]))
+    slug = slugify("Střední Evropa")
+    url = reverse("wiki:article-detail", args=[slug])
+    assert f'href="{url}"' in resp.text
+    assert ">střední Evropě</a>" in resp.text
 
 
 @pytest.mark.django_db
