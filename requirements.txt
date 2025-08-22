@@ -1,8 +1,8 @@
+black
+bleach
 django~=5.0
 djangorestframework
+markdown
 pytest
 pytest-django
 ruff
-black
-markdown
-bleach
