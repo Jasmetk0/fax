@@ -12,6 +12,5 @@ class CategoryAdmin(admin.ModelAdmin):
     list_display = ("name", "color", "order")
     inlines = [CategoryArticleInline]
 
-
 admin.site.register(Article)
 admin.site.register(Tag)
