@@ -1,0 +1,11 @@
+{% extends "wiki/base.html" %}
+{% block wiki_content %}
+<section class="max-w-3xl mx-auto py-6">
+  <h1 class="text-2xl font-bold mb-4">Smazat kategorii</h1>
+  <form method="post" class="space-y-4">
+    {% csrf_token %}
+    <p>Opravdu smazat "{{ object.name }}"?</p>
+    <button type="submit" class="px-4 py-2 bg-red-500 text-white rounded">Smazat</button>
+  </form>
+</section>
+{% endblock %}

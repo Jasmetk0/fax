@@ -1,0 +1,20 @@
+{% extends "wiki/base.html" %}
+{% block wiki_content %}
+<h1 class="text-2xl font-bold mb-4">Historie: {{ article.title }}</h1>
+<ul class="space-y-2">
+  {% for rev in revisions %}
+  <li class="border p-3 rounded">
+    <div class="text-sm opacity-70">{{ rev.created_at }} • {{ rev.author }}</div>
+    <div class="mt-1 space-x-3">
+      <a href="{% url 'wiki:article-diff' article.slug rev.id %}" class="text-blue-500">Diff</a>
+      <form method="post" action="{% url 'wiki:article-revert' article.slug rev.id %}" class="inline">
+        {% csrf_token %}
+        <button class="text-blue-500">Revert</button>
+      </form>
+    </div>
+  </li>
+  {% empty %}
+  <li>No revisions.</li>
+  {% endfor %}
+</ul>
+{% endblock %}

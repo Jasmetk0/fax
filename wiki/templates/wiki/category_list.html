@@ -1,0 +1,25 @@
+{% extends "wiki/base.html" %}
+{% block wiki_content %}
+<section class="max-w-3xl mx-auto py-6">
+  <div class="flex items-center justify-between mb-4">
+    <h1 class="text-2xl font-bold">Kategorie</h1>
+    <a href="{% url 'wiki:category-create' %}" class="text-blue-500">Nová kategorie</a>
+  </div>
+  <ul class="space-y-2">
+    {% for cat in categories %}
+    <li class="border p-3 flex justify-between items-center rounded">
+      <span class="flex items-center gap-2">
+        <span class="w-3 h-3 rounded-full" style="background-color: {{ cat.color }}"></span>
+        {{ cat.name }}
+      </span>
+      <span class="text-sm">
+        <a href="{% url 'wiki:category-edit' cat.slug %}" class="text-blue-500 mr-2">Edit</a>
+        <a href="{% url 'wiki:category-delete' cat.slug %}" class="text-red-500">Delete</a>
+      </span>
+    </li>
+    {% empty %}
+    <li class="text-sm opacity-70">Žádné kategorie.</li>
+    {% endfor %}
+  </ul>
+</section>
+{% endblock %}
