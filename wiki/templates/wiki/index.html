@@ -39,12 +39,25 @@
   </div>
 
   <!-- CATEGORIES -->
-  <div class="max-w-6xl mx-auto mt-10 grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
+  <div class="max-w-6xl mx-auto mt-10 grid grid-cols-1 md:grid-cols-2 gap-6">
     {% for cat in categories %}
-    <a href="#" class="rounded-2xl border bg-white/50 dark:bg-slate-900/40 backdrop-blur p-5 hover:translate-y-[1px] transition">
-      <div class="text-sm opacity-80">{{ cat }}</div>
-      <div class="text-xs mt-1 opacity-60">~123 položek</div>
-    </a>
+    <div class="rounded-2xl border p-5">
+      <h3 class="font-semibold mb-2 flex items-center gap-2">
+        <span class="w-3 h-3 rounded-full" style="background-color: {{ cat.color }}"></span>
+        {{ cat.name }}
+      </h3>
+      <ul class="space-y-1 text-sm">
+        {% for ca in cat.categoryarticle_set.all|slice:":6" %}
+        <li>
+          <a href="{% url 'wiki:article-detail' ca.article.slug %}" class="hover:underline">
+            {{ ca.article.title }}
+          </a>
+        </li>
+        {% empty %}
+        <li class="text-sm opacity-60">Zatím žádné položky</li>
+        {% endfor %}
+      </ul>
+    </div>
     {% endfor %}
   </div>
 
