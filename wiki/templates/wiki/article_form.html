@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="text-2xl font-bold mb-4">Článek</h1>
+<form method="post" class="space-y-4">
+  {% csrf_token %}
+  {{ form.as_p }}
+  <button type="submit" class="bg-blue-500 text-white px-3 py-1 rounded">Uložit</button>
+</form>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/simplemde/latest/simplemde.min.css">
+<script src="https://cdn.jsdelivr.net/simplemde/latest/simplemde.min.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const textarea = document.getElementById('id_content_md');
+    if (textarea) {
+      textarea.removeAttribute('required');
+      const mde = new SimpleMDE({
+        element: textarea,
+        toolbar: [
+          "bold",
+          "italic",
+          "heading",
+          "|",
+          "quote",
+          "unordered-list",
+          "ordered-list",
+          "|",
+          {
+            name: "wikilink",
+            action: function(editor){ openWikiLinkDialog(editor); },
+            className: "fa fa-link",
+            title: "Internal link"
+          },
+          "preview",
+          "side-by-side",
+          "fullscreen"
+        ]
+      });
+
+      function openWikiLinkDialog(editor){
+        const selected = editor.codemirror.getSelection();
+        const overlay = document.createElement('div');
+        overlay.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-[900]';
+        overlay.innerHTML = `
+          <div class="bg-white dark:bg-slate-800 p-4 rounded shadow">
+            <input type="text" id="wikilink-input" class="border p-2" placeholder="Search article..." list="wikilink-list" />
+            <datalist id="wikilink-list"></datalist>
+          </div>`;
+        document.body.appendChild(overlay);
+        const input = overlay.querySelector('#wikilink-input');
+        const list = overlay.querySelector('#wikilink-list');
+        let results = [];
+        input.addEventListener('input', async () => {
+          const resp = await fetch('/wiki/suggest/?q=' + encodeURIComponent(input.value));
+          const data = await resp.json();
+          results = data;
+          list.innerHTML = data.map(it => `<option value="${it.title}"></option>`).join('');
+        });
+        input.addEventListener('keydown', e => {
+          if(e.key === 'Enter'){
+            const match = results.find(it => it.title.toLowerCase() === input.value.toLowerCase());
+            const slug = match ? match.slug : slugify(input.value);
+            const label = selected || input.value;
+            editor.codemirror.replaceSelection(`[[${slug}|${label}]]`);
+            document.body.removeChild(overlay);
+          } else if(e.key === 'Escape'){
+            document.body.removeChild(overlay);
+          }
+        });
+        input.focus();
+      }
+
+      function slugify(str){
+        return str
+          .toLowerCase()
+          .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+          .replace(/[^\w\s-]/g, '')
+          .trim()
+          .replace(/\s+/g, '-');
+      }
+    }
+  });
+</script>
+{% endblock %}
