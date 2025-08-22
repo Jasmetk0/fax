@@ -75,9 +75,23 @@ class Article(models.Model):
 
         processed = re.sub(r"\[\[(.+?)\]\]", repl, self.content_md)
         html = markdown.markdown(processed)
-        allowed = list(bleach.sanitizer.ALLOWED_TAGS) + ["p", "pre", "span"]
+        allowed = list(bleach.sanitizer.ALLOWED_TAGS) + [
+            "p",
+            "pre",
+            "span",
+            "h1",
+            "h2",
+            "h3",
+            "h4",
+            "h5",
+            "h6",
+            "hr",
+            "br",
+        ]
         return bleach.clean(
-            html, tags=allowed, attributes={"a": ["href", "class"], "span": ["class"]}
+            html,
+            tags=allowed,
+            attributes={"a": ["href", "class"], "span": ["class"]},
         )
 
     def __str__(self) -> str:  # pragma: no cover - simple repr

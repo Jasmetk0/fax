@@ -65,10 +65,9 @@ class ArticleCreateView(AdminModeRequiredMixin, CreateView):
     model = Article
     fields = ["title", "summary", "content_md", "status", "tags"]
     template_name = "wiki/article_form.html"
-    success_url = reverse_lazy("wiki:article-list")
 
     def form_valid(self, form):
-        response = super().form_valid(form)
+        self.object = form.save()
         ArticleRevision.objects.create(
             article=self.object,
             title=self.object.title,
@@ -76,7 +75,7 @@ class ArticleCreateView(AdminModeRequiredMixin, CreateView):
             content_md=self.object.content_md,
             author=self.request.user,
         )
-        return response
+        return redirect("wiki:article-detail", slug=self.object.slug)
 
 
 class ArticleUpdateView(AdminModeRequiredMixin, UpdateView):
@@ -85,10 +84,9 @@ class ArticleUpdateView(AdminModeRequiredMixin, UpdateView):
     template_name = "wiki/article_form.html"
     slug_field = "slug"
     slug_url_kwarg = "slug"
-    success_url = reverse_lazy("wiki:article-list")
 
     def form_valid(self, form):
-        response = super().form_valid(form)
+        self.object = form.save()
         ArticleRevision.objects.create(
             article=self.object,
             title=self.object.title,
@@ -96,7 +94,7 @@ class ArticleUpdateView(AdminModeRequiredMixin, UpdateView):
             content_md=self.object.content_md,
             author=self.request.user,
         )
-        return response
+        return redirect("wiki:article-detail", slug=self.object.slug)
 
 
 class ArticleDeleteView(AdminModeRequiredMixin, View):

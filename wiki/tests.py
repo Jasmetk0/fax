@@ -30,6 +30,23 @@ def test_article_detail(client):
 
 
 @pytest.mark.django_db
+def test_article_create_redirects(client, django_user_model):
+    user = django_user_model.objects.create_user("admin", password="pw", is_staff=True)
+    client.force_login(user)
+    session = client.session
+    session["admin_mode"] = True
+    session.save()
+    url = reverse("wiki:article-create")
+    resp = client.post(
+        url,
+        {"title": "Create", "summary": "", "content_md": "text", "status": "published"},
+    )
+    assert resp.status_code == 302
+    detail_url = reverse("wiki:article-detail", args=["create"])
+    assert resp.headers["Location"].endswith(detail_url)
+
+
+@pytest.mark.django_db
 def test_staff_edit_creates_revision(client, django_user_model):
     user = django_user_model.objects.create_user("admin", password="pw", is_staff=True)
     client.force_login(user)
