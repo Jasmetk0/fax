@@ -1,4 +1,85 @@
-{% extends "base.html" %}
-{% block content %}
-<h1 class="text-2xl font-bold">Welcome to FAX Portal</h1>
-{% endblock %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FAX Shell</title>
+    <link rel="manifest" href="/manifest.json">
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="h-screen flex flex-col">
+    <header class="flex items-center bg-gray-800 text-white px-4 py-2 space-x-2">
+        <div class="flex items-center space-x-2">
+            <button class="p-1 rounded hover:bg-gray-700" disabled>&#8592;</button>
+            <button class="p-1 rounded hover:bg-gray-700" disabled>&#8594;</button>
+            <button class="p-1 rounded hover:bg-gray-700" disabled>&#8635;</button>
+            <a href="/" class="ml-2 font-bold">FAX</a>
+        </div>
+        <div class="flex-1 flex justify-center px-4">
+            <input type="text" placeholder="Search Woorld…" class="w-full max-w-xl p-1 rounded text-black"/>
+        </div>
+        <div class="flex items-center space-x-4">
+            <a href="#" class="p-1 hover:bg-gray-700 rounded">👤</a>
+            <div class="relative">
+                <button id="menu-btn" class="p-1 hover:bg-gray-700 rounded">…</button>
+                <div id="menu-dropdown" class="hidden absolute right-0 mt-2 w-40 bg-white text-black rounded shadow-lg">
+                    <a href="#" class="block px-4 py-2 hover:bg-gray-100">Nová karta</a>
+                    <a href="#" class="block px-4 py-2 hover:bg-gray-100">Nové okno</a>
+                    <a href="#" class="block px-4 py-2 hover:bg-gray-100">Nastavení</a>
+                </div>
+            </div>
+        </div>
+    </header>
+    <div class="bg-gray-700 text-white px-4 py-2 flex space-x-4">
+        <div class="bg-gray-900 px-3 py-1 rounded">Wiki</div>
+        <div class="bg-gray-600 px-3 py-1 rounded">Maps</div>
+        <div class="bg-gray-600 px-3 py-1 rounded">LiveSport</div>
+    </div>
+    <main class="flex-1 relative bg-cover bg-center overflow-y-auto" style="background-image: url('https://placehold.co/1600x900');">
+        <div class="sticky top-0 flex justify-center p-4">
+            <input type="text" placeholder="Search Woorld…" class="w-full max-w-md p-2 rounded shadow text-black"/>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-4">
+            <a href="/wiki/" class="bg-white bg-opacity-80 rounded p-4 flex flex-col items-center text-center space-y-2">
+                <div class="text-4xl">📚</div>
+                <div class="font-semibold">Wiki</div>
+                <div class="text-sm">Collaborative articles</div>
+            </a>
+            <a href="/maps/" class="bg-white bg-opacity-80 rounded p-4 flex flex-col items-center text-center space-y-2">
+                <div class="text-4xl">🗺️</div>
+                <div class="font-semibold">Maps</div>
+                <div class="text-sm">Explore maps</div>
+            </a>
+            <a href="/livesport/" class="bg-white bg-opacity-80 rounded p-4 flex flex-col items-center text-center space-y-2">
+                <div class="text-4xl">🏅</div>
+                <div class="font-semibold">LiveSport</div>
+                <div class="text-sm">Sports updates</div>
+            </a>
+            <a href="#" class="bg-white bg-opacity-80 rounded p-4 flex flex-col items-center text-center space-y-2">
+                <div class="text-4xl">👓</div>
+                <div class="font-semibold">OnGlass</div>
+                <div class="text-sm">AR interface</div>
+            </a>
+            <a href="#" class="bg-white bg-opacity-80 rounded p-4 flex flex-col items-center text-center space-y-2">
+                <div class="text-4xl">📰</div>
+                <div class="font-semibold">News</div>
+                <div class="text-sm">Latest updates</div>
+            </a>
+            <a href="#" class="bg-white bg-opacity-80 rounded p-4 flex flex-col items-center text-center space-y-2">
+                <div class="text-4xl">☁️</div>
+                <div class="font-semibold">Weather</div>
+                <div class="text-sm">Forecasts</div>
+            </a>
+        </div>
+    </main>
+    <script>
+        document.getElementById('menu-btn').addEventListener('click', function() {
+            document.getElementById('menu-dropdown').classList.toggle('hidden');
+        });
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/service-worker.js');
+        }
+    </script>
+</body>
+</html>
