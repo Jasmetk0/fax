@@ -1,11 +1,12 @@
 from django.db import models
 from django.utils.text import slugify
-import markdown
+
 import bleach
+import markdown
 
 
 class Tag(models.Model):
-    name = models.CharField(max_length=100)
+    name = models.CharField(max_length=100, unique=True)
     slug = models.SlugField(unique=True, blank=True)
 
     def save(self, *args, **kwargs):
@@ -18,7 +19,7 @@ class Tag(models.Model):
 
 
 class Article(models.Model):
-    title = models.CharField(max_length=200)
+    title = models.CharField(max_length=200, unique=True)
     slug = models.SlugField(unique=True, blank=True)
     content_md = models.TextField()
     updated_at = models.DateTimeField(auto_now=True)

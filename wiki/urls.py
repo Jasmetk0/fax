@@ -1,5 +1,3 @@
-"""URL configuration for wiki app."""
-
 from django.urls import path
 from . import views
 
