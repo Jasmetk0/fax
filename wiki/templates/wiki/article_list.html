@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="text-2xl font-bold mb-4">Articles</h1>
+<form method="get" class="mb-4">
+  <input type="text" name="q" value="{{ request.GET.q }}" placeholder="Search..." class="border p-1" />
+  <button type="submit" class="bg-blue-500 text-white px-2 py-1">Search</button>
+</form>
+<ul>
+  {% for article in articles %}
+  <li><a href="{% url 'wiki:article-detail' article.slug %}">{{ article.title }}</a></li>
+  {% empty %}
+  <li>No articles yet.</li>
+  {% endfor %}
+</ul>
+<a href="{% url 'wiki:article-create' %}" class="text-blue-500">Create</a>
+{% endblock %}
