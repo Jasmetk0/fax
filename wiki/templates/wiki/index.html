@@ -1,4 +1,90 @@
 {% extends "base.html" %}
 {% block content %}
-<h1 class="text-2xl font-bold">Wiki Section</h1>
+<section class="px-4 md:px-6 lg:px-8 py-6">
+
+  <!-- HERO / COMMAND PALETTE -->
+  <div class="max-w-3xl mx-auto bg-white/60 dark:bg-slate-900/50 backdrop-blur rounded-2xl border p-5 md:p-6">
+    <form action="/search" method="get" class="space-y-3">
+      <input
+        name="q"
+        type="search"
+        placeholder="Search Woorld…"
+        class="w-full h-12 md:h-14 rounded-2xl border px-4 md:px-5 text-base md:text-lg bg-white/80 dark:bg-slate-900/70 backdrop-blur"
+        aria-label="Search Woorld"
+      />
+      <div class="flex flex-wrap gap-2 text-sm">
+        <span class="px-3 py-1 rounded-full border bg-white/60 dark:bg-slate-900/40">All</span>
+        <span class="px-3 py-1 rounded-full border bg-white/60 dark:bg-slate-900/40">Articles</span>
+        <span class="px-3 py-1 rounded-full border bg-white/60 dark:bg-slate-900/40">Places</span>
+        <span class="px-3 py-1 rounded-full border bg-white/60 dark:bg-slate-900/40">Events</span>
+        <span class="px-3 py-1 rounded-full border bg-white/60 dark:bg-slate-900/40">Orgs</span>
+      </div>
+    </form>
+    <div class="mt-3 text-xs text-muted-foreground">12 842 článků • Naposledy aktualizováno dnes</div>
+  </div>
+
+  <!-- FEATURED -->
+  <div class="max-w-6xl mx-auto mt-8 grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+    {% for a in articles|slice:":3" %}
+    <a href="{% url 'wiki:article-detail' a.slug %}" class="rounded-2xl border p-5 hover:shadow-lg transition block">
+      {% with a.tags.first as tag %}
+        <div class="text-xs uppercase tracking-wide opacity-70 mb-2">{{ tag.name|default:"Featured" }}</div>
+      {% endwith %}
+      <h3 class="text-lg font-semibold">{{ a.title }}</h3>
+      <p class="text-sm mt-1 line-clamp-2">{{ a.content_md|striptags|truncatechars:80 }}</p>
+    </a>
+    {% empty %}
+    <div class="text-sm opacity-70">No articles yet.</div>
+    {% endfor %}
+  </div>
+
+  <!-- CATEGORIES -->
+  <div class="max-w-6xl mx-auto mt-10 grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
+    {% for cat in categories %}
+    <a href="#" class="rounded-2xl border bg-white/50 dark:bg-slate-900/40 backdrop-blur p-5 hover:translate-y-[1px] transition">
+      <div class="text-sm opacity-80">{{ cat }}</div>
+      <div class="text-xs mt-1 opacity-60">~123 položek</div>
+    </a>
+    {% endfor %}
+  </div>
+
+  <!-- RECENT + TRENDING -->
+  <div class="max-w-6xl mx-auto mt-10 grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div class="md:col-span-2">
+      <div class="flex items-center justify-between mb-3">
+        <h4 class="font-semibold">Poslední změny</h4>
+        <a href="#" class="text-sm opacity-80 hover:opacity-100">Zobrazit vše</a>
+      </div>
+      <div class="space-y-3">
+        {% for a in articles|slice:":6" %}
+        <a href="{% url 'wiki:article-detail' a.slug %}" class="block rounded-xl border p-4 hover:shadow">
+          <div class="flex items-center gap-2 text-xs opacity-70 mb-1">
+            {% with a.tags.first as tag %}
+            <span class="px-2 py-0.5 rounded-full border">{{ tag.name|default:"Wiki" }}</span>
+            {% endwith %}
+            <span>{{ a.updated_at|date:"Y-m-d" }}</span>
+          </div>
+          <div class="font-medium">{{ a.title }}</div>
+        </a>
+        {% empty %}
+        <div class="text-sm opacity-70">No recent changes.</div>
+        {% endfor %}
+      </div>
+    </div>
+    <aside class="md:col-span-1">
+      <div class="flex items-center justify-between mb-3">
+        <h4 class="font-semibold">Trendy</h4>
+        <a href="#" class="text-sm opacity-80 hover:opacity-100">Zobrazit vše</a>
+      </div>
+      <div class="space-y-2">
+        {% for a in articles|slice:":5" %}
+        <a href="{% url 'wiki:article-detail' a.slug %}" class="block text-sm rounded-lg border p-3 hover:shadow">{{ a.title }}</a>
+        {% empty %}
+        <div class="text-sm opacity-70">No trending articles.</div>
+        {% endfor %}
+      </div>
+    </aside>
+  </div>
+
+</section>
 {% endblock %}

@@ -5,8 +5,19 @@ from .models import Article
 
 class ArticleListView(ListView):
     model = Article
-    template_name = "wiki/article_list.html"
+    template_name = "wiki/index.html"
     context_object_name = "articles"
+
+    extra_context = {
+        "categories": [
+            "Geografie",
+            "Historie",
+            "Sport",
+            "Státy",
+            "Organizace",
+            "Události",
+        ]
+    }
 
     def get_queryset(self):
         queryset = super().get_queryset().order_by("-updated_at")
