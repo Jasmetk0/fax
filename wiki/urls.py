@@ -21,5 +21,25 @@ urlpatterns = [
         name="category-delete",
     ),
     path("<slug:slug>/edit/", views.ArticleUpdateView.as_view(), name="article-edit"),
+    path(
+        "<slug:slug>/delete/",
+        views.ArticleDeleteView.as_view(),
+        name="article-delete",
+    ),
+    path(
+        "<slug:slug>/history/",
+        views.ArticleHistoryView.as_view(),
+        name="article-history",
+    ),
+    path(
+        "<slug:slug>/diff/<int:rev_id>/",
+        views.ArticleRevisionDiffView.as_view(),
+        name="article-diff",
+    ),
+    path(
+        "<slug:slug>/revert/<int:rev_id>/",
+        views.ArticleRevisionRevertView.as_view(),
+        name="article-revert",
+    ),
     path("<slug:slug>/", views.ArticleDetailView.as_view(), name="article-detail"),
 ]

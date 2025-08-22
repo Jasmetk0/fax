@@ -1,6 +1,16 @@
 {% extends "base.html" %}
 {% block content %}
 <h1 class="text-2xl font-bold mb-4">{{ article.title }}</h1>
-<div>{{ article.content_html|safe }}</div>
-<a href="{% url 'wiki:article-edit' article.slug %}" class="text-blue-500">Edit</a>
+<div class="prose max-w-none">{{ article.content_html|safe }}</div>
+
+{% if request.user.is_staff and request.session.admin_mode %}
+<div class="mt-4 space-x-4">
+  <a href="{% url 'wiki:article-edit' article.slug %}" class="text-blue-500">Upravit</a>
+  <a href="{% url 'wiki:article-history' article.slug %}" class="text-blue-500">Historie</a>
+  <form method="post" action="{% url 'wiki:article-delete' article.slug %}" class="inline">
+    {% csrf_token %}
+    <button class="text-red-500" onclick="return confirm('Smazat?')">Smazat</button>
+  </form>
+</div>
+{% endif %}
 {% endblock %}

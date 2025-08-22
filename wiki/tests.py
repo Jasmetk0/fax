@@ -1,6 +1,6 @@
 import pytest
 from django.urls import reverse
-from .models import Article, Category, CategoryArticle
+from .models import Article, Category, CategoryArticle, ArticleRevision
 
 
 @pytest.mark.django_db
@@ -27,3 +27,51 @@ def test_article_detail(client):
     url = reverse("wiki:article-detail", args=[article.slug])
     resp = client.get(url)
     assert resp.status_code == 200
+
+
+@pytest.mark.django_db
+def test_staff_edit_creates_revision(client, django_user_model):
+    user = django_user_model.objects.create_user("admin", password="pw", is_staff=True)
+    client.force_login(user)
+    session = client.session
+    session["admin_mode"] = True
+    session.save()
+    article = Article.objects.create(title="A", content_md="one")
+    url = reverse("wiki:article-edit", args=[article.slug])
+    assert client.get(url).status_code == 200
+    client.post(
+        url, {"title": "A", "summary": "", "content_md": "two", "status": "published"}
+    )
+    assert ArticleRevision.objects.filter(article=article).count() == 1
+
+
+@pytest.mark.django_db
+def test_diff_endpoint(client, django_user_model):
+    user = django_user_model.objects.create_user("admin", password="pw", is_staff=True)
+    client.force_login(user)
+    session = client.session
+    session["admin_mode"] = True
+    session.save()
+    article = Article.objects.create(title="A", content_md="one")
+    rev = ArticleRevision.objects.create(
+        article=article, title="A", content_md="one", author=user
+    )
+    article.content_md = "two"
+    article.save()
+    ArticleRevision.objects.create(
+        article=article, title="A", content_md="two", author=user
+    )
+    url = reverse("wiki:article-diff", args=[article.slug, rev.id])
+    resp = client.get(url)
+    assert resp.status_code == 200
+    assert "two" in resp.text
+
+
+@pytest.mark.django_db
+def test_internal_links(client):
+    a = Article.objects.create(title="A", content_md="See [[B]]")
+    resp = client.get(reverse("wiki:article-detail", args=[a.slug]))
+    assert "text-red-600" in resp.text
+    Article.objects.create(title="B", content_md="x")
+    resp = client.get(reverse("wiki:article-detail", args=[a.slug]))
+    assert "text-red-600" not in resp.text

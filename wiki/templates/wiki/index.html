@@ -20,8 +20,14 @@
         <span class="px-3 py-1 rounded-full border bg-white/60 dark:bg-slate-900/40">Orgs</span>
       </div>
     </form>
-    <div class="mt-3 text-xs text-muted-foreground">12 842 článků • Naposledy aktualizováno dnes</div>
+  <div class="mt-3 text-xs text-muted-foreground">12 842 článků • Naposledy aktualizováno dnes</div>
   </div>
+
+  {% if request.user.is_staff and request.session.admin_mode %}
+  <div class="max-w-6xl mx-auto mt-4">
+    <a href="{% url 'wiki:article-create' %}" class="text-blue-500">Přidat stránku</a>
+  </div>
+  {% endif %}
 
   <!-- FEATURED -->
   <div class="max-w-6xl mx-auto mt-8 grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
