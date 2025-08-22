@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="relative bg-cover bg-center min-h-full" style="background-image: url('https://placehold.co/1600x900');">
+    <div class="pt-12 md:pt-16 flex justify-center">
+        <div class="w-full max-w-md relative">
+            <input type="text" placeholder="Search Woorld…" class="w-full p-2 rounded shadow text-black" />
+        </div>
+    </div>
+    <div class="max-w-6xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-4 mt-8 md:mt-10">
+        <a href="/wiki/" class="bg-white bg-opacity-80 rounded p-4 flex flex-col items-center text-center space-y-2">
+            <div class="text-4xl">📚</div>
+            <div class="font-semibold">Wiki</div>
+            <div class="text-sm">Collaborative articles</div>
+        </a>
+        <a href="/maps/" class="bg-white bg-opacity-80 rounded p-4 flex flex-col items-center text-center space-y-2">
+            <div class="text-4xl">🗺️</div>
+            <div class="font-semibold">Maps</div>
+            <div class="text-sm">Explore maps</div>
+        </a>
+        <a href="/livesport/" class="bg-white bg-opacity-80 rounded p-4 flex flex-col items-center text-center space-y-2">
+            <div class="text-4xl">🏅</div>
+            <div class="font-semibold">LiveSport</div>
+            <div class="text-sm">Sports updates</div>
+        </a>
+        <a href="#" class="bg-white bg-opacity-80 rounded p-4 flex flex-col items-center text-center space-y-2">
+            <div class="text-4xl">👓</div>
+            <div class="font-semibold">OnGlass</div>
+            <div class="text-sm">AR interface</div>
+        </a>
+        <a href="#" class="bg-white bg-opacity-80 rounded p-4 flex flex-col items-center text-center space-y-2">
+            <div class="text-4xl">📰</div>
+            <div class="font-semibold">News</div>
+            <div class="text-sm">Latest updates</div>
+        </a>
+        <a href="#" class="bg-white bg-opacity-80 rounded p-4 flex flex-col items-center text-center space-y-2">
+            <div class="text-4xl">☁️</div>
+            <div class="font-semibold">Weather</div>
+            <div class="text-sm">Forecasts</div>
+        </a>
+        <button type="button" onclick="alert('Add widget placeholder')" class="bg-white bg-opacity-80 rounded p-4 flex flex-col items-center text-center space-y-2">
+            <div class="text-4xl">+</div>
+            <div class="font-semibold">Přidat widget</div>
+        </button>
+    </div>
+</div>
+{% endblock %}
