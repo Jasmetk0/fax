@@ -1,5 +1,7 @@
 from urllib.parse import urlparse
+
 from django.contrib import admin
+from django.utils.html import format_html
 
 from .models import (
     MediaItem,
@@ -14,16 +16,31 @@ from .models import (
 
 @admin.register(Player)
 class PlayerAdmin(admin.ModelAdmin):
-    list_display = ("name", "country", "active")
-    search_fields = ("name", "country")
-    list_filter = ("country", "active")
+    list_display = (
+        "name",
+        "nickname",
+        "country",
+        "active",
+        "current_rank",
+        "current_points",
+        "rtf_current_rank",
+        "rtf_current_points",
+    )
+    search_fields = ("name", "first_name", "last_name", "nickname", "country")
+    list_filter = ("country", "active", "handedness")
     prepopulated_fields = {"slug": ("name",)}
     readonly_fields = (
+        "photo_preview",
         "created_at",
         "updated_at",
         "created_by",
         "updated_by",
     )
+
+    def photo_preview(self, obj):  # pragma: no cover - small utility
+        if obj.photo_url:
+            return format_html('<img src="{}" style="height:50px;"/>', obj.photo_url)
+        return ""
 
 
 @admin.register(Tournament)

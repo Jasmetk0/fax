@@ -1,5 +1,8 @@
+from datetime import date
+
 from django.conf import settings
 from django.db import models
+from django.utils.text import slugify
 
 
 class AuditModel(models.Model):
@@ -27,16 +30,59 @@ class AuditModel(models.Model):
 
 
 class Player(AuditModel):
-    name = models.CharField(max_length=100)
-    slug = models.SlugField(unique=True)
-    country = models.CharField(max_length=100)
+    HAND_CHOICES = [
+        ("right", "Right"),
+        ("left", "Left"),
+        ("ambi", "Ambidextrous"),
+        ("unknown", "Unknown"),
+    ]
+
+    name = models.CharField(max_length=100, db_index=True)
+    slug = models.SlugField(unique=True, blank=True)
+    first_name = models.CharField(max_length=100, blank=True)
+    last_name = models.CharField(max_length=100, blank=True)
+    nickname = models.CharField(max_length=100, blank=True)
+    country = models.CharField(max_length=100, null=True, blank=True, db_index=True)
     birthdate = models.DateField(null=True, blank=True)
+    handedness = models.CharField(
+        max_length=10, choices=HAND_CHOICES, null=True, blank=True
+    )
     height = models.IntegerField(null=True, blank=True)
     weight = models.IntegerField(null=True, blank=True)
-    handedness = models.CharField(max_length=10, blank=True)
+    turned_pro = models.DateField(null=True, blank=True)
+    active = models.BooleanField(default=True)
     bio = models.TextField(blank=True)
     photo_url = models.URLField(null=True, blank=True)
-    active = models.BooleanField(default=True)
+    current_rank = models.IntegerField(null=True, blank=True, db_index=True)
+    current_points = models.IntegerField(null=True, blank=True)
+    rtf_current_rank = models.IntegerField(
+        null=True, blank=True, db_index=True, verbose_name="RTF current rank"
+    )
+    rtf_current_points = models.IntegerField(
+        null=True, blank=True, verbose_name="RTF current points"
+    )
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            base_slug = slugify(self.name)
+            slug = base_slug
+            counter = 2
+            while Player.objects.filter(slug=slug).exclude(pk=self.pk).exists():
+                slug = f"{base_slug}-{counter}"
+                counter += 1
+            self.slug = slug
+        super().save(*args, **kwargs)
+
+    @property
+    def age(self):
+        if not self.birthdate:
+            return None
+        today = date.today()
+        return (
+            today.year
+            - self.birthdate.year
+            - ((today.month, today.day) < (self.birthdate.month, self.birthdate.day))
+        )
 
     def __str__(self) -> str:  # pragma: no cover - trivial
         return self.name
