@@ -14,7 +14,6 @@
             <button id="forward-btn" class="p-1 rounded hover:bg-gray-700">&#8594;</button>
             <button id="reload-btn" class="p-1 rounded hover:bg-gray-700">&#8635;</button>
             <a href="/" class="ml-2 font-bold">FAX</a>
-            <a href="/msasquashtour/" class="ml-2">MSA</a>
         </div>
         <form action="/search" method="get" class="flex-1 flex justify-center px-4">
             <input
@@ -41,6 +40,9 @@
                     <a href="#" class="block px-4 py-2 hover:bg-gray-100">Nová karta</a>
                     <a href="#" class="block px-4 py-2 hover:bg-gray-100">Nové okno</a>
                     <a href="#" class="block px-4 py-2 hover:bg-gray-100">Nastavení</a>
+                    {% if request.user.is_staff %}
+                    <a href="/admin/" class="block px-4 py-2 hover:bg-gray-100">&#9881; Admin</a>
+                    {% endif %}
                 </div>
             </div>
         </div>
