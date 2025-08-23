@@ -1,0 +1,22 @@
+{% load i18n %}
+<table class="infobox infobox--city">
+  <caption>{{ name|default:page_title }}</caption>
+  {% if image %}
+  <tr><td colspan="2" class="infobox-image"><img src="{{ image }}" alt="" loading="lazy"></td></tr>
+  {% endif %}
+  {% if caption %}
+  <tr><td colspan="2" class="infobox-caption">{{ caption }}</td></tr>
+  {% endif %}
+  {% if flag %}
+  <tr><td colspan="2" class="infobox-image"><img src="{{ flag }}" alt="" loading="lazy"></td></tr>
+  {% endif %}
+  {% if coat_of_arms %}
+  <tr><td colspan="2" class="infobox-image"><img src="{{ coat_of_arms }}" alt="" loading="lazy"></td></tr>
+  {% endif %}
+  {% if map %}
+  <tr><td colspan="2" class="infobox-image"><img src="{{ map }}" alt="" loading="lazy"></td></tr>
+  {% endif %}
+  {% for row in rows %}
+    {% if row.value %}<tr><th scope="row">{% trans row.title %}</th><td>{{ row.value }}</td></tr>{% endif %}
+  {% endfor %}
+</table>
