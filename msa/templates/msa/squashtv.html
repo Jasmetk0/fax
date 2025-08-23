@@ -1,20 +1,19 @@
-{% extends 'base.html' %}
-{% block content %}
+{% extends 'msa/base.html' %}
+{% block msa_content %}
 {% include 'msa/nav.html' %}
-<h1 class="text-2xl mb-4">Squash TV</h1>
-<ul>
+<div class="flex justify-between items-center mb-4">
+  <h1 class="text-3xl font-semibold">Squash TV</h1>
+  {% if admin %}<a href="{% url 'msa:media-create' %}" class="bg-blue-600 hover:bg-blue-500 text-white rounded-xl px-4 py-2 text-sm" aria-label="Add Media">Add Media</a>{% endif %}
+</div>
+<div class="space-y-4">
   {% for m in media %}
-  <li><a href="{{ m.video_url }}" target="_blank">{{ m.title }}</a></li>
+  <div class="border border-slate-800 rounded-2xl p-4 flex justify-between">
+    <a href="{{ m.video_url }}" target="_blank" class="text-blue-400 hover:text-blue-300">{{ m.title }}</a>
+    {% if admin %}<span class="text-sm space-x-2"><a href="{% url 'msa:media-edit' m.slug %}" class="text-slate-400" aria-label="Edit">Edit</a><a href="{% url 'msa:media-delete' m.slug %}" class="text-red-500" aria-label="Delete">Delete</a></span>{% endif %}
+  </div>
   {% empty %}
-  <li>No media.</li>
+  <div class="border border-slate-800 rounded-2xl p-5 text-center">No media.</div>
   {% endfor %}
-</ul>
-{% if form %}
-<form method="post" class="mt-4">
-  {% csrf_token %}
-  {{ form.as_p }}
-  <button class="bg-blue-500 text-white px-2 py-1 rounded">Save</button>
-</form>
-{% endif %}
+</div>
 {% endblock %}
 

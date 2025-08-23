@@ -1,4 +1,5 @@
 from django.test import Client, TestCase
+from django.contrib.auth import get_user_model
 from django.urls import reverse
 from django.utils import timezone
 
@@ -21,6 +22,29 @@ class MSAViewsTests(TestCase):
         for url in urls:
             resp = self.client.get(url)
             self.assertEqual(resp.status_code, 200)
+
+    def _admin_client(self):
+        User = get_user_model()
+        user = User.objects.create_user("staff", password="x", is_staff=True)
+        self.client.force_login(user)
+        session = self.client.session
+        session["admin_mode"] = True
+        session.save()
+        return self.client
+
+    def test_admin_buttons_no_forms(self):
+        c = self._admin_client()
+        resp = c.get(reverse("msa:tournament-list"))
+        self.assertContains(resp, "Add Tournament")
+        self.assertNotContains(resp, "<form")
+
+    def test_manage_routes_have_form(self):
+        c = self._admin_client()
+        resp = c.get(reverse("msa:player-create"))
+        self.assertContains(resp, "<form", html=False)
+        Player.objects.create(name="A", slug="a", country="C")
+        resp = c.get(reverse("msa:player-edit", args=["a"]))
+        self.assertContains(resp, "<form", html=False)
 
     def test_h2h_record(self):
         a = Player.objects.create(name="A", slug="a", country="C")

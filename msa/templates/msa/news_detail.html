@@ -1,7 +1,10 @@
-{% extends 'base.html' %}
-{% block content %}
+{% extends 'msa/base.html' %}
+{% block msa_content %}
 {% include 'msa/nav.html' %}
-<h1 class="text-2xl mb-4">{{ post.title }}</h1>
+<div class="flex justify-between items-center mb-4">
+  <h1 class="text-3xl font-semibold">{{ post.title }}</h1>
+  {% if admin %}<span class="space-x-2 text-sm"><a href="{% url 'msa:news-edit' post.slug %}" class="text-slate-400" aria-label="Edit">Edit</a><a href="{% url 'msa:news-delete' post.slug %}" class="text-red-500" aria-label="Delete">Delete</a></span>{% endif %}
+</div>
 <div>{{ post.body }}</div>
 {% endblock %}
 

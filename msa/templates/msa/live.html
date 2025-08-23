@@ -1,13 +1,16 @@
-{% extends 'base.html' %}
-{% block content %}
+{% extends 'msa/base.html' %}
+{% block msa_content %}
 {% include 'msa/nav.html' %}
-<h1 class="text-2xl mb-4">Live Scoring</h1>
-<ul>
+<h1 class="text-3xl font-semibold mb-4">Live Scoring</h1>
+<div class="space-y-2">
   {% for m in matches %}
-  <li>{{ m.player1.name }} vs {{ m.player2.name }} - {{ m.live_p1_points|default:0 }}:{{ m.live_p2_points|default:0 }}</li>
+  <div class="border border-slate-800 rounded-2xl p-4 flex justify-between">
+    <div>{{ m.player1.name }} vs {{ m.player2.name }} - {{ m.live_p1_points|default:0 }}:{{ m.live_p2_points|default:0 }}</div>
+    {% if admin %}<a href="{% url 'msa:match-edit' m.id %}" class="text-sm text-slate-400" aria-label="Edit">Edit</a>{% endif %}
+  </div>
   {% empty %}
-  <li>No live matches.</li>
+  <div class="border border-slate-800 rounded-2xl p-5 text-center">No live matches.</div>
   {% endfor %}
-</ul>
+</div>
 {% endblock %}
 

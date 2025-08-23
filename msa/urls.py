@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views
+from . import manage_views, views
 
 app_name = "msa"
 
@@ -20,6 +20,78 @@ urlpatterns = [
     path("squashtv/", views.squashtv, name="squashtv"),
     path("news/", views.news, name="news"),
     path("news/<slug:slug>/", views.news_detail, name="news-detail"),
+    # Manage routes
+    path("manage/players/new/", manage_views.player_create, name="player-create"),
+    path(
+        "manage/players/<slug:slug>/edit/", manage_views.player_edit, name="player-edit"
+    ),
+    path(
+        "manage/players/<slug:slug>/delete/",
+        manage_views.player_delete,
+        name="player-delete",
+    ),
+    path(
+        "manage/tournaments/new/",
+        manage_views.tournament_create,
+        name="tournament-create",
+    ),
+    path(
+        "manage/tournaments/<slug:slug>/edit/",
+        manage_views.tournament_edit,
+        name="tournament-edit",
+    ),
+    path(
+        "manage/tournaments/<slug:slug>/delete/",
+        manage_views.tournament_delete,
+        name="tournament-delete",
+    ),
+    path("manage/matches/new/", manage_views.match_create, name="match-create"),
+    path("manage/matches/<int:pk>/edit/", manage_views.match_edit, name="match-edit"),
+    path(
+        "manage/matches/<int:pk>/delete/",
+        manage_views.match_delete,
+        name="match-delete",
+    ),
+    path(
+        "manage/rankings/snapshots/new/",
+        manage_views.snapshot_create,
+        name="snapshot-create",
+    ),
+    path(
+        "manage/rankings/snapshots/<int:pk>/edit/",
+        manage_views.snapshot_edit,
+        name="snapshot-edit",
+    ),
+    path(
+        "manage/rankings/snapshots/<int:pk>/delete/",
+        manage_views.snapshot_delete,
+        name="snapshot-delete",
+    ),
+    path(
+        "manage/rankings/entries/new/", manage_views.entry_create, name="entry-create"
+    ),
+    path(
+        "manage/rankings/entries/<int:pk>/edit/",
+        manage_views.entry_edit,
+        name="entry-edit",
+    ),
+    path(
+        "manage/rankings/entries/<int:pk>/delete/",
+        manage_views.entry_delete,
+        name="entry-delete",
+    ),
+    path("manage/news/new/", manage_views.news_create, name="news-create"),
+    path("manage/news/<slug:slug>/edit/", manage_views.news_edit, name="news-edit"),
+    path(
+        "manage/news/<slug:slug>/delete/", manage_views.news_delete, name="news-delete"
+    ),
+    path("manage/media/new/", manage_views.media_create, name="media-create"),
+    path("manage/media/<slug:slug>/edit/", manage_views.media_edit, name="media-edit"),
+    path(
+        "manage/media/<slug:slug>/delete/",
+        manage_views.media_delete,
+        name="media-delete",
+    ),
     # API
     path("api/players/", views.api_players, name="api_players"),
     path("api/players/<slug:slug>/", views.api_player_detail, name="api_player"),

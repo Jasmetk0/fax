@@ -1,25 +1,24 @@
-{% extends 'base.html' %}
-{% block content %}
+{% extends 'msa/base.html' %}
+{% block msa_content %}
 {% include 'msa/nav.html' %}
-<h1 class="text-2xl mb-4">Hráči</h1>
-<form method="get" class="mb-4 space-x-2">
-  <input type="text" name="q" value="{{ request.GET.q }}" placeholder="Search" class="border p-1"/>
-  <input type="text" name="country" value="{{ request.GET.country }}" placeholder="Country" class="border p-1"/>
-  <button class="bg-gray-200 px-2 py-1 rounded">Filter</button>
+<div class="flex justify-between items-center mb-4">
+  <h1 class="text-3xl font-semibold">Hráči</h1>
+  {% if admin %}<a href="{% url 'msa:player-create' %}" class="bg-blue-600 hover:bg-blue-500 text-white rounded-xl px-4 py-2 text-sm" aria-label="Add Player">Add Player</a>{% endif %}
+</div>
+<form method="get" class="mb-4 flex gap-2">
+  <input type="text" name="q" value="{{ request.GET.q }}" placeholder="Search" class="border border-slate-800 bg-slate-900 rounded px-2 py-1"/>
+  <input type="text" name="country" value="{{ request.GET.country }}" placeholder="Country" class="border border-slate-800 bg-slate-900 rounded px-2 py-1"/>
+  <button class="bg-slate-800 text-slate-100 rounded px-3 py-1">Filter</button>
 </form>
-<ul>
+<div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
   {% for p in players %}
-  <li><a href="{% url 'msa:player-detail' p.slug %}">{{ p.name }}</a></li>
+  <div class="border border-slate-800 rounded-2xl p-4 flex justify-between">
+    <a href="{% url 'msa:player-detail' p.slug %}" class="text-blue-400 hover:text-blue-300">{{ p.name }}</a>
+    {% if admin %}<span class="text-sm space-x-2"><a href="{% url 'msa:player-edit' p.slug %}" class="text-slate-400" aria-label="Edit">Edit</a><a href="{% url 'msa:player-delete' p.slug %}" class="text-red-500" aria-label="Delete">Delete</a></span>{% endif %}
+  </div>
   {% empty %}
-  <li>No players.</li>
+  <div class="border border-slate-800 rounded-2xl p-5 text-center">No players.</div>
   {% endfor %}
-</ul>
-{% if form %}
-<form method="post" class="mt-4">
-  {% csrf_token %}
-  {{ form.as_p }}
-  <button class="bg-blue-500 text-white px-2 py-1 rounded">Save</button>
-</form>
-{% endif %}
+</div>
 {% endblock %}
 

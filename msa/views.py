@@ -1,28 +1,21 @@
 from django.db.models import Q
-from django.http import JsonResponse
-from django.shortcuts import get_object_or_404, redirect, render
+from django.http import HttpResponseForbidden, JsonResponse
+from django.shortcuts import get_object_or_404, render
 
-from .forms import (
-    MatchForm,
-    MediaItemForm,
-    NewsPostForm,
-    PlayerForm,
-    RankingEntryForm,
-    RankingSnapshotForm,
-    TournamentForm,
-)
-from .models import (
-    Match,
-    MediaItem,
-    NewsPost,
-    Player,
-    RankingSnapshot,
-    Tournament,
-)
+from .models import Match, MediaItem, NewsPost, Player, RankingSnapshot, Tournament
 
 
 def _is_admin(request):
     return request.user.is_staff and request.session.get("admin_mode")
+
+
+def _admin_required(view_func):
+    def wrapper(request, *args, **kwargs):
+        if not _is_admin(request):
+            return HttpResponseForbidden()
+        return view_func(request, *args, **kwargs)
+
+    return wrapper
 
 
 def home(request):
@@ -43,6 +36,7 @@ def home(request):
             "top_players": top_players,
             "news": news,
             "media": media,
+            "admin": _is_admin(request),
         },
     )
 
@@ -62,21 +56,11 @@ def tournaments(request):
     if month:
         qs = qs.filter(start_date__month=month)
     qs = qs.order_by("start_date")
-
     admin = _is_admin(request)
-    form = TournamentForm()
-    if admin and request.method == "POST":
-        form = TournamentForm(request.POST)
-        if form.is_valid():
-            obj = form.save(commit=False)
-            obj.created_by = obj.updated_by = request.user
-            obj.save()
-            return redirect("msa:tournament-list")
-
     return render(
         request,
         "msa/tournament_list.html",
-        {"tournaments": qs, "form": form if admin else None},
+        {"tournaments": qs, "admin": admin},
     )
 
 
@@ -84,19 +68,10 @@ def tournament_detail(request, slug):
     tournament = get_object_or_404(Tournament, slug=slug)
     matches = tournament.matches.select_related("player1", "player2", "winner")
     admin = _is_admin(request)
-    form = MatchForm()
-    if admin and request.method == "POST":
-        form = MatchForm(request.POST)
-        if form.is_valid():
-            match = form.save(commit=False)
-            match.tournament = tournament
-            match.created_by = match.updated_by = request.user
-            match.save()
-            return redirect("msa:tournament-detail", slug=slug)
     return render(
         request,
         "msa/tournament_detail.html",
-        {"tournament": tournament, "matches": matches, "form": form if admin else None},
+        {"tournament": tournament, "matches": matches, "admin": admin},
     )
 
 
@@ -104,7 +79,11 @@ def live(request):
     matches = Match.objects.filter(live_status="live").select_related(
         "player1", "player2", "tournament"
     )
-    return render(request, "msa/live.html", {"matches": matches})
+    return render(
+        request,
+        "msa/live.html",
+        {"matches": matches, "admin": _is_admin(request)},
+    )
 
 
 def rankings(request):
@@ -116,37 +95,10 @@ def rankings(request):
     )
     entries = snapshot.entries.select_related("player") if snapshot else []
     admin = _is_admin(request)
-    snapshot_form = entry_form = None
-    if admin:
-        if request.method == "POST" and request.POST.get("form") == "snapshot":
-            snapshot_form = RankingSnapshotForm(request.POST)
-            if snapshot_form.is_valid():
-                obj = snapshot_form.save(commit=False)
-                obj.created_by = obj.updated_by = request.user
-                obj.save()
-                return redirect("msa:rankings")
-        else:
-            snapshot_form = RankingSnapshotForm()
-
-        if request.method == "POST" and request.POST.get("form") == "entry":
-            entry_form = RankingEntryForm(request.POST)
-            if entry_form.is_valid():
-                entry = entry_form.save(commit=False)
-                entry.created_by = entry.updated_by = request.user
-                entry.save()
-                return redirect("msa:rankings")
-        else:
-            entry_form = RankingEntryForm()
-
     return render(
         request,
         "msa/rankings.html",
-        {
-            "snapshot": snapshot,
-            "entries": list(entries),
-            "snapshot_form": snapshot_form,
-            "entry_form": entry_form,
-        },
+        {"snapshot": snapshot, "entries": list(entries), "admin": admin},
     )
 
 
@@ -159,21 +111,11 @@ def players(request):
     if q:
         qs = qs.filter(name__icontains=q)
     qs = qs.order_by("name")
-
     admin = _is_admin(request)
-    form = PlayerForm()
-    if admin and request.method == "POST":
-        form = PlayerForm(request.POST)
-        if form.is_valid():
-            player = form.save(commit=False)
-            player.created_by = player.updated_by = request.user
-            player.save()
-            return redirect("msa:player-list")
-
     return render(
         request,
         "msa/player_list.html",
-        {"players": qs, "form": form if admin else None},
+        {"players": qs, "admin": admin},
     )
 
 
@@ -224,6 +166,7 @@ def h2h(request):
             "record": record,
             "matches": matches,
             "players": Player.objects.all(),
+            "admin": _is_admin(request),
         },
     )
 
@@ -231,42 +174,30 @@ def h2h(request):
 def squashtv(request):
     items = MediaItem.objects.order_by("-published_at")
     admin = _is_admin(request)
-    form = MediaItemForm()
-    if admin and request.method == "POST":
-        form = MediaItemForm(request.POST)
-        if form.is_valid():
-            media = form.save(commit=False)
-            media.created_by = media.updated_by = request.user
-            media.save()
-            return redirect("msa:squashtv")
     return render(
         request,
         "msa/squashtv.html",
-        {"media": items, "form": form if admin else None},
+        {"media": items, "admin": admin},
     )
 
 
 def news(request):
     posts = NewsPost.objects.filter(is_published=True).order_by("-published_at")
     admin = _is_admin(request)
-    form = NewsPostForm()
-    if admin and request.method == "POST":
-        form = NewsPostForm(request.POST)
-        if form.is_valid():
-            post = form.save(commit=False)
-            post.created_by = post.updated_by = request.user
-            post.save()
-            return redirect("msa:news")
     return render(
         request,
         "msa/news.html",
-        {"posts": posts, "form": form if admin else None},
+        {"posts": posts, "admin": admin},
     )
 
 
 def news_detail(request, slug):
     post = get_object_or_404(NewsPost, slug=slug)
-    return render(request, "msa/news_detail.html", {"post": post})
+    return render(
+        request,
+        "msa/news_detail.html",
+        {"post": post, "admin": _is_admin(request)},
+    )
 
 
 # API views -------------------------------------------------------------
