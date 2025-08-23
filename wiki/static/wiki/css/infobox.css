@@ -1,0 +1,11 @@
+.infobox {
+  float: right;
+  max-width: 340px;
+  margin: 0 0 1em 1em;
+  border: 1px solid #ddd;
+  padding: 0.5em;
+  font-size: 0.9em;
+}
+.infobox table {
+  width: 100%;
+}
