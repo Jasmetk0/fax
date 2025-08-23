@@ -1,14 +1,22 @@
 {% load i18n %}
-<div class="infobox infobox--city">
-  <h2>{{ name|default:page_title }}</h2>
-  {% if image %}<div class="infobox__image"><img src="{{ image }}" alt="" loading="lazy"></div>{% endif %}
-  {% if caption %}<div class="infobox__caption">{{ caption }}</div>{% endif %}
-  {% if flag %}<div class="infobox__flag"><img src="{{ flag }}" alt="" loading="lazy"></div>{% endif %}
-  {% if coat_of_arms %}<div class="infobox__coa"><img src="{{ coat_of_arms }}" alt="" loading="lazy"></div>{% endif %}
-  {% if map %}<div class="infobox__map"><img src="{{ map }}" alt="" loading="lazy"></div>{% endif %}
-  <table>
-    {% for row in rows %}
-      {% if row.value %}<tr><th>{% trans row.title %}</th><td>{{ row.value }}</td></tr>{% endif %}
-    {% endfor %}
-  </table>
-</div>
+<table class="infobox infobox--city">
+  <caption>{{ name|default:page_title }}</caption>
+  {% if image %}
+  <tr><td colspan="2" class="infobox-image"><img src="{{ image }}" alt="" loading="lazy"></td></tr>
+  {% endif %}
+  {% if caption %}
+  <tr><td colspan="2" class="infobox-caption">{{ caption }}</td></tr>
+  {% endif %}
+  {% if flag %}
+  <tr><td colspan="2" class="infobox-image"><img src="{{ flag }}" alt="" loading="lazy"></td></tr>
+  {% endif %}
+  {% if coat_of_arms %}
+  <tr><td colspan="2" class="infobox-image"><img src="{{ coat_of_arms }}" alt="" loading="lazy"></td></tr>
+  {% endif %}
+  {% if map %}
+  <tr><td colspan="2" class="infobox-image"><img src="{{ map }}" alt="" loading="lazy"></td></tr>
+  {% endif %}
+  {% for row in rows %}
+    {% if row.value %}<tr><th scope="row">{% trans row.title %}</th><td>{{ row.value }}</td></tr>{% endif %}
+  {% endfor %}
+</table>
