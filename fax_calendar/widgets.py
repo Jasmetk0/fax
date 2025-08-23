@@ -15,5 +15,5 @@ class WoorldDateWidget(TextInput):
         super().__init__(attrs)
 
     class Media:
-        css = {"all": ["fax_calendar/widget.css"]}
-        js = ["fax_calendar/widget.js"]
+        css = {"all": ["fax_calendar/woorld.css"]}
+        js = ["fax_calendar/woorld.js"]
