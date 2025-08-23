@@ -17,14 +17,22 @@ class PlayerForm(forms.ModelForm):
         fields = [
             "name",
             "slug",
+            "first_name",
+            "last_name",
+            "nickname",
             "country",
             "birthdate",
+            "handedness",
             "height",
             "weight",
-            "handedness",
+            "turned_pro",
+            "active",
             "bio",
             "photo_url",
-            "active",
+            "current_rank",
+            "current_points",
+            "rtf_current_rank",
+            "rtf_current_points",
         ]
 
 
