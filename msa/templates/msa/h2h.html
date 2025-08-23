@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block content %}
+{% include 'msa/nav.html' %}
+<h1 class="text-2xl mb-4">Head to Head</h1>
+<form method="get" class="mb-4 space-x-2">
+  <select name="a" class="border p-1">
+    {% for p in players %}
+    <option value="{{ p.slug }}" {% if player_a and p.slug == player_a.slug %}selected{% endif %}>{{ p.name }}</option>
+    {% endfor %}
+  </select>
+  <select name="b" class="border p-1">
+    {% for p in players %}
+    <option value="{{ p.slug }}" {% if player_b and p.slug == player_b.slug %}selected{% endif %}>{{ p.name }}</option>
+    {% endfor %}
+  </select>
+  <button class="bg-gray-200 px-2 py-1 rounded">Compare</button>
+</form>
+
+{% if record %}
+<p>Bilance: {{ record }}</p>
+<ul>
+  {% for m in matches %}
+  <li>{{ m.tournament.name }} - {{ m.player1.name }} vs {{ m.player2.name }} - {{ m.winner.name }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% endblock %}
+

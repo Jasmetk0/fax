@@ -6,3 +6,4 @@ def test_home_page(client):
     response = client.get(url)
     assert response.status_code == 200
     assert b"Wiki" in response.content
+    assert b"MSA" in response.content
