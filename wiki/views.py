@@ -14,6 +14,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 import difflib
 
 from .models import Article, ArticleRevision, Category, CategoryArticle
+from .infoboxes import parser as infobox_parser
 
 
 class StaffRequiredMixin(LoginRequiredMixin, UserPassesTestMixin):
@@ -26,6 +27,17 @@ class AdminModeRequiredMixin(StaffRequiredMixin):
         if not request.session.get("admin_mode"):
             return redirect("wiki:article-list")
         return super().dispatch(request, *args, **kwargs)
+
+
+class InfoboxContextMixin:
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        types = {}
+        for ibox_type in ["country", "city"]:
+            schema = infobox_parser.load_schema(ibox_type) or []
+            types[ibox_type] = [item["name"] for item in schema]
+        context["infobox_schemas"] = types
+        return context
 
 
 class ArticleListView(ListView):
@@ -62,7 +74,7 @@ class ArticleDetailView(DetailView):
         return Article.objects.filter(is_deleted=False)
 
 
-class ArticleCreateView(AdminModeRequiredMixin, CreateView):
+class ArticleCreateView(InfoboxContextMixin, AdminModeRequiredMixin, CreateView):
     model = Article
     fields = ["title", "summary", "content_md", "status", "tags"]
     template_name = "wiki/article_form.html"
@@ -79,7 +91,7 @@ class ArticleCreateView(AdminModeRequiredMixin, CreateView):
         return redirect("wiki:article-detail", slug=self.object.slug)
 
 
-class ArticleUpdateView(AdminModeRequiredMixin, UpdateView):
+class ArticleUpdateView(InfoboxContextMixin, AdminModeRequiredMixin, UpdateView):
     model = Article
     fields = ["title", "summary", "content_md", "status", "tags"]
     template_name = "wiki/article_form.html"
