@@ -1,0 +1,9 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1 class="text-2xl font-bold mb-4">MSA</h1>
+<ul class="list-disc ml-6">
+  <li><a href="{% url 'msa:h2h' %}">Head to Head</a></li>
+  <li><a href="{% url 'msa:players' %}">Hráči</a></li>
+  <li><a href="{% url 'msa:squash-tv' %}">Squash TV</a></li>
+</ul>
+{% endblock %}
