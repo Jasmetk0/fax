@@ -1,0 +1,64 @@
+{% extends 'msa/base.html' %}
+{% block msa_content %}
+{% include 'msa/nav.html' %}
+<h1 class="text-3xl font-semibold mb-6">MSA Squash Tour</h1>
+
+<div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+  <div class="border border-slate-800 rounded-2xl p-5">
+    <div class="flex justify-between mb-4"><h2 class="font-semibold">Next up</h2>{% if admin %}<a href="{% url 'msa:tournament-create' %}" class="text-sm text-blue-400" aria-label="Add Tournament">Add</a>{% endif %}</div>
+    <ul>
+      {% for t in upcoming_tournaments %}
+      <li><a href="{% url 'msa:tournament-detail' t.slug %}" class="text-blue-400 hover:text-blue-300">{{ t.name }}</a> ({{ t.start_date }}){% if admin %} <a href="{% url 'msa:tournament-edit' t.slug %}" class="ml-2 text-xs text-slate-400">Edit</a>{% endif %}</li>
+      {% empty %}
+      <li>Žádné turnaje.</li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <div class="border border-slate-800 rounded-2xl p-5">
+    <div class="flex justify-between mb-4"><h2 class="font-semibold">Live now</h2></div>
+    <ul>
+      {% for m in live_matches %}
+      <li>{{ m.player1.name }} vs {{ m.player2.name }}</li>
+      {% empty %}
+      <li>Žádné zápasy.</li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <div class="border border-slate-800 rounded-2xl p-5">
+    <div class="flex justify-between mb-4"><h2 class="font-semibold">Top 10</h2></div>
+    <ul>
+      {% for e in top_players %}
+      <li>{{ e.rank }}. {{ e.player.name }} ({{ e.points }})</li>
+      {% empty %}
+      <li>Žádná data.</li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <div class="border border-slate-800 rounded-2xl p-5">
+    <div class="flex justify-between mb-4"><h2 class="font-semibold">Novinky</h2>{% if admin %}<a href="{% url 'msa:news-create' %}" class="text-sm text-blue-400" aria-label="Add News">Add</a>{% endif %}</div>
+    <ul>
+      {% for n in news %}
+      <li><a href="{% url 'msa:news-detail' n.slug %}" class="text-blue-400 hover:text-blue-300">{{ n.title }}</a>{% if admin %} <a href="{% url 'msa:news-edit' n.slug %}" class="ml-2 text-xs text-slate-400">Edit</a>{% endif %}</li>
+      {% empty %}
+      <li>Žádné novinky.</li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <div class="border border-slate-800 rounded-2xl p-5">
+    <div class="flex justify-between mb-4"><h2 class="font-semibold">Squash TV</h2>{% if admin %}<a href="{% url 'msa:media-create' %}" class="text-sm text-blue-400" aria-label="Add Media">Add</a>{% endif %}</div>
+    <ul>
+      {% for v in media %}
+      <li><a href="{{ v.video_url }}" target="_blank" class="text-blue-400 hover:text-blue-300">{{ v.title }}</a>{% if admin %} <a href="{% url 'msa:media-edit' v.slug %}" class="ml-2 text-xs text-slate-400">Edit</a>{% endif %}</li>
+      {% empty %}
+      <li>Žádná videa.</li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+
+{% endblock %}
+

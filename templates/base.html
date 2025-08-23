@@ -40,6 +40,9 @@
                     <a href="#" class="block px-4 py-2 hover:bg-gray-100">Nová karta</a>
                     <a href="#" class="block px-4 py-2 hover:bg-gray-100">Nové okno</a>
                     <a href="#" class="block px-4 py-2 hover:bg-gray-100">Nastavení</a>
+                    {% if request.user.is_staff %}
+                    <a href="/admin/" class="block px-4 py-2 hover:bg-gray-100">&#9881; Admin</a>
+                    {% endif %}
                 </div>
             </div>
         </div>
