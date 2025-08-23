@@ -7,6 +7,7 @@ DEBUG = True
 ALLOWED_HOSTS = []
 
 INSTALLED_APPS = [
+    "fax_calendar.apps.FaxCalendarConfig",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -19,8 +20,10 @@ INSTALLED_APPS = [
     "maps",
     "sports",
     "msa",
-    "fax_calendar",
 ]
+
+# Ensure apps are unique while preserving order
+INSTALLED_APPS = list(dict.fromkeys(INSTALLED_APPS))
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",

@@ -11,6 +11,7 @@
     {{ block.super }}
     <form id="woorld-date-form" action="{% url 'fax_calendar:set_woorld_date' %}" method="post">
         {% csrf_token %}
-        <input type="text" name="date" value="{{ WOORLD_CURRENT_DATE }}" placeholder="DD/MM/YYYY" class="woorld-date-input">
+        <label for="woorld-date-input">Aktuální datum Woorldu:</label>
+        <input id="woorld-date-input" type="text" name="date" value="{{ WOORLD_CURRENT_DATE }}" placeholder="DD/MM/YYYY" class="woorld-date-input">
     </form>
 {% endblock %}
