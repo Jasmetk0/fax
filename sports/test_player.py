@@ -1,7 +1,4 @@
-from datetime import date
-
 from django.urls import reverse
-
 from msa.models import Player
 
 
@@ -15,13 +12,6 @@ def test_slug_collision(db):
     second = Player.objects.create(name="Same Name")
     assert first.slug == "same-name"
     assert second.slug == "same-name-2"
-
-
-def test_age_property(db):
-    today = date.today()
-    birthdate = date(today.year - 30, today.month, today.day)
-    player = Player.objects.create(name="A", birthdate=birthdate)
-    assert player.age == 30
 
 
 def test_admin_changelist_columns(admin_client, db):

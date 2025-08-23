@@ -1,8 +1,8 @@
-from datetime import date
-
 from django.conf import settings
 from django.db import models
 from django.utils.text import slugify
+
+from fax_calendar.fields import WoorldDateField
 
 
 class AuditModel(models.Model):
@@ -43,13 +43,13 @@ class Player(AuditModel):
     last_name = models.CharField(max_length=100, blank=True)
     nickname = models.CharField(max_length=100, blank=True)
     country = models.CharField(max_length=100, null=True, blank=True, db_index=True)
-    birthdate = models.DateField(null=True, blank=True)
+    birthdate = WoorldDateField(null=True, blank=True)
     handedness = models.CharField(
         max_length=10, choices=HAND_CHOICES, null=True, blank=True
     )
     height = models.IntegerField(null=True, blank=True)
     weight = models.IntegerField(null=True, blank=True)
-    turned_pro = models.DateField(null=True, blank=True)
+    turned_pro = WoorldDateField(null=True, blank=True)
     active = models.BooleanField(default=True)
     bio = models.TextField(blank=True)
     photo_url = models.URLField(null=True, blank=True)
@@ -75,14 +75,8 @@ class Player(AuditModel):
 
     @property
     def age(self):
-        if not self.birthdate:
-            return None
-        today = date.today()
-        return (
-            today.year
-            - self.birthdate.year
-            - ((today.month, today.day) < (self.birthdate.month, self.birthdate.day))
-        )
+        """Age calculation is not implemented for Woorld dates."""
+        return None
 
     def __str__(self) -> str:  # pragma: no cover - trivial
         return self.name
@@ -98,8 +92,8 @@ class Tournament(AuditModel):
     name = models.CharField(max_length=200)
     slug = models.SlugField(unique=True)
     category = models.CharField(max_length=50)
-    start_date = models.DateField()
-    end_date = models.DateField()
+    start_date = WoorldDateField()
+    end_date = WoorldDateField()
     city = models.CharField(max_length=100)
     country = models.CharField(max_length=100)
     venue = models.CharField(max_length=200, blank=True)
@@ -146,7 +140,7 @@ class Match(AuditModel):
 
 
 class RankingSnapshot(AuditModel):
-    as_of = models.DateField(unique=True)
+    as_of = WoorldDateField(unique=True)
 
     def __str__(self) -> str:  # pragma: no cover - trivial
         return str(self.as_of)

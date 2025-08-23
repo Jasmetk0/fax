@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+{% load static %}
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FAX Portal</title>
     <link rel="manifest" href="/manifest.json">
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="{% static 'fax_calendar/woorld.css' %}">
 </head>
 <body class="flex flex-col h-screen">
     <header class="sticky top-0 z-[1000] flex items-center bg-gray-800 text-white px-4 py-2 space-x-2">
@@ -25,6 +27,7 @@
             />
         </form>
         <div class="flex items-center space-x-4">
+            {% include "fax_calendar/_woorld_date_control.html" %}
             <a href="#" class="p-1 hover:bg-gray-700 rounded">👤</a>
             {% if request.user.is_staff %}
             <form method="post" action="{% url 'admin-toggle' %}">
@@ -50,6 +53,7 @@
     <main class="p-4 pt-4 flex-1 overflow-y-auto">
         {% block content %}{% endblock %}
     </main>
+    <script src="{% static 'fax_calendar/woorld.js' %}"></script>
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         const menuBtn = document.getElementById('menu-btn');
