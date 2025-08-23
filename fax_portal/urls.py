@@ -10,6 +10,7 @@ urlpatterns = [
     path("wiki/", include("wiki.urls")),
     path("maps/", include("maps.urls")),
     path("livesport/", include("sports.urls")),
+    path("msa/", include("msa.urls")),
     path("search", search_views.search, name="search"),
     path(
         "manifest.json",
