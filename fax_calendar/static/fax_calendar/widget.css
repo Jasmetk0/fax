@@ -1,0 +1,9 @@
+.woorld-date-input {
+  padding: 2px 4px;
+  width: 8em;
+  font: inherit;
+}
+#woorld-date-form {
+  display: inline-block;
+  margin-left: 1em;
+}
