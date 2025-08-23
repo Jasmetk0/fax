@@ -1,0 +1,12 @@
+{% load i18n %}
+<div class="infobox infobox--country">
+  <h2>{{ name|default:page_title }}</h2>
+  {% if flag %}<div class="infobox__flag"><img src="{{ flag }}" alt="" loading="lazy"></div>{% endif %}
+  {% if coat_of_arms %}<div class="infobox__coa"><img src="{{ coat_of_arms }}" alt="" loading="lazy"></div>{% endif %}
+  {% if map %}<div class="infobox__map"><img src="{{ map }}" alt="" loading="lazy"></div>{% endif %}
+  <table>
+    {% for row in rows %}
+      {% if row.value %}<tr><th>{% trans row.title %}</th><td>{{ row.value }}</td></tr>{% endif %}
+    {% endfor %}
+  </table>
+</div>
