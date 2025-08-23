@@ -126,3 +126,20 @@ class MSAViewsTests(TestCase):
         resp = self.client.get(reverse("msa:api_tournaments"))
         self.assertEqual(resp.status_code, 200)
         self.assertGreaterEqual(len(resp.json()), 1)
+
+
+def test_admin_index_lists_msa_models(admin_client):
+    response = admin_client.get(reverse("admin:index"))
+    assert response.status_code == 200
+    content = response.content.decode()
+    assert "MSA" in content
+    for model in [
+        "player",
+        "tournament",
+        "match",
+        "rankingsnapshot",
+        "rankingentry",
+        "newspost",
+        "mediaitem",
+    ]:
+        assert f"msa/{model}/" in content
