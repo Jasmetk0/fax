@@ -12,6 +12,8 @@ class WoorldDateWidget(TextInput):
         attrs = {"placeholder": "DD/MM/YYYY", **(attrs or {})}
         css = attrs.get("class", "")
         attrs["class"] = f"{css} woorld-date-input".strip()
+        # marker for JS datepicker hookup
+        attrs.setdefault("data-woorld-datepicker", "1")
         super().__init__(attrs)
 
     class Media:
