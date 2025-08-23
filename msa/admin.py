@@ -78,6 +78,7 @@ class RankingEntryInline(admin.TabularInline):
 class RankingSnapshotAdmin(admin.ModelAdmin):
     list_display = ("as_of", "items_count")
     inlines = [RankingEntryInline]
+    search_fields = ("as_of",)   # 👈 přidej tenhle řádek
     readonly_fields = (
         "created_at",
         "updated_at",
