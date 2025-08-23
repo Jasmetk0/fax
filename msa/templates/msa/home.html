@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+{% block content %}
+{% include 'msa/nav.html' %}
+<h1 class="text-2xl mb-4">MSA Squash Tour</h1>
+
+<section class="mb-6">
+  <h2 class="font-semibold">Next up</h2>
+  <ul>
+    {% for t in upcoming_tournaments %}
+    <li><a href="{% url 'msa:tournament-detail' t.slug %}">{{ t.name }}</a> ({{ t.start_date }})</li>
+    {% empty %}
+    <li>Žádné turnaje.</li>
+    {% endfor %}
+  </ul>
+</section>
+
+<section class="mb-6">
+  <h2 class="font-semibold">Live now</h2>
+  <ul>
+    {% for m in live_matches %}
+    <li>{{ m.player1.name }} vs {{ m.player2.name }}</li>
+    {% empty %}
+    <li>Žádné zápasy.</li>
+    {% endfor %}
+  </ul>
+</section>
+
+<section class="mb-6">
+  <h2 class="font-semibold">Top 10</h2>
+  <ul>
+    {% for e in top_players %}
+    <li>{{ e.rank }}. {{ e.player.name }} ({{ e.points }})</li>
+    {% empty %}
+    <li>Žádná data.</li>
+    {% endfor %}
+  </ul>
+</section>
+
+<section class="mb-6">
+  <h2 class="font-semibold">Novinky</h2>
+  <ul>
+    {% for n in news %}
+    <li><a href="{% url 'msa:news-detail' n.slug %}">{{ n.title }}</a></li>
+    {% empty %}
+    <li>Žádné novinky.</li>
+    {% endfor %}
+  </ul>
+</section>
+
+<section class="mb-6">
+  <h2 class="font-semibold">Squash TV</h2>
+  <ul>
+    {% for v in media %}
+    <li><a href="{{ v.video_url }}" target="_blank">{{ v.title }}</a></li>
+    {% empty %}
+    <li>Žádná videa.</li>
+    {% endfor %}
+  </ul>
+</section>
+
+{% endblock %}
+

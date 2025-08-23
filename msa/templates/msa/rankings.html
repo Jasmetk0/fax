@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% block content %}
+{% include 'msa/nav.html' %}
+<h1 class="text-2xl mb-4">Žebříček{% if snapshot %} ({{ snapshot.as_of }}){% endif %}</h1>
+
+<form method="get" class="mb-4">
+  <input type="date" name="as_of" value="{{ snapshot.as_of|date:'Y-m-d' if snapshot }}" class="border p-1"/>
+  <button class="bg-gray-200 px-2 py-1 rounded">Zobraz</button>
+</form>
+
+<table class="min-w-full mb-4">
+  <tr><th>Rank</th><th>Player</th><th>Points</th></tr>
+  {% for e in entries %}
+  <tr><td>{{ e.rank }}</td><td>{{ e.player.name }}</td><td>{{ e.points }}</td></tr>
+  {% empty %}
+  <tr><td colspan="3">No entries.</td></tr>
+  {% endfor %}
+</table>
+
+{% if snapshot_form %}
+<h2 class="text-xl">Add Snapshot</h2>
+<form method="post" class="mb-4">
+  {% csrf_token %}
+  {{ snapshot_form.as_p }}
+  <input type="hidden" name="form" value="snapshot"/>
+  <button class="bg-blue-500 text-white px-2 py-1 rounded">Save</button>
+</form>
+{% endif %}
+
+{% if entry_form %}
+<h2 class="text-xl">Add Entry</h2>
+<form method="post">
+  {% csrf_token %}
+  {{ entry_form.as_p }}
+  <input type="hidden" name="form" value="entry"/>
+  <button class="bg-blue-500 text-white px-2 py-1 rounded">Save</button>
+</form>
+{% endif %}
+
+{% endblock %}
+
