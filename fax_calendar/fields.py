@@ -1,0 +1,46 @@
+"""Custom fields for Woorld calendar."""
+
+from django import forms
+from django.db import models
+from .widgets import WoorldDateWidget
+from .utils import (
+    parse_woorld_ddmmyyyy,
+    format_woorld_ddmmyyyy,
+    to_storage,
+    from_storage,
+)
+from .validators import validate_woorld_date_parts
+
+
+class WoorldDateFormField(forms.CharField):
+    """Form field handling DD/MM/YYYY input and storage formatting."""
+
+    widget = WoorldDateWidget
+
+    def to_python(self, value):
+        if not value:
+            return ""
+        year, month, day = parse_woorld_ddmmyyyy(value)
+        validate_woorld_date_parts(year, month, day)
+        return to_storage(year, month, day)
+
+    def prepare_value(self, value):
+        if isinstance(value, str) and value.endswith("w"):
+            year, month, day = from_storage(value)
+            return format_woorld_ddmmyyyy(year, month, day)
+        return super().prepare_value(value)
+
+
+class WoorldDateField(models.CharField):
+    """Model field storing Woorld date as YYYY-MM-DDw string."""
+
+    description = "Woorld calendar date"
+
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("max_length", 16)
+        super().__init__(*args, **kwargs)
+
+    def formfield(self, **kwargs):
+        defaults = {"form_class": WoorldDateFormField}
+        defaults.update(kwargs)
+        return super().formfield(**defaults)
