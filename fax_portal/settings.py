@@ -20,6 +20,7 @@ INSTALLED_APPS = [
     "maps",
     "sports",
     "msa",
+    "fax_calendar",
 ]
 
 # Ensure apps are unique while preserving order
