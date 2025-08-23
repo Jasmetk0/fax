@@ -1,0 +1,26 @@
+{% extends 'msa/base.html' %}
+{% block msa_content %}
+{% include 'msa/nav.html' %}
+<div class="flex justify-between items-center mb-4">
+  <h1 class="text-3xl font-semibold">Turnaje</h1>
+  {% if admin %}<a href="{% url 'msa:tournament-create' %}" class="bg-blue-600 hover:bg-blue-500 text-white rounded-xl px-4 py-2 text-sm" aria-label="Add Tournament">Add Tournament</a>{% endif %}
+</div>
+<div class="space-y-4">
+  {% for t in tournaments %}
+  <div class="border border-slate-800 rounded-2xl p-5 flex justify-between">
+    <div>
+      <a href="{% url 'msa:tournament-detail' t.slug %}" class="text-blue-400 hover:text-blue-300">{{ t.name }}</a> ({{ t.status }})
+    </div>
+    {% if admin %}
+    <div class="text-sm space-x-2">
+      <a href="{% url 'msa:tournament-edit' t.slug %}" class="text-slate-400" aria-label="Edit">Edit</a>
+      <a href="{% url 'msa:tournament-delete' t.slug %}" class="text-red-500" aria-label="Delete">Delete</a>
+    </div>
+    {% endif %}
+  </div>
+  {% empty %}
+  <div class="border border-slate-800 rounded-2xl p-5 text-center">No tournaments.</div>
+  {% endfor %}
+</div>
+{% endblock %}
+

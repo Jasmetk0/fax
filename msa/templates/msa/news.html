@@ -1,0 +1,19 @@
+{% extends 'msa/base.html' %}
+{% block msa_content %}
+{% include 'msa/nav.html' %}
+<div class="flex justify-between items-center mb-4">
+  <h1 class="text-3xl font-semibold">Novinky</h1>
+  {% if admin %}<a href="{% url 'msa:news-create' %}" class="bg-blue-600 hover:bg-blue-500 text-white rounded-xl px-4 py-2 text-sm" aria-label="Add News">Add News</a>{% endif %}
+</div>
+<div class="space-y-4">
+  {% for n in posts %}
+  <div class="border border-slate-800 rounded-2xl p-4 flex justify-between">
+    <a href="{% url 'msa:news-detail' n.slug %}" class="text-blue-400 hover:text-blue-300">{{ n.title }}</a>
+    {% if admin %}<span class="text-sm space-x-2"><a href="{% url 'msa:news-edit' n.slug %}" class="text-slate-400" aria-label="Edit">Edit</a><a href="{% url 'msa:news-delete' n.slug %}" class="text-red-500" aria-label="Delete">Delete</a></span>{% endif %}
+  </div>
+  {% empty %}
+  <div class="border border-slate-800 rounded-2xl p-5 text-center">No news.</div>
+  {% endfor %}
+</div>
+{% endblock %}
+

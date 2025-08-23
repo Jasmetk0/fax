@@ -18,6 +18,7 @@ INSTALLED_APPS = [
     "wiki",
     "maps",
     "sports",
+    "msa",
 ]
 
 MIDDLEWARE = [

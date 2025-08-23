@@ -1,0 +1,19 @@
+{% extends 'msa/base.html' %}
+{% block msa_content %}
+{% include 'msa/nav.html' %}
+<div class="flex justify-between items-center mb-2">
+  <h1 class="text-3xl font-semibold">{{ player.name }}</h1>
+  {% if admin %}<span class="space-x-2 text-sm"><a href="{% url 'msa:player-edit' player.slug %}" class="text-slate-400" aria-label="Edit">Edit</a><a href="{% url 'msa:player-delete' player.slug %}" class="text-red-500" aria-label="Delete">Delete</a></span>{% endif %}
+</div>
+<p class="mb-4">{{ player.country }}</p>
+
+<h2 class="text-xl mb-2">Last matches</h2>
+<div class="space-y-2">
+  {% for m in matches %}
+  <div class="border border-slate-800 rounded-2xl p-4">{{ m.tournament.name }}: {{ m.player1.name }} vs {{ m.player2.name }}{% if m.winner %} - {{ m.winner.name }}{% endif %}</div>
+  {% empty %}
+  <div class="border border-slate-800 rounded-2xl p-5 text-center">No matches.</div>
+  {% endfor %}
+</div>
+{% endblock %}
+

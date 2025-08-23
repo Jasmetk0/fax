@@ -1,0 +1,14 @@
+{% extends 'msa/base.html' %}
+{% block msa_content %}
+<div class="max-w-lg mx-auto">
+  <h1 class="text-2xl mb-4">{{ title }}</h1>
+  <form method="post" class="space-y-4" aria-label="confirm delete">
+    {% csrf_token %}
+    <p>Are you sure?</p>
+    <div class="flex gap-2">
+      <button type="submit" class="bg-red-600 hover:bg-red-500 text-white rounded-xl px-4 py-2">Delete</button>
+      <a href="{{ cancel_url }}" class="bg-slate-800 hover:bg-slate-700 text-slate-100 rounded-xl px-4 py-2">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
