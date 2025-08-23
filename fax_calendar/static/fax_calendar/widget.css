@@ -7,3 +7,6 @@
   display: inline-block;
   margin-left: 1em;
 }
+#woorld-date-form label {
+  margin-right: 0.5em;
+}
