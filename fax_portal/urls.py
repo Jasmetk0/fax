@@ -11,6 +11,7 @@ urlpatterns = [
     path("maps/", include("maps.urls")),
     path("livesport/", include("sports.urls")),
     path("msasquashtour/", include("msa.urls")),
+    path("woorld/", include("fax_calendar.urls")),
     path("search", search_views.search, name="search"),
     path(
         "manifest.json",

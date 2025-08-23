@@ -19,6 +19,7 @@ INSTALLED_APPS = [
     "maps",
     "sports",
     "msa",
+    "fax_calendar",
 ]
 
 MIDDLEWARE = [
@@ -44,6 +45,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "fax_calendar.context_processors.woorld_date",
             ],
         },
     },
