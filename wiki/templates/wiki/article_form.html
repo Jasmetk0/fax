@@ -8,11 +8,13 @@
 </form>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/simplemde/latest/simplemde.min.css">
 <script src="https://cdn.jsdelivr.net/simplemde/latest/simplemde.min.js"></script>
+{{ infobox_schemas|json_script:"infobox-schemas" }}
 <script>
   document.addEventListener('DOMContentLoaded', function() {
     const textarea = document.getElementById('id_content_md');
     if (textarea) {
       textarea.removeAttribute('required');
+      const infoboxSchemas = JSON.parse(document.getElementById('infobox-schemas').textContent);
       const mde = new SimpleMDE({
         element: textarea,
         toolbar: [
@@ -29,6 +31,12 @@
             action: function(editor){ openWikiLinkDialog(editor); },
             className: "fa fa-link",
             title: "Internal link"
+          },
+          {
+            name: "infobox",
+            action: function(editor){ openInfoboxDialog(editor); },
+            className: "fa fa-info-circle",
+            title: "Insert Infobox"
           },
           "preview",
           "side-by-side",
@@ -76,6 +84,32 @@
           .replace(/[^\w\s-]/g, '')
           .trim()
           .replace(/\s+/g, '-');
+      }
+
+      function openInfoboxDialog(editor){
+        const overlay = document.createElement('div');
+        overlay.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-[900]';
+        const options = Object.keys(infoboxSchemas).map(t => `<option value="${t}">${t}</option>`).join('');
+        overlay.innerHTML = `
+          <div class="bg-white dark:bg-slate-800 p-4 rounded shadow space-y-2">
+            <select id="infobox-type" class="border p-2">${options}</select>
+            <div class="text-right">
+              <button id="infobox-insert" class="bg-blue-500 text-white px-3 py-1 rounded">Insert</button>
+            </div>
+          </div>`;
+        document.body.appendChild(overlay);
+        const typeSel = overlay.querySelector('#infobox-type');
+        overlay.querySelector('#infobox-insert').addEventListener('click', () => {
+          const type = typeSel.value;
+          const params = infoboxSchemas[type] || [];
+          const lines = params.map(p => `| ${p} =`);
+          const stub = '{' + '{' + `Infobox ${type}\n${lines.join('\n')}\n` + '}' + '}';
+          editor.codemirror.replaceSelection(stub);
+          document.body.removeChild(overlay);
+        });
+        overlay.addEventListener('click', e => {
+          if(e.target === overlay){ document.body.removeChild(overlay); }
+        });
       }
     }
   });
