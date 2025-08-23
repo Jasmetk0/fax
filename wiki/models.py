@@ -65,6 +65,8 @@ class Article(models.Model):
         super().save(*args, **kwargs)
 
     def content_html(self) -> str:
+        from .infoboxes import parser as infobox_parser
+
         pattern = r"\[\[([^|\]]+)(?:\|([^\]]+))?\]\]"
 
         def repl(match):
@@ -75,7 +77,8 @@ class Article(models.Model):
             cls = "text-red-600 hover:underline"
             return f'<a href="{url}" class="{cls}">{label}</a>'
 
-        processed = re.sub(pattern, repl, self.content_md)
+        md = infobox_parser.process(self.content_md, page_title=self.title)
+        processed = re.sub(pattern, repl, md)
         html = markdown.markdown(processed)
         allowed = list(bleach.sanitizer.ALLOWED_TAGS) + [
             "p",
@@ -89,11 +92,29 @@ class Article(models.Model):
             "h6",
             "hr",
             "br",
+            "div",
+            "table",
+            "thead",
+            "tbody",
+            "tr",
+            "th",
+            "td",
+            "img",
+            "a",
+            "caption",
         ]
         return bleach.clean(
             html,
             tags=allowed,
-            attributes={"a": ["href", "class"], "span": ["class"]},
+            attributes={
+                "a": ["href", "class", "title", "rel", "target"],
+                "span": ["class"],
+                "div": ["class"],
+                "table": ["class"],
+                "th": ["class"],
+                "td": ["class"],
+                "img": ["src", "alt", "title", "loading", "width", "height"],
+            },
         )
 
     def __str__(self) -> str:  # pragma: no cover - simple repr
