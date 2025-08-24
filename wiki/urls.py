@@ -1,5 +1,8 @@
 from django.urls import path
+from rest_framework.routers import DefaultRouter
+
 from . import views
+from .api_data import DataPointDetail, DataSeriesViewSet
 
 app_name = "wiki"
 
@@ -43,4 +46,16 @@ urlpatterns = [
         name="article-revert",
     ),
     path("<slug:slug>/", views.ArticleDetailView.as_view(), name="article-detail"),
+]
+
+
+router = DefaultRouter()
+router.register("dataseries", DataSeriesViewSet, basename="dataseries")
+
+api_urlpatterns = router.urls + [
+    path(
+        "dataseries/<slug:slug>/point/<str:key>/",
+        DataPointDetail.as_view(),
+        name="dataseries-point",
+    ),
 ]
