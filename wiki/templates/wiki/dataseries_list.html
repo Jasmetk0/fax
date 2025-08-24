@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Data series</h1>
+<p><a href="{% url 'wiki:dataseries-create' %}">Create series</a></p>
+<ul>
+  {% for s in series_list %}
+    <li><a href="{% url 'wiki:dataseries-edit' s.slug %}">{{ s.title|default:s.slug }}</a></li>
+  {% empty %}
+    <li>No data series.</li>
+  {% endfor %}
+</ul>
+{% endblock %}
+
