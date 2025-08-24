@@ -1,60 +1,619 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="cs" class="h-full" data-theme>
-{% load static %}
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>{% block title %}FAX Portal{% endblock %}</title>
-<link rel="manifest" href="/manifest.json" />
-{# ——— Preload theme before paint ——— #}
-<script>
-(() => {
-try {
-const ls = localStorage.getItem("theme");
-const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-const useDark = ls ? ls === 'dark' : prefersDark;
-if (useDark) document.documentElement.classList.add('dark');
-} catch (_) {}
-})();
-</script>
-<script src="https://cdn.tailwindcss.com"></script>
-<script>
-tailwind.config = {
-darkMode: 'class',
-theme: {
-extend: {
-colors: {
-brand: {
-DEFAULT: '#4f46e5',
-50: '#eef2ff', 100: '#e0e7ff', 200: '#c7d2fe', 300: '#a5b4fc',
-400: '#818cf8', 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca'
-}
-},
-boxShadow: { soft: '0 8px 30px rgba(0,0,0,.06)' }
-}
-}
-}
-</script>
-<link rel="stylesheet" href="{% static 'fax_calendar/woorld.css' %}" />
-<link rel="stylesheet" href="{% static 'wiki/css/infobox.css' %}" />
-<link rel="stylesheet" href="{% static 'wiki/css/infobox.country.css' %}" />
-<link rel="stylesheet" href="{% static 'wiki/css/infobox.city.css' %}" />
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}FAX Portal{% endblock %}</title>
+  <link rel="manifest" href="/manifest.json" />
+
+  <!-- Preload dark-mode to avoid FOUC -->
+  <script>
+    (() => {
+      try {
+        const ls = localStorage.getItem("theme");
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const useDark = ls ? ls === 'dark' : prefersDark;
+        if (useDark) document.documentElement.classList.add('dark');
+      } catch (_) {}
+    })();
+  </script>
+
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: { DEFAULT: '#4f46e5', 50:'#eef2ff',100:'#e0e7ff',200:'#c7d2fe',300:'#a5b4fc',400:'#818cf8',500:'#6366f1',600:'#4f46e5',700:'#4338ca' }
+          },
+          boxShadow: { soft: '0 8px 30px rgba(0,0,0,.06)' }
+        }
+      }
+    }
+  </script>
+
+  <!-- Project CSS -->
+  <link rel="stylesheet" href="{% static 'fax_calendar/woorld.css' %}" />
+  <link rel="stylesheet" href="{% static 'wiki/css/infobox.css' %}" />
+  <link rel="stylesheet" href="{% static 'wiki/css/infobox.country.css' %}" />
+  <link rel="stylesheet" href="{% static 'wiki/css/infobox.city.css' %}" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <style>
+    /* helper: hide scrollbars on tab list */
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { scrollbar-width: none; }
+  </style>
 </head>
 <body class="flex min-h-dvh flex-col bg-gradient-to-b from-white to-slate-50 text-slate-900 dark:from-slate-950 dark:to-slate-900 dark:text-slate-100">
-<!-- Global Topbar -->
-<header class="sticky top-0 z-[1000] border-b border-slate-200/70 bg-white/70 backdrop-blur supports-[backdrop-filter]:bg-white/50 dark:border-slate-800/70 dark:bg-slate-900/70">
-<div class="mx-auto flex h-14 max-w-7xl items-center gap-2 px-3 sm:h-16 sm:px-6">
-<!-- Left: brand + nav -->
-<div class="flex items-center gap-2">
-<button id="nav-toggle" class="inline-flex h-9 w-9 items-center justify-center rounded-lg hover:bg-slate-100 active:scale-95 dark:hover:bg-slate-800 sm:hidden" aria-label="Menu">
-<!-- menu icon -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
-</button>
-<a href="/" class="group flex items-center gap-2">
-<span class="grid h-8 w-8 place-items-center rounded-xl bg-brand/10 text-brand group-hover:scale-105 transition">
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="h-5 w-5" fill="currentColor"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"/></svg>
-</span>
-<span class="font-semibold tracking-tight">FAX</span>
-</a>
+
+  <!-- ===== Topbar ===== -->
+  <header class="sticky top-0 z-[1000] border-b border-slate-200/70 bg-white/70 backdrop-blur supports-[backdrop-filter]:bg-white/50 dark:border-slate-800/70 dark:bg-slate-900/70">
+    <div class="mx-auto flex h-14 max-w-7xl items-center gap-2 px-3 sm:h-16 sm:px-6">
+
+      <!-- Left: nav controls + logo -->
+      <div class="flex items-center gap-1">
+        <button id="back-btn"   class="inline-flex h-9 w-9 items-center justify-center rounded-lg hover:bg-slate-100 active:scale-95 dark:hover:bg-slate-800" aria-label="Zpět">⟵</button>
+        <button id="fwd-btn"    class="inline-flex h-9 w-9 items-center justify-center rounded-lg hover:bg-slate-100 active:scale-95 dark:hover:bg-slate-800" aria-label="Vpřed">⟶</button>
+        <button id="reload-btn" class="inline-flex h-9 w-9 items-center justify-center rounded-lg hover:bg-slate-100 active:scale-95 dark:hover:bg-slate-800" aria-label="Obnovit">↻</button>
+
+        <a href="/" class="group ml-1 flex items-center gap-2 select-none">
+          <span class="grid h-8 w-8 place-items-center rounded-xl bg-brand/10 text-brand transition group-hover:scale-105">⌘</span>
+          <span class="font-semibold tracking-tight">FAX</span>
+        </a>
+      </div>
+
+      <!-- Center: search (desktop) -->
+      <form action="/search" method="get" class="mx-auto hidden w-full max-w-xl items-center sm:flex">
+        <div class="relative w-full">
+          <input name="q" type="search" placeholder="Hledat Woorld… (Ctrl/⌘K)" aria-label="Hledat"
+                 class="w-full rounded-xl border border-slate-300 bg-white/90 pl-9 pr-3 py-2 text-sm text-slate-900 shadow-soft placeholder:text-slate-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:ring-slate-700" />
+          <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        </div>
+      </form>
+
+      <!-- Right: Woorld date, admin, theme toggle, menu -->
+      <div class="ml-auto flex items-center gap-1">
+
+        <!-- Woorld date button + panel -->
+        <div id="woorld-date" class="relative">
+          <button id="woorld-date-btn"
+                  class="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white/80 px-3 py-1.5 text-sm hover:bg-slate-100 active:scale-[.99] dark:border-slate-700 dark:bg-slate-900/70 dark:hover:bg-slate-800"
+                  aria-haspopup="dialog" aria-expanded="false">
+            <span class="text-slate-500">📅</span>
+            <span id="woorld-date-text">01.01.2020</span>
+          </button>
+          <div id="woorld-date-panel"
+               class="hidden absolute right-0 mt-2 w-[min(92vw,420px)] rounded-2xl border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-800 dark:bg-slate-900">
+            <div id="woorld-widget" class="rounded-xl border border-slate-200 bg-white p-2 dark:border-slate-800 dark:bg-slate-900">
+              {% include "fax_calendar/_woorld_date_control.html" %}
+            </div>
+          </div>
+        </div>
+
+        <!-- Správcovský režim ON/OFF — výrazné, ale decentní -->
+        {% if request.user.is_staff %}
+        <form method="post" action="{% url 'admin-toggle' %}" class="mx-1">{% csrf_token %}
+          <button
+            class="inline-flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition
+            {% if request.session.admin_mode %}
+              border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300
+            {% else %}
+              border-slate-300 bg-white text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800
+            {% endif %}">
+            <span class="text-[12px]">⚙️</span>
+            {% if request.session.admin_mode %}Správce ON{% else %}Správce OFF{% endif %}
+          </button>
+        </form>
+        {% endif %}
+
+        <!-- Theme toggle (před třítečkami) -->
+        <button id="theme-toggle" class="inline-flex h-9 w-9 items-center justify-center rounded-lg hover:bg-slate-100 active:scale-95 dark:hover:bg-slate-800" aria-label="Přepnout téma">
+          <span class="dark:hidden">☀️</span>
+          <span class="hidden dark:inline">🌙</span>
+        </button>
+
+        <!-- User (placeholder) -->
+        <a href="#" class="rounded-lg px-2 py-1.5 text-sm hover:bg-slate-100 dark:hover:bg-slate-800">👤</a>
+
+        <!-- Kebab menu -->
+        <div class="relative">
+          <button id="menu-btn" class="inline-flex h-9 w-9 items-center justify-center rounded-lg hover:bg-slate-100 active:scale-95 dark:hover:bg-slate-800" aria-haspopup="menu" aria-expanded="false">⋯</button>
+          <div id="menu-dropdown" class="invisible absolute right-0 mt-2 w-48 translate-y-2 rounded-xl border border-slate-200 bg-white p-1 opacity-0 shadow-xl transition-all dark:border-slate-800 dark:bg-slate-900" role="menu">
+            <a href="#" class="block rounded-lg px-3 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-800" role="menuitem">Nová karta</a>
+            <a href="#" class="block rounded-lg px-3 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-800" role="menuitem">Nové okno</a>
+            <a href="#" class="block rounded-lg px-3 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-800" role="menuitem">Nastavení</a>
+            {% if request.user.is_staff %}
+            <a href="/admin/" class="block rounded-lg px-3 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-800" role="menuitem">⚙️ Admin</a>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mobile search -->
+    <form action="/search" method="get" class="sm:hidden border-t border-slate-200/70 px-3 py-2 dark:border-slate-800/70">
+      <div class="relative">
+        <input name="q" type="search" placeholder="Hledat… (Ctrl/⌘K)" class="w-full rounded-lg border border-slate-300 bg-white/90 pl-9 pr-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900/80" />
+        <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      </div>
+    </form>
+  </header>
+
+  <!-- ===== Tab strip (pod topbarem) ===== -->
+  <div id="tab-strip"
+       class="sticky top-14 sm:top-16 z-[900] border-b border-slate-200 bg-white/70 px-2 py-1 text-sm backdrop-blur supports-[backdrop-filter]:bg-white/50 dark:border-slate-800 dark:bg-slate-900/70">
+    <div class="mx-auto flex max-w-7xl items-center gap-2">
+      <!-- Dropdown (seznam všech) -->
+      <div class="relative">
+        <button id="tab-dropdown" class="inline-flex h-8 items-center rounded-lg px-2 hover:bg-slate-100 active:scale-[.98] dark:hover:bg-slate-800" aria-label="Seznam oken">▾</button>
+        <div id="tab-dropdown-panel" class="hidden absolute left-2 top-full mt-2 w-[min(92vw,360px)] rounded-2xl border border-slate-200 bg-white p-1 shadow-xl dark:border-slate-800 dark:bg-slate-900"></div>
+      </div>
+
+      <!-- Tabs -->
+      <ul id="tab-list" role="tablist" class="no-scrollbar flex flex-1 items-center gap-2 overflow-x-auto px-1"></ul>
+
+      <!-- Nová záložka -->
+      <div class="relative">
+        <button id="tab-new" class="inline-flex h-8 items-center rounded-lg px-2 hover:bg-slate-100 active:scale-[.98] dark:hover:bg-slate-800" aria-label="Nová záložka">＋</button>
+        <!-- inline dialog pro novou kartu -->
+        <div id="tab-new-panel" class="hidden absolute right-0 top-full mt-2 w-[min(92vw,380px)] rounded-2xl border border-slate-200 bg-white p-3 shadow-xl dark:border-slate-800 dark:bg-slate-900">
+          <div class="text-sm font-medium mb-2">Otevřít novou záložku</div>
+          <div class="grid grid-cols-2 gap-2 mb-2">
+            <button data-href="/" class="rounded-lg border px-3 py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800">/ (Domů)</button>
+            <button data-href="/wiki/" class="rounded-lg border px-3 py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800">/wiki/</button>
+            <button data-href="/maps/" class="rounded-lg border px-3 py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800">/maps/</button>
+            <button data-href="/livesport/" class="rounded-lg border px-3 py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800">/livesport/</button>
+          </div>
+          <div class="flex items-center gap-2">
+            <input id="tab-new-input" type="text" placeholder="/cesta" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" />
+            <button id="tab-new-confirm" class="rounded-lg bg-brand px-3 py-2 text-sm font-medium text-white hover:bg-brand/90">Otevřít</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Page content -->
+  <main id="page" class="flex-1 overflow-y-auto px-3 py-4 sm:px-6">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- ===== Scripts ===== -->
+  <script src="{% static 'fax_calendar/woorld.js' %}"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="{% static 'wiki/dataseries.js' %}"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="{% static 'wiki/dataseries-ui.js' %}"></script>
+
+  <script>
+  document.addEventListener('DOMContentLoaded', () => {
+    // ---------- Topbar controls ----------
+    const backBtn = document.getElementById('back-btn');
+    const fwdBtn = document.getElementById('fwd-btn');
+    const reloadBtn = document.getElementById('reload-btn');
+    backBtn?.addEventListener('click', () => history.back());
+    fwdBtn?.addEventListener('click', () => history.forward());
+    reloadBtn?.addEventListener('click', () => location.reload());
+
+    // Kebab dropdown
+    const kebabBtn = document.getElementById('menu-btn');
+    const kebabDrop = document.getElementById('menu-dropdown');
+    const toggleMenu = (open) => {
+      kebabDrop.style.opacity = open ? '1' : '0';
+      kebabDrop.style.transform = open ? 'translateY(0)' : 'translateY(8px)';
+      kebabDrop.style.visibility = open ? 'visible' : 'hidden';
+      kebabBtn.setAttribute('aria-expanded', String(!!open));
+    };
+    kebabBtn?.addEventListener('click', (e) => { e.stopPropagation(); toggleMenu(kebabDrop.style.opacity !== '1'); });
+
+    // Theme toggle
+    const themeBtn = document.getElementById('theme-toggle');
+    themeBtn?.addEventListener('click', () => {
+      const html = document.documentElement;
+      const isDark = html.classList.toggle('dark');
+      try { localStorage.setItem('theme', isDark ? 'dark' : 'light'); } catch(_) {}
+    });
+
+    // Ctrl/Cmd+K -> focus search
+    document.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        const input = document.querySelector('form[action="/search"] input[name="q"]');
+        if (input) { e.preventDefault(); input.focus(); input.select?.(); }
+      }
+    });
+
+    // ---------- Woorld Date ----------
+    const WD_KEY = 'woorld.date';
+    const wdBtn = document.getElementById('woorld-date-btn');
+    const wdText = document.getElementById('woorld-date-text');
+    const wdPanel = document.getElementById('woorld-date-panel');
+    function formatDDMMYYYY(iso) {
+      try { const [y,m,d] = iso.split('-'); return `${d}.${m}.${y}`; } catch { return iso; }
+    }
+    function getStoredDate() { return localStorage.getItem(WD_KEY) || '2020-01-01'; }
+    function setStoredDate(iso) { localStorage.setItem(WD_KEY, iso); wdText.textContent = formatDDMMYYYY(iso); }
+    // init
+    setStoredDate(getStoredDate());
+    // open/close
+    function toggleWoorld(open) {
+      wdPanel.classList.toggle('hidden', !open);
+      wdBtn.setAttribute('aria-expanded', String(!!open));
+      if (open) {
+        // Modernize included widget
+        try {
+          const widget = document.getElementById('woorld-widget');
+          // hide legacy label text if present
+          widget?.querySelectorAll('label, p, span, div').forEach(el => {
+            if (/aktuální.*datum.*woorldu/i.test(el.textContent || '')) el.classList.add('hidden');
+          });
+          // set value on date-like input (best-effort)
+          const iso = getStoredDate();
+          const dateInput =
+            widget.querySelector('input[type="date"]') ||
+            widget.querySelector('input[id*="date" i], input[name*="date" i]');
+          if (dateInput) {
+            dateInput.value = iso;
+            dateInput.dispatchEvent(new Event('change', { bubbles: true }));
+            dateInput.addEventListener('change', () => setStoredDate(dateInput.value));
+          }
+          // fallback selector
+          widget.querySelectorAll('[data-woorld-date]').forEach(el => {
+            el.value = iso;
+            el.addEventListener('change', () => setStoredDate(el.value));
+          });
+        } catch (_) {}
+      }
+    }
+    wdBtn?.addEventListener('click', (e) => { e.stopPropagation(); toggleWoorld(wdPanel.classList.contains('hidden')); });
+
+    // ---------- Tab Strip ----------
+    const TABS_KEY = 'fax.tabs.v1';
+    const ACTIVE_KEY = 'fax.tabs.activeId';
+    const tabList = document.getElementById('tab-list');
+    const tabDropBtn = document.getElementById('tab-dropdown');
+    const tabDropPanel = document.getElementById('tab-dropdown-panel');
+    const tabNewBtn = document.getElementById('tab-new');
+    const tabNewPanel = document.getElementById('tab-new-panel');
+    const tabNewInput = document.getElementById('tab-new-input');
+    const tabNewConfirm = document.getElementById('tab-new-confirm');
+
+    function loadTabs() {
+      let tabs = [];
+      let activeId = null;
+      try {
+        tabs = JSON.parse(localStorage.getItem(TABS_KEY) || '[]');
+        activeId = localStorage.getItem(ACTIVE_KEY) || null;
+      } catch(_) {}
+      if (!Array.isArray(tabs) || tabs.length === 0) {
+        const t = { id: 't-' + Date.now(), title: document.title || 'Okno', href: location.pathname + location.search + location.hash, icon: '🗂️', pinned: false };
+        tabs = [t]; activeId = t.id;
+        saveTabs(tabs, activeId);
+      }
+      return { tabs, activeId };
+    }
+    function saveTabs(tabs, activeId) {
+      try {
+        localStorage.setItem(TABS_KEY, JSON.stringify(tabs));
+        if (activeId) localStorage.setItem(ACTIVE_KEY, activeId);
+      } catch(_) {}
+    }
+    function humanize(url) {
+      try {
+        const u = new URL(url, location.origin);
+        if (u.pathname === '/' || u.pathname === '') return 'Domů';
+        const seg = u.pathname.replace(/^\//,'').split('/')[0] || 'Stránka';
+        return decodeURIComponent(seg);
+      } catch { return url.length > 24 ? url.slice(0,24) + '…' : url; }
+    }
+    function renderTabs() {
+      const { tabs, activeId } = loadTabs();
+      tabList.innerHTML = '';
+      tabs.forEach((t) => {
+        const li = document.createElement('li');
+        li.setAttribute('role', 'tab');
+        li.setAttribute('aria-selected', String(t.id === activeId));
+        li.tabIndex = 0;
+        li.className = [
+          'group inline-flex items-center gap-2 rounded-lg px-3 py-1.5 cursor-pointer select-none',
+          t.id === activeId ? 'bg-white dark:bg-slate-800 shadow' : 'hover:bg-slate-100 dark:hover:bg-slate-800'
+        ].join(' ');
+        li.innerHTML = `<span class="text-base">${t.icon || '🌐'}</span>
+                        <span class="text-sm max-w-[18ch] truncate">${t.title || humanize(t.href)}</span>
+                        ${t.pinned ? '' : '<button class="tab-close opacity-0 group-hover:opacity-100 transition h-5 w-5 rounded hover:bg-slate-200 dark:hover:bg-slate-700" aria-label="Zavřít">×</button>'}`;
+        li.addEventListener('click', (e) => {
+          if (e.target.closest('.tab-close')) return;
+          saveTabs(tabs, t.id);
+          if (location.pathname + location.search + location.hash !== t.href) location.href = t.href;
+        });
+        li.querySelector('.tab-close')?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          closeTab(t.id);
+        });
+        li.addEventListener('keydown', (e) => { if (e.key === 'Enter') li.click(); });
+        tabList.appendChild(li);
+      });
+      // dropdown list
+      tabDropPanel.innerHTML = '';
+      tabs.forEach((t) => {
+        const a = document.createElement('a');
+        a.className = 'flex items-center gap-2 rounded-lg px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800';
+        a.href = t.href;
+        a.innerHTML = `<span class="text-base">${t.icon || '🌐'}</span>
+                       <span class="text-sm">${t.title || humanize(t.href)}</span>`;
+        tabDropPanel.appendChild(a);
+      });
+    }
+    function closeTab(id) {
+      const state = loadTabs();
+      if (state.tabs.length <= 1) return; // never empty
+      const idx = state.tabs.findIndex(t => t.id === id);
+      const wasActive = state.activeId === id;
+      const next = state.tabs.filter(t => t.id !== id);
+      let nextActive = state.activeId;
+      if (wasActive) {
+        const neighbor = next[Math.min(idx, next.length - 1)];
+        nextActive = neighbor?.id || next[0]?.id || null;
+      }
+      saveTabs(next, nextActive);
+      renderTabs();
+      if (wasActive) {
+        const activeTab = next.find(t => t.id === nextActive);
+        if (activeTab && (location.pathname + location.search + location.hash) !== activeTab.href) {
+          location.href = activeTab.href;
+        }
+      }
+    }
+    function newTab(href) {
+      const state = loadTabs();
+      const t = { id: 't-' + Date.now(), title: humanize(href), href, icon: '🌐', pinned: false };
+      state.tabs.push(t);
+      saveTabs(state.tabs, t.id);
+      renderTabs();
+      if ((location.pathname + location.search + location.hash) !== href) location.href = href;
+    }
+
+    renderTabs();
+
+    // Dropdowns + New-tab panel
+    const toggle = (el, show) => el.classList.toggle('hidden', !show);
+    tabDropBtn?.addEventListener('click', (e) => { e.stopPropagation(); toggle(tabDropPanel, tabDropPanel.classList.contains('hidden')); });
+    tabNewBtn?.addEventListener('click', (e) => { e.stopPropagation(); toggle(tabNewPanel, tabNewPanel.classList.contains('hidden')); document.getElementById('tab-new-input')?.focus(); });
+    tabNewPanel?.querySelectorAll('button[data-href]')?.forEach(btn => btn.addEventListener('click', () => newTab(btn.getAttribute('data-href'))));
+    tabNewConfirm?.addEventListener('click', () => {
+      const v = (document.getElementById('tab-new-input')?.value || '/').trim() || '/';
+      newTab(v);
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      const isCmd = e.metaKey || e.ctrlKey;
+      if (isCmd && e.key.toLowerCase() === 't') { e.preventDefault(); tabNewBtn?.click(); }
+      if (isCmd && e.key.toLowerCase() === 'w') { e.preventDefault();
+        const { tabs, activeId } = loadTabs();
+        const active = tabs.find(t => t.id === activeId);
+        if (active && !active.pinned && tabs.length > 1) closeTab(active.id);
+      }
+      if (isCmd && !e.shiftKey && e.key === 'Tab') { e.preventDefault();
+        const { tabs, activeId } = loadTabs();
+        const i = tabs.findIndex(t => t.id === activeId);
+        const next = tabs[(i + 1) % tabs.length]; saveTabs(tabs, next.id); renderTabs(); location.href = next.href;
+      }
+      if (isCmd && e.shiftKey && e.key === 'Tab') { e.preventDefault();
+        const { tabs, activeId } = loadTabs();
+        const i = tabs.findIndex(t => t.id === activeId);
+        const next = tabs[(i - 1 + tabs.length) % tabs.length]; saveTabs(tabs, next.id); renderTabs(); location.href = next.href;
+      }
+    });
+
+    // Arrow navigation on tab list
+    document.getElementById('tab-list')?.addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      const items = Array.from(document.getElementById('tab-list').querySelectorAll('[role="tab"]'));
+      const idx = items.indexOf(document.activeElement);
+      let j = idx;
+      if (e.key === 'ArrowRight') j = Math.min(items.length - 1, (idx < 0 ? 0 : idx + 1));
+      if (e.key === 'ArrowLeft')  j = Math.max(0, (idx < 0 ? 0 : idx - 1));
+      items[j]?.focus();
+    });
+
+    // Outside-click to close dropdowns/panels
+    document.addEventListener('click', (e) => {
+      if (!kebabDrop.contains(e.target) && !kebabBtn.contains(e.target)) toggleMenu(false);
+      if (!tabDropPanel.contains(e.target) && !tabDropBtn.contains(e.target)) tabDropPanel.classList.add('hidden');
+      if (!tabNewPanel.contains(e.target) && !tabNewBtn.contains(e.target)) tabNewPanel.classList.add('hidden');
+      if (!wdPanel.contains(e.target) && !wdBtn.contains(e.target)) wdPanel.classList.add('hidden');
+    });
+    // ---------- HOME WIDGETS ----------
+    const widgetsEl = document.getElementById('widgets');
+    if (widgetsEl) {
+      const REG_ITEMS = [
+        { id: 'home', href: '/', label: 'Domů', icon: '🏠', defaultSize: 'M' },
+        { id: 'wiki', href: '/wiki/', label: 'Wiki', icon: '📚', defaultSize: 'M' },
+        { id: 'maps', href: '/maps/', label: 'Mapy', icon: '🗺️', defaultSize: 'M' },
+        { id: 'sport', href: '/livesport/', label: 'Sport', icon: '🏅', defaultSize: 'M' },
+        { id: 'msa', href: '/msasquashtour/', label: 'MSA Squash', icon: '🎾', defaultSize: 'M' }
+      ];
+      const REG = Object.fromEntries(REG_ITEMS.map(r => [r.id, r]));
+      const key = widgetsEl.dataset.key || 'home.widgets.v1';
+      const editBtn = document.getElementById('widgets-edit');
+      const saveBtn = document.getElementById('widgets-save');
+      const addBtn = document.getElementById('widgets-add');
+      const panel = document.getElementById('widgets-panel');
+      const list = document.getElementById('widgets-list');
+      const searchInput = document.getElementById('widgets-search');
+      const live = document.getElementById('widgets-live');
+
+      let state = load();
+      render();
+
+      function load() {
+        try {
+          const data = JSON.parse(localStorage.getItem(key));
+          if (data && Array.isArray(data.items)) {
+            const items = [];
+            data.items.forEach(it => {
+              const id = (it.id || '').toLowerCase();
+              const reg = REG[id];
+              if (!reg) return;
+              if (!items.find(x => x.id === id)) items.push({ id, size: it.size || reg.defaultSize });
+            });
+            if (items.length) return { items };
+          }
+        } catch (_) {}
+        const items = [];
+        widgetsEl.querySelectorAll('[data-id]').forEach(el => {
+          const id = (el.dataset.id || '').toLowerCase();
+          if (REG[id] && !items.find(x => x.id === id)) items.push({ id, size: REG[id].defaultSize });
+        });
+        const st = { items, version: 1 };
+        localStorage.setItem(key, JSON.stringify(st));
+        return st;
+      }
+
+      function save() {
+        localStorage.setItem(key, JSON.stringify({ items: state.items, version: 1 }));
+      }
+
+      function render() {
+        widgetsEl.querySelectorAll('[data-id]').forEach(el => el.remove());
+        state.items.forEach(it => {
+          const reg = REG[it.id];
+          if (!reg) return;
+          const a = document.createElement('a');
+          a.href = reg.href;
+          a.dataset.id = reg.id;
+          a.role = 'listitem';
+          a.className = 'relative rounded-2xl border border-slate-200 bg-white p-5 shadow-soft transition hover:shadow-lg dark:border-slate-800 dark:bg-slate-900';
+          a.innerHTML = `<div class="mb-1 text-sm text-slate-500">${reg.icon} ${reg.label}</div>`;
+          if (widgetsEl.classList.contains('editing')) {
+            a.draggable = true;
+            a.innerHTML += '<button class="widget-remove absolute right-2 top-2 rounded bg-slate-200 px-1 text-xs dark:bg-slate-700">×</button>';
+          }
+          widgetsEl.insertBefore(a, addBtn);
+        });
+        document.getElementById('widgets-empty')?.classList.toggle('hidden', state.items.length !== 0);
+        updatePanel();
+      }
+
+      function updatePanel() {
+        if (!list) return;
+        list.innerHTML = '';
+        const q = searchInput?.value.toLowerCase() || '';
+        REG_ITEMS.forEach(reg => {
+          if (q && !reg.label.toLowerCase().includes(q)) return;
+          const exists = state.items.some(i => i.id === reg.id);
+          const li = document.createElement('li');
+          li.innerHTML = `<button data-id="${reg.id}" class="flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left ${exists ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-100 dark:hover:bg-slate-800'}"><span>${reg.icon} ${reg.label}</span><span class="text-xs">${exists ? 'Přidáno' : ''}</span></button>`;
+          list.appendChild(li);
+        });
+      }
+
+      searchInput?.addEventListener('input', updatePanel);
+      list?.addEventListener('click', e => {
+        const btn = e.target.closest('button[data-id]');
+        if (!btn) return;
+        const id = btn.dataset.id;
+        if (state.items.some(i => i.id === id)) return;
+        state.items.push({ id, size: REG[id].defaultSize });
+        save();
+        render();
+      });
+
+      addBtn?.addEventListener('click', () => { panel.classList.remove('hidden'); updatePanel(); searchInput?.focus(); });
+      document.getElementById('widgets-panel-close')?.addEventListener('click', () => panel.classList.add('hidden'));
+      panel?.addEventListener('click', e => { if (e.target === panel) panel.classList.add('hidden'); });
+
+      editBtn?.addEventListener('click', () => {
+        widgetsEl.classList.add('editing');
+        editBtn.classList.add('hidden');
+        saveBtn.classList.remove('hidden');
+        render();
+      });
+      saveBtn?.addEventListener('click', () => {
+        widgetsEl.classList.remove('editing');
+        editBtn.classList.remove('hidden');
+        saveBtn.classList.add('hidden');
+        save();
+        render();
+      });
+
+      widgetsEl.addEventListener('click', e => {
+        if (widgetsEl.classList.contains('editing')) {
+          const removeBtn = e.target.closest('.widget-remove');
+          if (removeBtn) {
+            const id = removeBtn.parentElement.dataset.id;
+            if (confirm('Odebrat widget?')) {
+              state.items = state.items.filter(i => i.id !== id);
+              save();
+              render();
+            }
+            return;
+          }
+          if (e.target.closest('[data-id]')) e.preventDefault();
+        }
+      });
+
+      let dragId = null;
+      widgetsEl.addEventListener('dragstart', e => {
+        if (!widgetsEl.classList.contains('editing')) return;
+        dragId = e.target.closest('[data-id]')?.dataset.id;
+      });
+      widgetsEl.addEventListener('dragover', e => {
+        if (!widgetsEl.classList.contains('editing')) return;
+        e.preventDefault();
+      });
+      widgetsEl.addEventListener('drop', e => {
+        if (!widgetsEl.classList.contains('editing')) return;
+        e.preventDefault();
+        const targetId = e.target.closest('[data-id]')?.dataset.id;
+        if (dragId && targetId && dragId !== targetId) {
+          const from = state.items.findIndex(i => i.id === dragId);
+          const to = state.items.findIndex(i => i.id === targetId);
+          if (from > -1 && to > -1) {
+            const [m] = state.items.splice(from, 1);
+            state.items.splice(to, 0, m);
+            save();
+            render();
+            live.textContent = REG[m.id].label + ' přesunuto';
+          }
+        }
+      });
+
+      widgetsEl.addEventListener('keydown', e => {
+        if (!widgetsEl.classList.contains('editing')) return;
+        const id = e.target.closest('[data-id]')?.dataset.id;
+        if (!id) return;
+        const idx = state.items.findIndex(i => i.id === id);
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+          e.preventDefault();
+          if (idx > 0) {
+            [state.items[idx - 1], state.items[idx]] = [state.items[idx], state.items[idx - 1]];
+            save();
+            render();
+            widgetsEl.querySelector(`[data-id="${id}"]`)?.focus();
+            live.textContent = REG[id].label + ' přesunuto';
+          }
+        } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+          e.preventDefault();
+          if (idx < state.items.length - 1) {
+            [state.items[idx], state.items[idx + 1]] = [state.items[idx + 1], state.items[idx]];
+            save();
+            render();
+            widgetsEl.querySelector(`[data-id="${id}"]`)?.focus();
+            live.textContent = REG[id].label + ' přesunuto';
+          }
+        }
+      });
+    }
+
+    // Service worker
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/service-worker.js');
+  });
+  </script>
+</body>
 </html>
+
