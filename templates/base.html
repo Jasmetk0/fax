@@ -427,6 +427,188 @@
       if (!tabNewPanel.contains(e.target) && !tabNewBtn.contains(e.target)) tabNewPanel.classList.add('hidden');
       if (!wdPanel.contains(e.target) && !wdBtn.contains(e.target)) wdPanel.classList.add('hidden');
     });
+    // ---------- HOME WIDGETS ----------
+    const widgetsEl = document.getElementById('widgets');
+    if (widgetsEl) {
+      const REG_ITEMS = [
+        { id: 'home', href: '/', label: 'Domů', icon: '🏠', defaultSize: 'M' },
+        { id: 'wiki', href: '/wiki/', label: 'Wiki', icon: '📚', defaultSize: 'M' },
+        { id: 'maps', href: '/maps/', label: 'Mapy', icon: '🗺️', defaultSize: 'M' },
+        { id: 'sport', href: '/livesport/', label: 'Sport', icon: '🏅', defaultSize: 'M' },
+        { id: 'msa', href: '/msasquashtour/', label: 'MSA Squash', icon: '🎾', defaultSize: 'M' }
+      ];
+      const REG = Object.fromEntries(REG_ITEMS.map(r => [r.id, r]));
+      const key = widgetsEl.dataset.key || 'home.widgets.v1';
+      const editBtn = document.getElementById('widgets-edit');
+      const saveBtn = document.getElementById('widgets-save');
+      const addBtn = document.getElementById('widgets-add');
+      const panel = document.getElementById('widgets-panel');
+      const list = document.getElementById('widgets-list');
+      const searchInput = document.getElementById('widgets-search');
+      const live = document.getElementById('widgets-live');
+
+      let state = load();
+      render();
+
+      function load() {
+        try {
+          const data = JSON.parse(localStorage.getItem(key));
+          if (data && Array.isArray(data.items)) {
+            const items = [];
+            data.items.forEach(it => {
+              const id = (it.id || '').toLowerCase();
+              const reg = REG[id];
+              if (!reg) return;
+              if (!items.find(x => x.id === id)) items.push({ id, size: it.size || reg.defaultSize });
+            });
+            if (items.length) return { items };
+          }
+        } catch (_) {}
+        const items = [];
+        widgetsEl.querySelectorAll('[data-id]').forEach(el => {
+          const id = (el.dataset.id || '').toLowerCase();
+          if (REG[id] && !items.find(x => x.id === id)) items.push({ id, size: REG[id].defaultSize });
+        });
+        const st = { items, version: 1 };
+        localStorage.setItem(key, JSON.stringify(st));
+        return st;
+      }
+
+      function save() {
+        localStorage.setItem(key, JSON.stringify({ items: state.items, version: 1 }));
+      }
+
+      function render() {
+        widgetsEl.querySelectorAll('[data-id]').forEach(el => el.remove());
+        state.items.forEach(it => {
+          const reg = REG[it.id];
+          if (!reg) return;
+          const a = document.createElement('a');
+          a.href = reg.href;
+          a.dataset.id = reg.id;
+          a.role = 'listitem';
+          a.className = 'relative rounded-2xl border border-slate-200 bg-white p-5 shadow-soft transition hover:shadow-lg dark:border-slate-800 dark:bg-slate-900';
+          a.innerHTML = `<div class="mb-1 text-sm text-slate-500">${reg.icon} ${reg.label}</div>`;
+          if (widgetsEl.classList.contains('editing')) {
+            a.draggable = true;
+            a.innerHTML += '<button class="widget-remove absolute right-2 top-2 rounded bg-slate-200 px-1 text-xs dark:bg-slate-700">×</button>';
+          }
+          widgetsEl.insertBefore(a, addBtn);
+        });
+        document.getElementById('widgets-empty')?.classList.toggle('hidden', state.items.length !== 0);
+        updatePanel();
+      }
+
+      function updatePanel() {
+        if (!list) return;
+        list.innerHTML = '';
+        const q = searchInput?.value.toLowerCase() || '';
+        REG_ITEMS.forEach(reg => {
+          if (q && !reg.label.toLowerCase().includes(q)) return;
+          const exists = state.items.some(i => i.id === reg.id);
+          const li = document.createElement('li');
+          li.innerHTML = `<button data-id="${reg.id}" class="flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left ${exists ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-100 dark:hover:bg-slate-800'}"><span>${reg.icon} ${reg.label}</span><span class="text-xs">${exists ? 'Přidáno' : ''}</span></button>`;
+          list.appendChild(li);
+        });
+      }
+
+      searchInput?.addEventListener('input', updatePanel);
+      list?.addEventListener('click', e => {
+        const btn = e.target.closest('button[data-id]');
+        if (!btn) return;
+        const id = btn.dataset.id;
+        if (state.items.some(i => i.id === id)) return;
+        state.items.push({ id, size: REG[id].defaultSize });
+        save();
+        render();
+      });
+
+      addBtn?.addEventListener('click', () => { panel.classList.remove('hidden'); updatePanel(); searchInput?.focus(); });
+      document.getElementById('widgets-panel-close')?.addEventListener('click', () => panel.classList.add('hidden'));
+      panel?.addEventListener('click', e => { if (e.target === panel) panel.classList.add('hidden'); });
+
+      editBtn?.addEventListener('click', () => {
+        widgetsEl.classList.add('editing');
+        editBtn.classList.add('hidden');
+        saveBtn.classList.remove('hidden');
+        render();
+      });
+      saveBtn?.addEventListener('click', () => {
+        widgetsEl.classList.remove('editing');
+        editBtn.classList.remove('hidden');
+        saveBtn.classList.add('hidden');
+        save();
+        render();
+      });
+
+      widgetsEl.addEventListener('click', e => {
+        if (widgetsEl.classList.contains('editing')) {
+          const removeBtn = e.target.closest('.widget-remove');
+          if (removeBtn) {
+            const id = removeBtn.parentElement.dataset.id;
+            if (confirm('Odebrat widget?')) {
+              state.items = state.items.filter(i => i.id !== id);
+              save();
+              render();
+            }
+            return;
+          }
+          if (e.target.closest('[data-id]')) e.preventDefault();
+        }
+      });
+
+      let dragId = null;
+      widgetsEl.addEventListener('dragstart', e => {
+        if (!widgetsEl.classList.contains('editing')) return;
+        dragId = e.target.closest('[data-id]')?.dataset.id;
+      });
+      widgetsEl.addEventListener('dragover', e => {
+        if (!widgetsEl.classList.contains('editing')) return;
+        e.preventDefault();
+      });
+      widgetsEl.addEventListener('drop', e => {
+        if (!widgetsEl.classList.contains('editing')) return;
+        e.preventDefault();
+        const targetId = e.target.closest('[data-id]')?.dataset.id;
+        if (dragId && targetId && dragId !== targetId) {
+          const from = state.items.findIndex(i => i.id === dragId);
+          const to = state.items.findIndex(i => i.id === targetId);
+          if (from > -1 && to > -1) {
+            const [m] = state.items.splice(from, 1);
+            state.items.splice(to, 0, m);
+            save();
+            render();
+            live.textContent = REG[m.id].label + ' přesunuto';
+          }
+        }
+      });
+
+      widgetsEl.addEventListener('keydown', e => {
+        if (!widgetsEl.classList.contains('editing')) return;
+        const id = e.target.closest('[data-id]')?.dataset.id;
+        if (!id) return;
+        const idx = state.items.findIndex(i => i.id === id);
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+          e.preventDefault();
+          if (idx > 0) {
+            [state.items[idx - 1], state.items[idx]] = [state.items[idx], state.items[idx - 1]];
+            save();
+            render();
+            widgetsEl.querySelector(`[data-id="${id}"]`)?.focus();
+            live.textContent = REG[id].label + ' přesunuto';
+          }
+        } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+          e.preventDefault();
+          if (idx < state.items.length - 1) {
+            [state.items[idx], state.items[idx + 1]] = [state.items[idx + 1], state.items[idx]];
+            save();
+            render();
+            widgetsEl.querySelector(`[data-id="${id}"]`)?.focus();
+            live.textContent = REG[id].label + ' přesunuto';
+          }
+        }
+      });
+    }
 
     // Service worker
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('/service-worker.js');

@@ -13,57 +13,49 @@
     </form>
   </div>
 </section>
-<section class="mx-auto mt-10 max-w-7xl px-4">
-  <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
-    <div class="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-soft dark:border-slate-800 dark:bg-slate-900">
-      <div class="text-xs uppercase text-slate-500 dark:text-slate-400">Wiki články</div>
-      <div class="mt-1 text-2xl font-semibold">123</div>
-    </div>
-    <div class="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-soft dark:border-slate-800 dark:bg-slate-900">
-      <div class="text-xs uppercase text-slate-500 dark:text-slate-400">Mapy</div>
-      <div class="mt-1 text-2xl font-semibold">45</div>
-    </div>
-    <div class="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-soft dark:border-slate-800 dark:bg-slate-900">
-      <div class="text-xs uppercase text-slate-500 dark:text-slate-400">Uživatelé</div>
-      <div class="mt-1 text-2xl font-semibold">89</div>
-    </div>
-    <div class="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-soft dark:border-slate-800 dark:bg-slate-900">
-      <div class="text-xs uppercase text-slate-500 dark:text-slate-400">Sportovní data</div>
-      <div class="mt-1 text-2xl font-semibold">17</div>
+<section class="mx-auto mt-10 w-full px-4 sm:w-[90%] lg:w-[60%]">
+  <div class="mb-4 flex items-center justify-between">
+    <h2 class="text-lg font-semibold">Moje widgety</h2>
+    <div class="flex gap-2">
+      <button id="widgets-edit" class="rounded-lg border px-3 py-1.5 text-sm hover:bg-slate-100 dark:hover:bg-slate-800">Uspořádat</button>
+      <button id="widgets-save" class="hidden rounded-lg border px-3 py-1.5 text-sm hover:bg-slate-100 dark:hover:bg-slate-800">Uložit rozložení</button>
     </div>
   </div>
-</section>
-<section class="mx-auto mt-10 max-w-7xl px-4">
-  <h2 class="mb-4 text-lg font-semibold">Rychlý přístup</h2>
-  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-    <a href="/wiki/" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-soft transition hover:shadow-lg dark:border-slate-800 dark:bg-slate-900">
+  <div id="widgets" data-key="home.widgets.v1" role="list" class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+    <a href="/wiki/" data-id="wiki" role="listitem" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-soft transition hover:shadow-lg dark:border-slate-800 dark:bg-slate-900">
       <div class="mb-1 text-sm text-slate-500">📚 Wiki</div>
       <div class="font-medium">Encyklopedie FAX</div>
-      <p class="mt-1 text-sm text-slate-500">Collaborative articles.</p>
       <div class="mt-4 text-xs text-slate-500">Aktualizováno…</div>
     </a>
-    <a href="/maps/" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-soft transition hover:shadow-lg dark:border-slate-800 dark:bg-slate-900">
+    <a href="/maps/" data-id="maps" role="listitem" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-soft transition hover:shadow-lg dark:border-slate-800 dark:bg-slate-900">
       <div class="mb-1 text-sm text-slate-500">🗺️ Mapy</div>
       <div class="font-medium">Leaflet mapy</div>
-      <p class="mt-1 text-sm text-slate-500">Explore maps.</p>
       <div class="mt-4 text-xs text-slate-500">Aktualizováno…</div>
     </a>
-    <a href="/livesport/" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-soft transition hover:shadow-lg dark:border-slate-800 dark:bg-slate-900">
+    <a href="/livesport/" data-id="sport" role="listitem" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-soft transition hover:shadow-lg dark:border-slate-800 dark:bg-slate-900">
       <div class="mb-1 text-sm text-slate-500">🏅 Sport</div>
       <div class="font-medium">LiveSport</div>
-      <p class="mt-1 text-sm text-slate-500">Sports updates.</p>
       <div class="mt-4 text-xs text-slate-500">Právě teď</div>
     </a>
-    <a href="/msasquashtour/" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-soft transition hover:shadow-lg dark:border-slate-800 dark:bg-slate-900">
-      <div class="mb-1 text-sm text-slate-500">🎾 Squash</div>
+    <a href="/msasquashtour/" data-id="msa" role="listitem" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-soft transition hover:shadow-lg dark:border-slate-800 dark:bg-slate-900">
+      <div class="mb-1 text-sm text-slate-500">🎾 MSA Squash</div>
       <div class="font-medium">MSA Squash Tour</div>
-      <p class="mt-1 text-sm text-slate-500">Professional tour.</p>
       <div class="mt-4 text-xs text-slate-500">Nové turnaje</div>
     </a>
-    <button type="button" class="rounded-2xl border-2 border-dashed border-slate-300 bg-white p-5 text-left shadow-soft transition hover:border-brand-400 hover:shadow-lg dark:border-slate-700 dark:bg-slate-900">
-      <div class="font-medium">＋ Přidat widget</div>
-      <p class="mt-1 text-sm text-slate-500">Přidejte si vlastní dlaždici.</p>
-    </button>
+    <button id="widgets-add" type="button" role="listitem" class="rounded-2xl border-2 border-dashed border-slate-300 bg-white p-5 text-left text-slate-500 shadow-soft transition hover:border-brand-400 hover:text-slate-700 hover:shadow-lg dark:border-slate-700 dark:bg-slate-900 dark:hover:border-brand-400 dark:hover:text-slate-200">＋ Přidat widget</button>
   </div>
+  <div id="widgets-empty" class="hidden py-8 text-center text-sm text-slate-500">Zatím žádné widgety — přidejte si první</div>
 </section>
+
+<div id="widgets-panel" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 backdrop-blur-sm">
+  <div class="w-[min(90%,400px)] rounded-2xl border border-slate-200 bg-white p-4 shadow-xl dark:border-slate-800 dark:bg-slate-900">
+    <div class="mb-3 text-lg font-medium">Přidat widget</div>
+    <input id="widgets-search" type="text" placeholder="Filtrovat..." class="mb-3 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800" />
+    <ul id="widgets-list" class="max-h-64 space-y-1 overflow-y-auto"></ul>
+    <div class="mt-4 text-right">
+      <button id="widgets-panel-close" class="rounded-lg border px-3 py-1.5 text-sm hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800">Zavřít</button>
+    </div>
+  </div>
+</div>
+<div id="widgets-live" class="sr-only" aria-live="polite"></div>
 {% endblock %}
