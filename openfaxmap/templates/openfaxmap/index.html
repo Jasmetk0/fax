@@ -8,10 +8,18 @@
     <input id="ofm-upload" type="file" accept=".geojson,.json,.osm" class="hidden" />
     <button id="ofm-upload-btn" class="rounded border px-2 py-1 text-sm">Nahrát data</button>
     <label class="flex items-center gap-1 text-sm"><input type="checkbox" id="ofm-osm" /> OSM podklad</label>
+    <label class="flex items-center gap-1 text-sm"><input type="checkbox" id="ofm-labels" /> Popisky</label>
     <label class="flex items-center gap-1 text-sm"><input type="checkbox" id="ofm-units" /> Vlastní jednotky</label>
     <button id="ofm-fit" class="ml-auto rounded border px-2 py-1 text-sm">Fit na data</button>
   </div>
-  <div id="openfaxmap" class="flex-1"></div>
+  <div id="ofm-status" class="px-2 py-1 text-sm text-slate-600 dark:text-slate-300"></div>
+  <div
+    id="openfaxmap"
+    class="flex-1"
+    data-tile-url="{{ tile_url }}"
+    data-tile-attribution="{{ tile_attribution }}"
+    data-style-url="{{ style_url }}"
+  ></div>
 </div>
 <script src="{% static 'openfaxmap/openfaxmap.js' %}"></script>
 <script>
