@@ -9,15 +9,14 @@
 - API pro sugesci článků.
 
 ## Cíl
-Udržovat číselná data centralizovaně (DataSeries) a vkládat je do článků pomocí shortcodů,
-včetně základních agregací a grafů.
+Kategorizovat datové série (category/sub_category) a umožnit generování
+tabulek a map z kategorií.
 
 ## TODO / Roadmapa
-- Validace typů klíčů (datum/rok)
-- Faceted API
-- Export CSV/JSON
-- Editor datových bodů inline
-- Práva „data editor“
-- Verzování dat
+- Validace klíčů (rok vs. datum)
+- Mapovací tabulka slug↔geo feature
+- Více palet a škálování
+- Cachování API
+- Facety (filter unit, has_value_for_year)
 
 ## Poznámky

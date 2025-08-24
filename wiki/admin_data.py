@@ -45,7 +45,7 @@ class CSVImportActionForm(admin.helpers.ActionForm):
 
 @admin.register(DataSeries)
 class DataSeriesAdmin(admin.ModelAdmin):
-    list_display = ("slug", "title", "unit")
+    list_display = ("slug", "title", "unit", "category", "sub_category")
     inlines = [DataPointInline]
     action_form = CSVImportActionForm
     actions = ["import_csv"]

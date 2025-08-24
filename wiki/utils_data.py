@@ -7,7 +7,7 @@ import io
 import re
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Dict, Iterable, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 
 from django.core.cache import cache
 from django.db.models import Sum
@@ -25,7 +25,7 @@ class ShortcodeParams:
     agg: Optional[str] = None
 
 
-def _format_value(value: Decimal, fmt: Optional[str]) -> str:
+def format_number(value: Decimal, fmt: Optional[str]) -> str:
     """Format numeric value according to ``fmt`` parameter."""
 
     if fmt == "comma":
@@ -87,8 +87,40 @@ def _agg_query(series: DataSeries, agg: str) -> Optional[Decimal]:
     return None
 
 
+def parse_series_slug(slug: str) -> Tuple[str, str, str]:
+    """Split slug into ``(category, sub_category, entity)``."""
+
+    parts = slug.split("/")
+    category = parts[0] if parts else ""
+    sub = parts[1] if len(parts) > 1 else ""
+    entity = "/".join(parts[2:]) if len(parts) > 2 else ""
+    return category, sub, entity
+
+
+def get_series_by_category(category: str, sub_category: Optional[str] = None):
+    """Return a queryset of series in ``category`` and optional ``sub_category``."""
+
+    qs = DataSeries.objects.filter(category=category)
+    if sub_category is not None:
+        qs = qs.filter(sub_category=sub_category)
+    return qs
+
+
+def get_value_for_year(series: DataSeries, year: str) -> Optional[Decimal]:
+    """Return value for ``year`` or ``None``."""
+
+    try:
+        return series.points.get(key=year).value
+    except DataPoint.DoesNotExist:
+        return None
+
+
 def replace_data_shortcodes(html: str) -> str:
-    """Replace ``{{data:...}}`` and ``{{chart:...}}`` shortcodes in HTML."""
+    """Replace data-related shortcodes in HTML.
+
+    Supports ``{{data:...}}``, ``{{chart:...}}``, ``{{table:...}}`` and
+    ``{{map:...}}``.
+    """
 
     def repl(match: re.Match[str]) -> str:
         slug = match.group("slug")
@@ -119,7 +151,7 @@ def replace_data_shortcodes(html: str) -> str:
         if value is None:
             cache.set(cache_key, params.default, CACHE_TTL)
             return params.default
-        formatted = _format_value(value, params.fmt)
+        formatted = format_number(value, params.fmt)
         unit = params.unit or series.unit
         text = f"{formatted} {unit}".strip()
         cache.set(cache_key, text, CACHE_TTL)
@@ -143,7 +175,85 @@ def replace_data_shortcodes(html: str) -> str:
         )
 
     chart_pattern = re.compile(r"\{\{chart:(?P<slug>[^|}]+)(?:\|(?P<rest>[^}]+))?\}\}")
-    return chart_pattern.sub(repl_chart, html)
+    html = chart_pattern.sub(repl_chart, html)
+
+    def repl_table(match: re.Match[str]) -> str:
+        cat_slug = match.group("slug")
+        rest = match.group("rest") or ""
+        params = dict(part.split("=", 1) for part in rest.split("|") if "=" in part)
+        year = params.get("year")
+        if not year:
+            return ""
+        sort = params.get("sort", "value")
+        desc = params.get("desc", "0") == "1"
+        limit = int(params.get("limit", "0") or 0) or None
+        fmt = params.get("fmt")
+        unit = params.get("unit") == "1"
+        empty = params.get("empty", "—")
+        category, sub, _ = parse_series_slug(cat_slug)
+        cache_key = f"ds-table:{category}:{sub}:{year}:{sort}:{desc}:{limit}:{fmt}:{unit}:{empty}"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return cached
+        rows: List[Dict[str, object]] = []
+        for series in get_series_by_category(category, sub or None):
+            value = get_value_for_year(series, year)
+            if value is None:
+                display = empty
+                value_sort: Optional[Decimal] = None
+            else:
+                display = format_number(value, fmt)
+                if unit and series.unit:
+                    display = f"{display} {series.unit}"
+                value_sort = value
+            rows.append(
+                {
+                    "title": series.title or series.slug,
+                    "slug": series.slug,
+                    "display": display,
+                    "value_sort": value_sort,
+                }
+            )
+        if sort == "title":
+            rows.sort(key=lambda r: str(r["title"]))
+        elif sort == "slug":
+            rows.sort(key=lambda r: str(r["slug"]))
+        else:
+            rows.sort(key=lambda r: (r["value_sort"] is None, r["value_sort"]))
+        if desc:
+            rows.reverse()
+        if limit:
+            rows = rows[:limit]
+        body = "".join(
+            f"<tr><td>{r['title']}</td><td>{r['display']}</td></tr>" for r in rows
+        )
+        html_table = (
+            f'<table class="ds-table"><thead><tr><th>Název</th>'
+            f"<th>Hodnota ({year})</th></tr></thead>"
+            f"<tbody>{body}</tbody></table>"
+        )
+        cache.set(cache_key, html_table, CACHE_TTL)
+        return html_table
+
+    table_pattern = re.compile(r"\{\{table:(?P<slug>[^|}]+)(?:\|(?P<rest>[^}]+))?\}\}")
+    html = table_pattern.sub(repl_table, html)
+
+    def repl_map(match: re.Match[str]) -> str:
+        category = match.group("slug")
+        rest = match.group("rest") or ""
+        params = dict(part.split("=", 1) for part in rest.split("|") if "=" in part)
+        year = params.get("year", "")
+        palette = params.get("palette", "Blues")
+        legend = params.get("legend", "0")
+        height = params.get("height", "360")
+        return (
+            f'<div class="ds-map" data-category="{category}" data-year="{year}" '
+            f'data-palette="{palette}" data-legend="{legend}" '
+            f'style="height:{height}px"></div>'
+        )
+
+    map_pattern = re.compile(r"\{\{map:(?P<slug>[^|}]+)(?:\|(?P<rest>[^}]+))?\}\}")
+    return map_pattern.sub(repl_map, html)
 
 
 def import_csv_to_series(

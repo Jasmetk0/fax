@@ -12,6 +12,8 @@ class DataSeries(models.Model):
     title = models.CharField(max_length=200, blank=True)
     unit = models.CharField(max_length=50, blank=True)
     description = models.TextField(blank=True)
+    category = models.CharField(max_length=100, db_index=True, blank=True)
+    sub_category = models.CharField(max_length=100, db_index=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -19,6 +21,19 @@ class DataSeries(models.Model):
 
     def __str__(self) -> str:  # pragma: no cover - trivial
         return self.title or self.slug
+
+    def save(self, *args, **kwargs) -> None:
+        """Ensure ``category`` and ``sub_category`` are derived from ``slug``."""
+
+        if not self.category or not self.sub_category:
+            from .utils_data import parse_series_slug  # local import to avoid circular
+
+            category, sub_category, _ = parse_series_slug(self.slug)
+            if not self.category:
+                self.category = category
+            if not self.sub_category:
+                self.sub_category = sub_category
+        super().save(*args, **kwargs)
 
 
 class DataPoint(models.Model):

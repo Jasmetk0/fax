@@ -8,6 +8,7 @@ from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 
 from .models_data import DataPoint, DataSeries
+from .utils_data import get_series_by_category, get_value_for_year
 
 
 class BurstAnonThrottle(AnonRateThrottle):
@@ -23,7 +24,15 @@ class DataPointSerializer(serializers.ModelSerializer):
 class DataSeriesListSerializer(serializers.ModelSerializer):
     class Meta:
         model = DataSeries
-        fields = ["slug", "title", "unit"]
+        fields = ["slug", "title", "unit", "category", "sub_category"]
+
+
+class DataSeriesCategorySerializer(serializers.ModelSerializer):
+    value_for_year = serializers.CharField(read_only=True)
+
+    class Meta:
+        model = DataSeries
+        fields = ["slug", "title", "unit", "sub_category", "value_for_year"]
 
 
 class DataSeriesDetailSerializer(serializers.ModelSerializer):
@@ -63,3 +72,51 @@ class DataPointDetail(generics.GenericAPIView):
         return Response(
             {"key": point.key, "value": str(point.value), "unit": series.unit}
         )
+
+
+class DataSeriesByCategory(generics.GenericAPIView):
+    permission_classes = [permissions.AllowAny]
+    throttle_classes = [BurstAnonThrottle]
+    serializer_class = DataSeriesCategorySerializer
+
+    def get_queryset(self):  # pragma: no cover - simple access
+        category = self.kwargs["category"]
+        sub = self.kwargs.get("sub_category")
+        return get_series_by_category(category, sub)
+
+    def get(self, request, *args, **kwargs) -> Response:
+        year = request.GET.get("year")
+        ordering = request.GET.get("ordering", "slug")
+        limit = request.GET.get("limit")
+        qs = list(self.get_queryset())
+        data_list = []
+        by_slug = {}
+        for s in qs:
+            value = get_value_for_year(s, year) if year else None
+            item = {
+                "slug": s.slug,
+                "title": s.title,
+                "unit": s.unit,
+                "sub_category": s.sub_category,
+                "value_for_year": str(value) if value is not None else None,
+                "_sort_value": value,
+            }
+            if value is not None:
+                by_slug[s.slug] = str(value)
+            data_list.append(item)
+        reverse = False
+        if ordering.startswith("-"):
+            reverse = True
+            ordering = ordering[1:]
+        if ordering == "value_for_year":
+            data_list.sort(
+                key=lambda d: (d["_sort_value"] is None, d["_sort_value"]),
+                reverse=reverse,
+            )
+        else:
+            data_list.sort(key=lambda d: d.get(ordering) or "", reverse=reverse)
+        if limit:
+            data_list = data_list[: int(limit)]
+        for item in data_list:
+            item.pop("_sort_value", None)
+        return Response({"results": data_list, "by_slug": by_slug})
