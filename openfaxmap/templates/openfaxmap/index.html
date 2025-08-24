@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}OpenFaxMap – FAX Portal{% endblock %}
+{% block content %}
+<div class="flex h-full flex-col">
+  <div class="flex items-center gap-2 border-b border-slate-200 bg-white/80 p-2 backdrop-blur dark:border-slate-800 dark:bg-slate-900/80">
+    <span class="font-semibold">OpenFaxMap</span>
+    <input id="ofm-upload" type="file" accept=".geojson,.json,.osm" class="hidden" />
+    <button id="ofm-upload-btn" class="rounded border px-2 py-1 text-sm">Nahrát data</button>
+    <label class="flex items-center gap-1 text-sm"><input type="checkbox" id="ofm-osm" /> OSM podklad</label>
+    <label class="flex items-center gap-1 text-sm"><input type="checkbox" id="ofm-units" /> Vlastní jednotky</label>
+    <button id="ofm-fit" class="ml-auto rounded border px-2 py-1 text-sm">Fit na data</button>
+  </div>
+  <div id="openfaxmap" class="flex-1"></div>
+</div>
+<script src="{% static 'openfaxmap/openfaxmap.js' %}"></script>
+<script>
+  document.getElementById('ofm-upload-btn').addEventListener('click', () => document.getElementById('ofm-upload').click());
+</script>
+{% endblock %}

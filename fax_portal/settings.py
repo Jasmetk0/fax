@@ -18,6 +18,7 @@ INSTALLED_APPS = [
     "shell",
     "wiki",
     "maps",
+    "openfaxmap",
     "sports",
     "msa",
 ]
