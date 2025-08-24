@@ -7,6 +7,8 @@ import bleach
 import markdown
 import re
 
+from .utils_data import replace_data_shortcodes
+
 
 class Tag(models.Model):
     name = models.CharField(max_length=100, unique=True)
@@ -80,6 +82,7 @@ class Article(models.Model):
         md = infobox_parser.process(self.content_md, page_title=self.title)
         processed = re.sub(pattern, repl, md)
         html = markdown.markdown(processed)
+        html = replace_data_shortcodes(html)
         allowed = list(bleach.sanitizer.ALLOWED_TAGS) + [
             "p",
             "pre",
@@ -109,7 +112,14 @@ class Article(models.Model):
             attributes={
                 "a": ["href", "class", "title", "rel", "target"],
                 "span": ["class"],
-                "div": ["class"],
+                "div": [
+                    "class",
+                    "data-series",
+                    "data-type",
+                    "data-from",
+                    "data-to",
+                    "data-height",
+                ],
                 "table": ["class"],
                 "th": ["class"],
                 "td": ["class"],
@@ -151,3 +161,7 @@ class ArticleRevision(models.Model):
 
     def __str__(self) -> str:  # pragma: no cover - simple repr
         return f"{self.article} @ {self.created_at:%Y-%m-%d %H:%M}"
+
+
+# Import additional models so Django registers them
+from .models_data import DataPoint, DataSeries  # noqa: E402,F401

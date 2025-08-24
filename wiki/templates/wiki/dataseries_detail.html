@@ -1,0 +1,28 @@
+{% extends "wiki/base.html" %}
+
+{% block wiki_content %}
+<h1 class="text-xl mb-4">{{ object.title|default:object.slug }}</h1>
+{% if object.description %}<p class="mb-4">{{ object.description }}</p>{% endif %}
+{% if request.user.is_staff and request.session.admin_mode %}
+<p class="mb-4 space-x-2">
+  <a href="{% url 'wiki:dataseries-edit' object.slug %}" class="text-red-600 hover:underline">Edit</a>
+  <a href="{% url 'wiki:dataseries-delete' object.slug %}" class="text-red-600 hover:underline">Delete</a>
+</p>
+{% endif %}
+<table class="table-auto">
+  <thead>
+    <tr><th class="px-2">Key</th><th class="px-2">Value{% if object.unit %} ({{ object.unit }}){% endif %}</th><th class="px-2">Note</th></tr>
+  </thead>
+  <tbody>
+  {% for p in object.points.all %}
+    <tr class="odd:bg-gray-100">
+      <td class="px-2 py-1">{{ p.key }}</td>
+      <td class="px-2 py-1">{{ p.value }}</td>
+      <td class="px-2 py-1">{{ p.note }}</td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="3" class="px-2 py-1">No data points.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
