@@ -9,7 +9,15 @@
 - API pro sugesci článků.
 
 ## Cíl
+Udržovat číselná data centralizovaně (DataSeries) a vkládat je do článků pomocí shortcodů,
+včetně základních agregací a grafů.
 
 ## TODO / Roadmapa
+- Validace typů klíčů (datum/rok)
+- Faceted API
+- Export CSV/JSON
+- Editor datových bodů inline
+- Práva „data editor“
+- Verzování dat
 
 ## Poznámky
