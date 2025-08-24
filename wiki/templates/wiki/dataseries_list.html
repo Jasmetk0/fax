@@ -1,11 +1,19 @@
-{% extends "base.html" %}
+{% extends "wiki/base.html" %}
 
-{% block content %}
-<h1>Data series</h1>
-<p><a href="{% url 'wiki:dataseries-create' %}">Create series</a></p>
-<ul>
+{% block wiki_content %}
+<h1 class="text-xl mb-4">Data series</h1>
+{% if request.user.is_staff and request.session.admin_mode %}
+<p class="mb-4"><a href="{% url 'wiki:dataseries-create' %}" class="text-red-600 hover:underline">Create series</a></p>
+{% endif %}
+<ul class="list-disc pl-5 space-y-1">
   {% for s in series_list %}
-    <li><a href="{% url 'wiki:dataseries-edit' s.slug %}">{{ s.title|default:s.slug }}</a></li>
+    <li>
+      <a href="{% url 'wiki:dataseries-detail' s.slug %}" class="text-red-600 hover:underline">{{ s.title|default:s.slug }}</a>
+      {% if request.user.is_staff and request.session.admin_mode %}
+        <a href="{% url 'wiki:dataseries-edit' s.slug %}" class="ml-2 text-red-600 hover:underline">Edit</a>
+        <a href="{% url 'wiki:dataseries-delete' s.slug %}" class="ml-1 text-red-600 hover:underline">Delete</a>
+      {% endif %}
+    </li>
   {% empty %}
     <li>No data series.</li>
   {% endfor %}

@@ -5,7 +5,13 @@ from __future__ import annotations
 from django.forms import inlineformset_factory
 from django.shortcuts import redirect
 from django.urls import reverse_lazy
-from django.views.generic import CreateView, DeleteView, ListView, UpdateView
+from django.views.generic import (
+    CreateView,
+    DeleteView,
+    DetailView,
+    ListView,
+    UpdateView,
+)
 
 from .models_data import DataPoint, DataSeries
 from .views import AdminModeRequiredMixin
@@ -16,10 +22,22 @@ DataPointFormSet = inlineformset_factory(
 )
 
 
-class DataSeriesListView(AdminModeRequiredMixin, ListView):
+class DataSeriesListView(ListView):
+    """List all data series; editing controls are shown separately."""
+
     model = DataSeries
     template_name = "wiki/dataseries_list.html"
     context_object_name = "series_list"
+    ordering = ["slug"]
+
+
+class DataSeriesDetailView(DetailView):
+    """Display a data series with its points."""
+
+    model = DataSeries
+    slug_field = "slug"
+    slug_url_kwarg = "slug"
+    template_name = "wiki/dataseries_detail.html"
 
 
 class DataSeriesFormMixin(AdminModeRequiredMixin):

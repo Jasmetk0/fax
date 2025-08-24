@@ -3,6 +3,7 @@
 <div class="flex">
   <aside class="w-48 p-4 border-r mr-4 space-y-2">
     <a href="{% url 'wiki:article-list' %}" class="block font-bold">Wiki</a>
+    <a href="{% url 'wiki:dataseries-list' %}" class="block text-red-600 hover:underline">Data series</a>
   </aside>
   <div class="flex-1">
     {% block wiki_content %}{% endblock %}

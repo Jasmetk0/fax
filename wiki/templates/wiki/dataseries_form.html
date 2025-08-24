@@ -1,22 +1,29 @@
-{% extends "base.html" %}
+{% extends "wiki/base.html" %}
 
-{% block content %}
-<h1>{% if object %}Edit{% else %}Create{% endif %} data series</h1>
-<form method="post">
+{% block wiki_content %}
+<h1 class="text-xl mb-4">{% if object %}Edit{% else %}Create{% endif %} data series</h1>
+<form method="post" class="space-y-4">
   {% csrf_token %}
-  {{ form.as_p }}
+  <div class="space-y-2">
+    {{ form.as_p }}
+  </div>
   {{ points_formset.management_form }}
-  <table>
+  <table class="table-auto w-full">
+    <thead>
+      <tr><th class="px-2">Key</th><th class="px-2">Value</th><th class="px-2">Note</th><th class="px-2">Delete</th></tr>
+    </thead>
+    <tbody>
     {% for form in points_formset.forms %}
-    <tr>
-      <td>{{ form.key }}</td>
-      <td>{{ form.value }}</td>
-      <td>{{ form.note }}</td>
-      <td>{{ form.DELETE }}</td>
+    <tr class="odd:bg-gray-100">
+      <td class="px-2">{{ form.key }}</td>
+      <td class="px-2">{{ form.value }}</td>
+      <td class="px-2">{{ form.note }}</td>
+      <td class="px-2">{{ form.DELETE }}</td>
     </tr>
     {% endfor %}
+    </tbody>
   </table>
-  <button type="submit">Save</button>
+  <button type="submit" class="text-red-600 hover:underline">Save</button>
 </form>
 {% endblock %}
 

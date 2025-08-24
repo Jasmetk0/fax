@@ -6,6 +6,7 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.core.management import call_command
+from django.urls import reverse
 
 from django.db import IntegrityError, transaction
 from wiki.models_data import DataPoint, DataSeries
@@ -122,3 +123,47 @@ def test_management_command(tmp_path):
         file=file_path,
     )
     assert series.points.count() == 2
+
+
+@pytest.mark.django_db
+def test_dataseries_list_and_detail_access(client, django_user_model):
+    series = DataSeries.objects.create(slug="pop", title="Population")
+    DataPoint.objects.create(series=series, key="2020", value=Decimal("1"))
+    list_url = reverse("wiki:dataseries-list")
+    detail_url = reverse("wiki:dataseries-detail", args=["pop"])
+
+    # Anonymous user can view list and detail but not see admin controls
+    resp = client.get(list_url)
+    assert resp.status_code == 200
+    assert "Population" in resp.text
+    assert "Create series" not in resp.text
+    resp = client.get(detail_url)
+    assert resp.status_code == 200
+    assert "2020" in resp.text
+    assert "Edit" not in resp.text
+
+    # Staff with admin mode sees controls
+    User = django_user_model
+    staff = User.objects.create_user("admin", password="pw", is_staff=True)
+    client.force_login(staff)
+    session = client.session
+    session["admin_mode"] = True
+    session.save()
+
+    resp = client.get(list_url)
+    assert "Create series" in resp.text
+    resp = client.get(detail_url)
+    assert reverse("wiki:dataseries-edit", args=["pop"]) in resp.text
+
+
+@pytest.mark.django_db
+def test_dataseries_create_requires_admin_mode(client, django_user_model):
+    user = django_user_model.objects.create_user("staff", password="pw", is_staff=True)
+    client.force_login(user)
+    url = reverse("wiki:dataseries-create")
+    resp = client.get(url)
+    assert resp.status_code == 302
+    session = client.session
+    session["admin_mode"] = True
+    session.save()
+    assert client.get(url).status_code == 200

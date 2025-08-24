@@ -1,11 +1,11 @@
-{% extends "base.html" %}
+{% extends "wiki/base.html" %}
 
-{% block content %}
-<h1>Delete data series {{ object }}</h1>
-<form method="post">
+{% block wiki_content %}
+<h1 class="text-xl mb-4">Delete data series {{ object }}</h1>
+<form method="post" class="space-y-4">
   {% csrf_token %}
   <p>Are you sure?</p>
-  <button type="submit">Confirm</button>
+  <button type="submit" class="text-red-600 hover:underline">Confirm</button>
 </form>
 {% endblock %}
 

@@ -6,6 +6,7 @@ from .api_data import DataPointDetail, DataSeriesByCategory, DataSeriesViewSet
 from .views_data import (
     DataSeriesCreateView,
     DataSeriesDeleteView,
+    DataSeriesDetailView,
     DataSeriesListView,
     DataSeriesUpdateView,
 )
@@ -35,6 +36,11 @@ urlpatterns = [
         "dataseries/create/",
         DataSeriesCreateView.as_view(),
         name="dataseries-create",
+    ),
+    path(
+        "dataseries/<slug:slug>/",
+        DataSeriesDetailView.as_view(),
+        name="dataseries-detail",
     ),
     path(
         "dataseries/<slug:slug>/edit/",
