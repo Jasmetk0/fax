@@ -1,0 +1,3 @@
+.widget-placeholder{border:2px dashed #94a3b8;}
+.toast{position:fixed;bottom:1rem;left:50%;transform:translateX(-50%);padding:0.5rem 1rem;border:1px solid #cbd5e1;background:#fff;border-radius:0.5rem;box-shadow:0 8px 30px rgba(0,0,0,.06);display:flex;align-items:center;gap:0.5rem;z-index:1000;}
+@media (prefers-color-scheme: dark){.toast{background:#1e293b;border-color:#475569;color:#e2e8f0;}}
