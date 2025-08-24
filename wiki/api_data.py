@@ -22,9 +22,13 @@ class DataPointSerializer(serializers.ModelSerializer):
 
 
 class DataSeriesListSerializer(serializers.ModelSerializer):
+    categories = serializers.SlugRelatedField(
+        many=True, read_only=True, slug_field="slug"
+    )
+
     class Meta:
         model = DataSeries
-        fields = ["slug", "title", "unit", "category", "sub_category"]
+        fields = ["slug", "title", "unit", "categories"]
 
 
 class DataSeriesCategorySerializer(serializers.ModelSerializer):
@@ -32,15 +36,18 @@ class DataSeriesCategorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = DataSeries
-        fields = ["slug", "title", "unit", "sub_category", "value_for_year"]
+        fields = ["slug", "title", "unit", "value_for_year"]
 
 
 class DataSeriesDetailSerializer(serializers.ModelSerializer):
     points = DataPointSerializer(many=True, read_only=True)
+    categories = serializers.SlugRelatedField(
+        many=True, read_only=True, slug_field="slug"
+    )
 
     class Meta:
         model = DataSeries
-        fields = ["slug", "title", "unit", "description", "points"]
+        fields = ["slug", "title", "unit", "description", "points", "categories"]
 
 
 class StaffWritePermission(permissions.BasePermission):
@@ -81,8 +88,7 @@ class DataSeriesByCategory(generics.GenericAPIView):
 
     def get_queryset(self):  # pragma: no cover - simple access
         category = self.kwargs["category"]
-        sub = self.kwargs.get("sub_category")
-        return get_series_by_category(category, sub)
+        return get_series_by_category(category)
 
     def get(self, request, *args, **kwargs) -> Response:
         year = request.GET.get("year")
@@ -97,7 +103,6 @@ class DataSeriesByCategory(generics.GenericAPIView):
                 "slug": s.slug,
                 "title": s.title,
                 "unit": s.unit,
-                "sub_category": s.sub_category,
                 "value_for_year": str(value) if value is not None else None,
                 "_sort_value": value,
             }

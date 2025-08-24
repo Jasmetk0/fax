@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>{% if object %}Edit{% else %}Create{% endif %} data series</h1>
+<form method="post">
+  {% csrf_token %}
+  {{ form.as_p }}
+  {{ points_formset.management_form }}
+  <table>
+    {% for form in points_formset.forms %}
+    <tr>
+      <td>{{ form.key }}</td>
+      <td>{{ form.value }}</td>
+      <td>{{ form.note }}</td>
+      <td>{{ form.DELETE }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  <button type="submit">Save</button>
+</form>
+{% endblock %}
+

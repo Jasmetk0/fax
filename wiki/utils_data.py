@@ -87,23 +87,10 @@ def _agg_query(series: DataSeries, agg: str) -> Optional[Decimal]:
     return None
 
 
-def parse_series_slug(slug: str) -> Tuple[str, str, str]:
-    """Split slug into ``(category, sub_category, entity)``."""
+def get_series_by_category(category: str):
+    """Return a queryset of series assigned to ``category``."""
 
-    parts = slug.split("/")
-    category = parts[0] if parts else ""
-    sub = parts[1] if len(parts) > 1 else ""
-    entity = "/".join(parts[2:]) if len(parts) > 2 else ""
-    return category, sub, entity
-
-
-def get_series_by_category(category: str, sub_category: Optional[str] = None):
-    """Return a queryset of series in ``category`` and optional ``sub_category``."""
-
-    qs = DataSeries.objects.filter(category=category)
-    if sub_category is not None:
-        qs = qs.filter(sub_category=sub_category)
-    return qs
+    return DataSeries.objects.filter(categories__slug=category)
 
 
 def get_value_for_year(series: DataSeries, year: str) -> Optional[Decimal]:
@@ -190,13 +177,14 @@ def replace_data_shortcodes(html: str) -> str:
         fmt = params.get("fmt")
         unit = params.get("unit") == "1"
         empty = params.get("empty", "—")
-        category, sub, _ = parse_series_slug(cat_slug)
-        cache_key = f"ds-table:{category}:{sub}:{year}:{sort}:{desc}:{limit}:{fmt}:{unit}:{empty}"
+        cache_key = (
+            f"ds-table:{cat_slug}:{year}:{sort}:{desc}:{limit}:{fmt}:{unit}:{empty}"
+        )
         cached = cache.get(cache_key)
         if cached is not None:
             return cached
         rows: List[Dict[str, object]] = []
-        for series in get_series_by_category(category, sub or None):
+        for series in get_series_by_category(cat_slug):
             value = get_value_for_year(series, year)
             if value is None:
                 display = empty

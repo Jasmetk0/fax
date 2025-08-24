@@ -7,10 +7,12 @@
 - Tagování článků.
 - Parser infoboxů se schématy (např. `country`, `city`) a podpora vnitřních odkazů `[[...]]`.
 - API pro sugesci článků.
+- Datové série (`DataSeries`, `DataPoint`) s kategoriemi (`DataCategory`),
+  shortcody `{{data}}`, `{{chart}}`, `{{table}}`, `{{map}}`, REST API a webová
+  správa datových sérií a bodů.
 
 ## Cíl
-Kategorizovat datové série (category/sub_category) a umožnit generování
-tabulek a map z kategorií.
+Kategorizovat datové série a umožnit generování tabulek a map z kategorií.
 
 ## TODO / Roadmapa
 - Validace klíčů (rok vs. datum)

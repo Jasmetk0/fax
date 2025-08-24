@@ -9,7 +9,7 @@ from django.contrib import admin, messages
 from django.forms.models import BaseInlineFormSet
 from django.utils.translation import gettext_lazy as _
 
-from .models_data import DataPoint, DataSeries
+from .models_data import DataCategory, DataPoint, DataSeries
 from .utils_data import import_csv_to_series
 
 
@@ -43,12 +43,22 @@ class CSVImportActionForm(admin.helpers.ActionForm):
     csv_file = forms.FileField(label=_("CSV file"), required=True)
 
 
+@admin.register(DataCategory)
+class DataCategoryAdmin(admin.ModelAdmin):
+    list_display = ("slug", "title")
+
+
 @admin.register(DataSeries)
 class DataSeriesAdmin(admin.ModelAdmin):
-    list_display = ("slug", "title", "unit", "category", "sub_category")
+    list_display = ("slug", "title", "unit", "categories_list")
     inlines = [DataPointInline]
     action_form = CSVImportActionForm
     actions = ["import_csv"]
+
+    def categories_list(self, obj):  # pragma: no cover - trivial
+        return ", ".join(c.slug for c in obj.categories.all())
+
+    categories_list.short_description = "categories"
 
     def import_csv(self, request, queryset):  # pragma: no cover - simple wrapper
         if queryset.count() != 1:

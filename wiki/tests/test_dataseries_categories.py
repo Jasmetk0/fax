@@ -3,42 +3,25 @@ from __future__ import annotations
 from decimal import Decimal
 
 import pytest
-from django.apps import apps as global_apps
+from django.contrib.auth import get_user_model
 from django.core.cache import cache
-from django.db import connection
 
-from wiki.models_data import DataPoint, DataSeries
+from wiki.models_data import DataCategory, DataPoint, DataSeries
 from wiki.utils_data import replace_data_shortcodes
-
-import importlib
-
-migration = importlib.import_module("wiki.migrations.0005_dataseries_category")
-populate_categories = migration.populate_categories
-
-
-@pytest.mark.django_db
-def test_migration_populates_category_subcategory():
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "INSERT INTO wiki_dataseries(slug, title, unit, description, category, sub_category, created_at) "
-            "VALUES (%s, '', '', '', '', '', CURRENT_TIMESTAMP)",
-            ["country-population/francica"],
-        )
-    populate_categories(global_apps, None)
-    ds = DataSeries.objects.get(slug="country-population/francica")
-    assert ds.category == "country-population"
-    assert ds.sub_category == "francica"
 
 
 @pytest.mark.django_db
 def test_category_api_and_table_shortcode(client):
     cache.clear()
+    cat = DataCategory.objects.create(slug="country-population")
     francica = DataSeries.objects.create(
         slug="country-population/francica", title="Francica", unit="people"
     )
     italora = DataSeries.objects.create(
         slug="country-population/italora", title="Italora", unit="people"
     )
+    francica.categories.add(cat)
+    italora.categories.add(cat)
     DataPoint.objects.create(series=francica, key="2020", value=Decimal("5"))
     DataPoint.objects.create(series=italora, key="2020", value=Decimal("10"))
 
@@ -61,19 +44,68 @@ def test_category_api_and_table_shortcode(client):
 
 
 @pytest.mark.django_db
-def test_category_sub_api(client):
-    country = DataSeries.objects.create(
-        slug="city-population/francica/parisca", title="Parisca", unit="people"
-    )
-    DataPoint.objects.create(series=country, key="2020", value=Decimal("3"))
-    resp = client.get("/api/dataseries/category/city-population/francica/")
-    assert resp.status_code == 200
-    assert resp.json()["results"][0]["slug"] == "city-population/francica/parisca"
-
-
-@pytest.mark.django_db
 def test_data_shortcode_backward_compatibility():
     series = DataSeries.objects.create(slug="francica-population", unit="people")
     DataPoint.objects.create(series=series, key="2020", value=Decimal("7"))
     html = replace_data_shortcodes("{{data:francica-population|2020}}")
     assert "7 people" in html
+
+
+@pytest.mark.django_db
+def test_dataseries_crud_views(client):
+    User = get_user_model()
+    staff = User.objects.create_user("admin", password="x", is_staff=True)
+    client.force_login(staff)
+    session = client.session
+    session["admin_mode"] = True
+    session.save()
+
+    cat = DataCategory.objects.create(slug="country-population")
+
+    resp = client.post(
+        "/wiki/dataseries/create/",
+        {
+            "slug": "francica-population",
+            "title": "Francica",
+            "unit": "people",
+            "description": "",
+            "categories": [str(cat.id)],
+            "points-TOTAL_FORMS": "1",
+            "points-INITIAL_FORMS": "0",
+            "points-MIN_NUM_FORMS": "0",
+            "points-MAX_NUM_FORMS": "1000",
+            "points-0-key": "2020",
+            "points-0-value": "5",
+            "points-0-note": "",
+        },
+    )
+    assert resp.status_code == 302
+    ds = DataSeries.objects.get(slug="francica-population")
+    assert ds.points.filter(key="2020").exists()
+    assert ds.categories.filter(slug="country-population").exists()
+
+    resp = client.post(
+        f"/wiki/dataseries/{ds.slug}/edit/",
+        {
+            "slug": ds.slug,
+            "title": "Francica",
+            "unit": "people",
+            "description": "",
+            "categories": [str(cat.id)],
+            "points-TOTAL_FORMS": "1",
+            "points-INITIAL_FORMS": "1",
+            "points-MIN_NUM_FORMS": "0",
+            "points-MAX_NUM_FORMS": "1000",
+            "points-0-id": str(ds.points.get(key="2020").id),
+            "points-0-key": "2020",
+            "points-0-value": "6",
+            "points-0-note": "",
+        },
+    )
+    assert resp.status_code == 302
+    ds.refresh_from_db()
+    assert ds.points.get(key="2020").value == Decimal("6")
+
+    resp = client.post(f"/wiki/dataseries/{ds.slug}/delete/")
+    assert resp.status_code == 302
+    assert not DataSeries.objects.filter(slug=ds.slug).exists()
