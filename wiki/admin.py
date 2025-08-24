@@ -1,6 +1,8 @@
 from django.contrib import admin
 from .models import Article, Tag, Category, CategoryArticle
 
+from . import admin_data  # noqa: F401
+
 
 class CategoryArticleInline(admin.TabularInline):
     model = CategoryArticle

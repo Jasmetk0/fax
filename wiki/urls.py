@@ -1,5 +1,15 @@
 from django.urls import path
+from rest_framework.routers import DefaultRouter
+
 from . import views
+from .api_data import DataPointDetail, DataSeriesByCategory, DataSeriesViewSet
+from .views_data import (
+    DataSeriesCreateView,
+    DataSeriesDeleteView,
+    DataSeriesDetailView,
+    DataSeriesListView,
+    DataSeriesUpdateView,
+)
 
 app_name = "wiki"
 
@@ -20,6 +30,27 @@ urlpatterns = [
         "categories/<slug:slug>/delete/",
         views.CategoryDeleteView.as_view(),
         name="category-delete",
+    ),
+    path("dataseries/", DataSeriesListView.as_view(), name="dataseries-list"),
+    path(
+        "dataseries/create/",
+        DataSeriesCreateView.as_view(),
+        name="dataseries-create",
+    ),
+    path(
+        "dataseries/<path:slug>/edit/",
+        DataSeriesUpdateView.as_view(),
+        name="dataseries-edit",
+    ),
+    path(
+        "dataseries/<path:slug>/delete/",
+        DataSeriesDeleteView.as_view(),
+        name="dataseries-delete",
+    ),
+    path(
+        "dataseries/<path:slug>/",
+        DataSeriesDetailView.as_view(),
+        name="dataseries-detail",
     ),
     path("<slug:slug>/edit/", views.ArticleUpdateView.as_view(), name="article-edit"),
     path(
@@ -44,3 +75,20 @@ urlpatterns = [
     ),
     path("<slug:slug>/", views.ArticleDetailView.as_view(), name="article-detail"),
 ]
+
+
+router = DefaultRouter()
+router.register("dataseries", DataSeriesViewSet, basename="dataseries")
+
+api_urlpatterns = [
+    path(
+        "dataseries/<path:slug>/point/<str:key>/",
+        DataPointDetail.as_view(),
+        name="dataseries-point",
+    ),
+    path(
+        "dataseries/category/<str:category>/",
+        DataSeriesByCategory.as_view(),
+        name="dataseries-category",
+    ),
+] + router.urls
