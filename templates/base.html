@@ -1,89 +1,60 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="cs" class="h-full" data-theme>
 {% load static %}
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FAX Portal</title>
-    <link rel="manifest" href="/manifest.json">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="{% static 'fax_calendar/woorld.css' %}">
-    <link rel="stylesheet" href="{% static 'wiki/css/infobox.css' %}">
-    <link rel="stylesheet" href="{% static 'wiki/css/infobox.country.css' %}">
-    <link rel="stylesheet" href="{% static 'wiki/css/infobox.city.css' %}">
-    <link
-        rel="stylesheet"
-        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    />
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>{% block title %}FAX Portal{% endblock %}</title>
+<link rel="manifest" href="/manifest.json" />
+{# ——— Preload theme before paint ——— #}
+<script>
+(() => {
+try {
+const ls = localStorage.getItem("theme");
+const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+const useDark = ls ? ls === 'dark' : prefersDark;
+if (useDark) document.documentElement.classList.add('dark');
+} catch (_) {}
+})();
+</script>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+darkMode: 'class',
+theme: {
+extend: {
+colors: {
+brand: {
+DEFAULT: '#4f46e5',
+50: '#eef2ff', 100: '#e0e7ff', 200: '#c7d2fe', 300: '#a5b4fc',
+400: '#818cf8', 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca'
+}
+},
+boxShadow: { soft: '0 8px 30px rgba(0,0,0,.06)' }
+}
+}
+}
+</script>
+<link rel="stylesheet" href="{% static 'fax_calendar/woorld.css' %}" />
+<link rel="stylesheet" href="{% static 'wiki/css/infobox.css' %}" />
+<link rel="stylesheet" href="{% static 'wiki/css/infobox.country.css' %}" />
+<link rel="stylesheet" href="{% static 'wiki/css/infobox.city.css' %}" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 </head>
-<body class="flex flex-col h-screen">
-    <header class="sticky top-0 z-[1000] flex items-center bg-gray-800 text-white px-4 py-2 space-x-2">
-        <div class="flex items-center space-x-2">
-            <button id="back-btn" class="p-1 rounded hover:bg-gray-700">&#8592;</button>
-            <button id="forward-btn" class="p-1 rounded hover:bg-gray-700">&#8594;</button>
-            <button id="reload-btn" class="p-1 rounded hover:bg-gray-700">&#8635;</button>
-            <a href="/" class="ml-2 font-bold">FAX</a>
-        </div>
-        <form action="/search" method="get" class="flex-1 flex justify-center px-4">
-            <input
-                name="q"
-                type="search"
-                placeholder="Search Woorld…"
-                class="w-full max-w-4xl p-1 rounded text-black"
-                aria-label="Search Woorld"
-            />
-        </form>
-        <div class="flex items-center space-x-4">
-            {% include "fax_calendar/_woorld_date_control.html" %}
-            <a href="#" class="p-1 hover:bg-gray-700 rounded">👤</a>
-            {% if request.user.is_staff %}
-            <form method="post" action="{% url 'admin-toggle' %}">
-                {% csrf_token %}
-                <button class="p-1 hover:bg-gray-700 rounded">
-                    {% if request.session.admin_mode %}Správce ON{% else %}Správce OFF{% endif %}
-                </button>
-            </form>
-            {% endif %}
-            <div class="relative">
-                <button id="menu-btn" class="p-1 hover:bg-gray-700 rounded">…</button>
-                <div id="menu-dropdown" class="hidden absolute right-0 mt-2 w-40 bg-white text-black rounded shadow-lg">
-                    <a href="#" class="block px-4 py-2 hover:bg-gray-100">Nová karta</a>
-                    <a href="#" class="block px-4 py-2 hover:bg-gray-100">Nové okno</a>
-                    <a href="#" class="block px-4 py-2 hover:bg-gray-100">Nastavení</a>
-                    {% if request.user.is_staff %}
-                    <a href="/admin/" class="block px-4 py-2 hover:bg-gray-100">&#9881; Admin</a>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-    </header>
-    <main class="p-4 pt-4 flex-1 overflow-y-auto">
-        {% block content %}{% endblock %}
-    </main>
-    <script src="{% static 'fax_calendar/woorld.js' %}"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="{% static 'wiki/dataseries.js' %}"></script>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="{% static 'wiki/dataseries-ui.js' %}"></script>
-    <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const menuBtn = document.getElementById('menu-btn');
-        const dropdown = document.getElementById('menu-dropdown');
-        if (menuBtn && dropdown) {
-            menuBtn.addEventListener('click', function() {
-                dropdown.classList.toggle('hidden');
-            });
-        }
-        const backBtn = document.getElementById('back-btn');
-        const forwardBtn = document.getElementById('forward-btn');
-        const reloadBtn = document.getElementById('reload-btn');
-        if (backBtn) backBtn.addEventListener('click', () => window.history.back());
-        if (forwardBtn) forwardBtn.addEventListener('click', () => window.history.forward());
-        if (reloadBtn) reloadBtn.addEventListener('click', () => window.location.reload());
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/service-worker.js');
-        }
-    });
-    </script>
-</body>
+<body class="flex min-h-dvh flex-col bg-gradient-to-b from-white to-slate-50 text-slate-900 dark:from-slate-950 dark:to-slate-900 dark:text-slate-100">
+<!-- Global Topbar -->
+<header class="sticky top-0 z-[1000] border-b border-slate-200/70 bg-white/70 backdrop-blur supports-[backdrop-filter]:bg-white/50 dark:border-slate-800/70 dark:bg-slate-900/70">
+<div class="mx-auto flex h-14 max-w-7xl items-center gap-2 px-3 sm:h-16 sm:px-6">
+<!-- Left: brand + nav -->
+<div class="flex items-center gap-2">
+<button id="nav-toggle" class="inline-flex h-9 w-9 items-center justify-center rounded-lg hover:bg-slate-100 active:scale-95 dark:hover:bg-slate-800 sm:hidden" aria-label="Menu">
+<!-- menu icon -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+</button>
+<a href="/" class="group flex items-center gap-2">
+<span class="grid h-8 w-8 place-items-center rounded-xl bg-brand/10 text-brand group-hover:scale-105 transition">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="h-5 w-5" fill="currentColor"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"/></svg>
+</span>
+<span class="font-semibold tracking-tight">FAX</span>
+</a>
 </html>
