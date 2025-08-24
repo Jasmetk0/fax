@@ -11,6 +11,7 @@ urlpatterns = [
     path("wiki/", include("wiki.urls")),
     path("api/", include((wiki_api, "wiki"), namespace="wiki-api")),
     path("maps/", include("maps.urls")),
+    path("openfaxmap/", include("openfaxmap.urls")),
     path("livesport/", include("sports.urls")),
     path("msasquashtour/", include("msa.urls")),
     path("woorld/", include("fax_calendar.urls")),
