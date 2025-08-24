@@ -11,6 +11,10 @@
     <link rel="stylesheet" href="{% static 'wiki/css/infobox.css' %}">
     <link rel="stylesheet" href="{% static 'wiki/css/infobox.country.css' %}">
     <link rel="stylesheet" href="{% static 'wiki/css/infobox.city.css' %}">
+    <link
+        rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
 </head>
 <body class="flex flex-col h-screen">
     <header class="sticky top-0 z-[1000] flex items-center bg-gray-800 text-white px-4 py-2 space-x-2">
@@ -57,6 +61,10 @@
         {% block content %}{% endblock %}
     </main>
     <script src="{% static 'fax_calendar/woorld.js' %}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="{% static 'wiki/dataseries.js' %}"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="{% static 'wiki/dataseries-ui.js' %}"></script>
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         const menuBtn = document.getElementById('menu-btn');
