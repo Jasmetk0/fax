@@ -28,7 +28,9 @@ class DataSeriesListView(ListView):
     model = DataSeries
     template_name = "wiki/dataseries_list.html"
     context_object_name = "series_list"
-    ordering = ["slug"]
+
+    def get_queryset(self):
+        return DataSeries.objects.prefetch_related("categories").order_by("slug")
 
 
 class DataSeriesDetailView(DetailView):
@@ -38,6 +40,7 @@ class DataSeriesDetailView(DetailView):
     slug_field = "slug"
     slug_url_kwarg = "slug"
     template_name = "wiki/dataseries_detail.html"
+    queryset = DataSeries.objects.prefetch_related("categories", "points")
 
 
 class DataSeriesFormMixin(AdminModeRequiredMixin):

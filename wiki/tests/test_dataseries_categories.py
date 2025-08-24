@@ -109,3 +109,17 @@ def test_dataseries_crud_views(client):
     resp = client.post(f"/wiki/dataseries/{ds.slug}/delete/")
     assert resp.status_code == 302
     assert not DataSeries.objects.filter(slug=ds.slug).exists()
+
+
+@pytest.mark.django_db
+def test_category_visible_on_pages(client):
+    cat = DataCategory.objects.create(slug="country-population")
+    ds = DataSeries.objects.create(slug="country-population/francica", title="Francica")
+    ds.categories.add(cat)
+    resp = client.get("/wiki/dataseries/")
+    html = resp.content.decode()
+    assert "categories: country-population" in html
+    resp = client.get(f"/wiki/dataseries/{ds.slug}/")
+    detail_html = resp.content.decode()
+    assert "Categories:" in detail_html
+    assert "country-population" in detail_html

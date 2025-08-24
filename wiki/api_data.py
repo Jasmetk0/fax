@@ -60,6 +60,7 @@ class StaffWritePermission(permissions.BasePermission):
 class DataSeriesViewSet(viewsets.ModelViewSet):
     queryset = DataSeries.objects.all()
     lookup_field = "slug"
+    lookup_value_regex = ".+"
     permission_classes = [StaffWritePermission]
     throttle_classes = [BurstAnonThrottle]
 

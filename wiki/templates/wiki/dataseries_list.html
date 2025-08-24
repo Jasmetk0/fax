@@ -9,6 +9,11 @@
   {% for s in series_list %}
     <li>
       <a href="{% url 'wiki:dataseries-detail' s.slug %}" class="text-red-600 hover:underline">{{ s.title|default:s.slug }}</a>
+      {% with cats=s.categories.all %}
+        {% if cats %}
+          <span class="text-sm text-gray-600"> – categories: {% for c in cats %}{{ c.slug }}{% if not forloop.last %}, {% endif %}{% endfor %}</span>
+        {% endif %}
+      {% endwith %}
       {% if request.user.is_staff and request.session.admin_mode %}
         <a href="{% url 'wiki:dataseries-edit' s.slug %}" class="ml-2 text-red-600 hover:underline">Edit</a>
         <a href="{% url 'wiki:dataseries-delete' s.slug %}" class="ml-1 text-red-600 hover:underline">Delete</a>

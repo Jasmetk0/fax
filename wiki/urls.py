@@ -38,19 +38,19 @@ urlpatterns = [
         name="dataseries-create",
     ),
     path(
-        "dataseries/<slug:slug>/",
-        DataSeriesDetailView.as_view(),
-        name="dataseries-detail",
-    ),
-    path(
-        "dataseries/<slug:slug>/edit/",
+        "dataseries/<path:slug>/edit/",
         DataSeriesUpdateView.as_view(),
         name="dataseries-edit",
     ),
     path(
-        "dataseries/<slug:slug>/delete/",
+        "dataseries/<path:slug>/delete/",
         DataSeriesDeleteView.as_view(),
         name="dataseries-delete",
+    ),
+    path(
+        "dataseries/<path:slug>/",
+        DataSeriesDetailView.as_view(),
+        name="dataseries-detail",
     ),
     path("<slug:slug>/edit/", views.ArticleUpdateView.as_view(), name="article-edit"),
     path(
@@ -80,9 +80,9 @@ urlpatterns = [
 router = DefaultRouter()
 router.register("dataseries", DataSeriesViewSet, basename="dataseries")
 
-api_urlpatterns = router.urls + [
+api_urlpatterns = [
     path(
-        "dataseries/<slug:slug>/point/<str:key>/",
+        "dataseries/<path:slug>/point/<str:key>/",
         DataPointDetail.as_view(),
         name="dataseries-point",
     ),
@@ -91,4 +91,4 @@ api_urlpatterns = router.urls + [
         DataSeriesByCategory.as_view(),
         name="dataseries-category",
     ),
-]
+] + router.urls
