@@ -4,7 +4,9 @@ window.initHomeWidgets = function() {
     { id: 'wiki', href: '/wiki/', label: 'Wiki', icon: '📚', defaultSize: 'M', desc: 'Encyklopedie FAX' },
     { id: 'maps', href: '/maps/', label: 'Mapy', icon: '🗺️', defaultSize: 'M', desc: 'Leaflet mapy' },
     { id: 'sport', href: '/livesport/', label: 'Sport', icon: '🏅', defaultSize: 'M', desc: 'LiveSport' },
-    { id: 'msa', href: '/msasquashtour/', label: 'MSA Squash', icon: '🎾', defaultSize: 'M', desc: 'MSA Squash Tour' }
+    { id: 'msa', href: '/msasquashtour/', label: 'MSA Squash', icon: '🎾', defaultSize: 'M', desc: 'MSA Squash Tour' },
+    { id: 'mma-upcoming', href: '/mma/events/', label: 'MMA Upcoming', icon: '🥊', defaultSize: 'M', desc: 'Nejbližší akce' },
+    { id: 'mma-results', href: '/mma/', label: 'MMA Results', icon: '🥊', defaultSize: 'M', desc: 'Poslední výsledky' }
   ];
   const REG_MAP = Object.fromEntries(REG.map(r => [r.id, r]));
   const KEY = 'home.widgets.v1';

@@ -1,0 +1,16 @@
+{% extends "mma/base.html" %}
+{% block page_title %}{{ organization.name }} – FAX{% endblock %}
+{% block mma_content %}
+<h1 class="mb-4 text-2xl font-bold">{{ organization.name }}</h1>
+<h2 class="mb-2 text-xl font-semibold">Events</h2>
+<ul class="space-y-2">
+  {% for event in events %}
+    <li class="rounded border p-3 shadow-soft">
+      <a href="{% url 'mma:event_detail' event.slug %}" class="font-medium hover:text-brand-600">{{ event.name }}</a>
+      <div class="text-sm text-slate-600">{{ event.date_start|date:"d.m.Y" }}</div>
+    </li>
+  {% empty %}
+    <li class="text-sm text-slate-500">No events.</li>
+  {% endfor %}
+</ul>
+{% endblock %}
