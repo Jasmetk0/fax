@@ -1,0 +1,14 @@
+{% extends "mma/base.html" %}
+{% block page_title %}MMA Organizations – FAX{% endblock %}
+{% block mma_content %}
+<h1 class="mb-4 text-2xl font-bold">Organizations</h1>
+<ul class="space-y-2">
+  {% for org in organizations %}
+    <li class="rounded border p-3 shadow-soft">
+      <a href="{% url 'mma:organization_detail' org.slug %}" class="font-medium hover:text-brand-600">{{ org.name }}</a>
+    </li>
+  {% empty %}
+    <li class="text-sm text-slate-500">No organizations.</li>
+  {% endfor %}
+</ul>
+{% endblock %}
