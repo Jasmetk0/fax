@@ -16,3 +16,10 @@ The module currently exposes a limited JSON API:
 - `GET /api/mma/news/<slug>/` – news detail.
 
 All timestamps are returned in the `Europe/Prague` timezone.
+
+## Widgets
+
+Two homepage widgets are available via the PH0ENIX picker:
+
+- **MMA Upcoming** – shows the next scheduled events
+- **MMA Results** – lists recent fight cards
