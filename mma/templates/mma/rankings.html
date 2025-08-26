@@ -1,0 +1,20 @@
+{% extends "mma/base.html" %}
+{% block page_title %}MMA Rankings – FAX{% endblock %}
+{% block mma_content %}
+<h1 class="mb-4 text-2xl font-bold">Rankings</h1>
+{% if admin %}
+<a href="{% url 'admin:mma_ranking_add' %}"
+   class="mb-4 inline-block bg-blue-600 hover:bg-blue-500 text-white rounded-xl px-4 py-2 text-sm"
+   aria-label="Add Ranking">Add Ranking</a>
+{% endif %}
+<ul class="space-y-2">
+  {% for group in ranking_groups %}
+    <li class="rounded border p-3 shadow-soft">
+      <div class="font-medium">{{ group.organization.short_name }} – {{ group.weight_class.name }}</div>
+      <a href="{% url 'mma:ranking_detail' group.organization.slug group.weight_class.slug %}" class="text-sm text-brand-600 hover:underline">View</a>
+    </li>
+  {% empty %}
+    <li class="text-sm text-slate-500">No rankings.</li>
+  {% endfor %}
+</ul>
+{% endblock %}
