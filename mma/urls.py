@@ -8,11 +8,6 @@ urlpatterns = [
     path("", views.dashboard, name="dashboard"),
     path("organizations/", views.organization_list, name="organization_list"),
     path(
-        "organizations/<slug:slug>/",
-        views.organization_detail,
-        name="organization_detail",
-    ),
-    path(
         "organizations/add/",
         views.OrganizationCreateView.as_view(),
         name="organization_add",
@@ -27,8 +22,12 @@ urlpatterns = [
         views.OrganizationDeleteView.as_view(),
         name="organization_delete",
     ),
+    path(
+        "organizations/<slug:slug>/",
+        views.organization_detail,
+        name="organization_detail",
+    ),
     path("events/", views.event_list, name="event_list"),
-    path("events/<slug:slug>/", views.event_detail, name="event_detail"),
     path("events/add/", views.EventCreateView.as_view(), name="event_add"),
     path(
         "events/<slug:slug>/edit/",
@@ -45,6 +44,7 @@ urlpatterns = [
         views.BoutCreateView.as_view(),
         name="bout_add",
     ),
+    path("events/<slug:slug>/", views.event_detail, name="event_detail"),
     path("bouts/<int:pk>/edit/", views.BoutUpdateView.as_view(), name="bout_edit"),
     path(
         "bouts/<int:pk>/delete/",
@@ -52,7 +52,6 @@ urlpatterns = [
         name="bout_delete",
     ),
     path("fighters/", views.fighter_list, name="fighter_list"),
-    path("fighters/<slug:slug>/", views.fighter_detail, name="fighter_detail"),
     path("fighters/add/", views.FighterCreateView.as_view(), name="fighter_add"),
     path(
         "fighters/<slug:slug>/edit/",
@@ -64,6 +63,7 @@ urlpatterns = [
         views.FighterDeleteView.as_view(),
         name="fighter_delete",
     ),
+    path("fighters/<slug:slug>/", views.fighter_detail, name="fighter_detail"),
     path("rankings/", views.ranking_list, name="ranking_list"),
     path(
         "rankings/<slug:org_slug>/<slug:weight_slug>/",
