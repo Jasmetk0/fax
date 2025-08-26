@@ -14,6 +14,7 @@ urlpatterns = [
     path("openfaxmap/", include("openfaxmap.urls")),
     path("livesport/", include("sports.urls")),
     path("mma/", include("mma.urls")),
+    path("api/mma/", include("mma.api.urls")),
     path("msasquashtour/", include("msa.urls")),
     path("woorld/", include("fax_calendar.urls")),
     path("search", search_views.search, name="search"),
