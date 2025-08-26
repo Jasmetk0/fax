@@ -1,0 +1,36 @@
+{% extends "mma/base.html" %}
+{% block page_title %}{{ fighter.first_name }} {{ fighter.last_name }} – FAX{% endblock %}
+{% block mma_content %}
+<h1 class="mb-4 text-2xl font-bold">{{ fighter.first_name }} {{ fighter.last_name }}
+  {% if admin %}<span class="text-sm space-x-2"><a href="{% url 'mma:fighter_edit' fighter.slug %}" class="text-slate-400" aria-label="Edit">Edit</a><a href="{% url 'mma:fighter_delete' fighter.slug %}" class="text-red-500" aria-label="Delete">Delete</a></span>{% endif %}
+</h1>
+<h2 class="mb-2 text-xl font-semibold">Bouts</h2>
+<table class="min-w-full text-sm">
+  <thead>
+    <tr class="border-b">
+      <th class="px-2 py-1 text-left">Event</th>
+      <th class="px-2 py-1 text-left">Opponent</th>
+      <th class="px-2 py-1 text-left">Result</th>
+      {% if admin %}<th class="px-2 py-1 text-right">Actions</th>{% endif %}
+    </tr>
+  </thead>
+  <tbody>
+    {% for b in bouts %}
+      <tr class="border-b last:border-0">
+        <td class="px-2 py-1"><a href="{% url 'mma:event_detail' b.event.slug %}" class="hover:text-brand-600">{{ b.event.name }}</a></td>
+        <td class="px-2 py-1">
+          {% if b.fighter_red_id == fighter.id %}
+            {{ b.fighter_blue.first_name }} {{ b.fighter_blue.last_name }}
+          {% else %}
+            {{ b.fighter_red.first_name }} {{ b.fighter_red.last_name }}
+          {% endif %}
+        </td>
+        <td class="px-2 py-1">{{ b.get_result_display }}</td>
+        {% if admin %}<td class="px-2 py-1 text-right space-x-2"><a href="{% url 'mma:bout_edit' b.id %}" class="text-slate-400" aria-label="Edit">Edit</a><a href="{% url 'mma:bout_delete' b.id %}" class="text-red-500" aria-label="Delete">Delete</a></td>{% endif %}
+      </tr>
+    {% empty %}
+      <tr><td colspan="{% if admin %}4{% else %}3{% endif %}" class="px-2 py-2 text-slate-500">No bouts.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

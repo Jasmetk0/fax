@@ -21,6 +21,7 @@ INSTALLED_APPS = [
     "maps",
     "openfaxmap",
     "sports",
+    "mma",
     "msa",
 ]
 
