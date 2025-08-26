@@ -3,7 +3,7 @@
 {% block mma_content %}
 <h1 class="mb-4 text-2xl font-bold">Organizations</h1>
 {% if admin %}
-<a href="{% url 'admin:mma_organization_add' %}"
+<a href="{% url 'mma:organization_add' %}"
    class="mb-4 inline-block bg-blue-600 hover:bg-blue-500 text-white rounded-xl px-4 py-2 text-sm"
    aria-label="Add Organization">Add Organization</a>
 {% endif %}
@@ -13,8 +13,8 @@
       <a href="{% url 'mma:organization_detail' org.slug %}" class="font-medium hover:text-brand-600">{{ org.name }}</a>
       {% if admin %}
       <span class="text-sm space-x-2">
-        <a href="{% url 'admin:mma_organization_change' org.id %}" class="text-slate-400" aria-label="Edit">Edit</a>
-        <a href="{% url 'admin:mma_organization_delete' org.id %}" class="text-red-500" aria-label="Delete">Delete</a>
+        <a href="{% url 'mma:organization_edit' org.slug %}" class="text-slate-400" aria-label="Edit">Edit</a>
+        <a href="{% url 'mma:organization_delete' org.slug %}" class="text-red-500" aria-label="Delete">Delete</a>
       </span>
       {% endif %}
     </li>

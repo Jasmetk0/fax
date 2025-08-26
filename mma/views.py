@@ -1,8 +1,11 @@
 """Views for the MMA app."""
 
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, render
+from django.urls import reverse, reverse_lazy
 from django.utils import timezone
+from django.views.generic import CreateView, DeleteView, UpdateView
 
 from .models import (
     Bout,
@@ -12,6 +15,14 @@ from .models import (
     Organization,
     Ranking,
     WeightClass,
+)
+from .forms import (
+    BoutForm,
+    EventForm,
+    FighterForm,
+    NewsItemForm,
+    OrganizationForm,
+    RankingForm,
 )
 
 
@@ -179,3 +190,326 @@ def ranking_detail(request, org_slug, weight_slug):
             "admin": _is_admin(request),
         },
     )
+
+
+class AdminModeRequiredMixin(LoginRequiredMixin, UserPassesTestMixin):
+    """Mixin ensuring the user is staff and has admin mode enabled."""
+
+    def test_func(self):
+        return _is_admin(self.request)
+
+
+# Organization CRUD -----------------------------------------------------
+
+
+class OrganizationCreateView(AdminModeRequiredMixin, CreateView):
+    model = Organization
+    form_class = OrganizationForm
+    template_name = "mma/form.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["title"] = "Add Organization"
+        return ctx
+
+    def get_success_url(self):
+        return reverse("mma:organization_list")
+
+
+class OrganizationUpdateView(AdminModeRequiredMixin, UpdateView):
+    model = Organization
+    form_class = OrganizationForm
+    slug_field = "slug"
+    slug_url_kwarg = "slug"
+    template_name = "mma/form.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["title"] = "Edit Organization"
+        return ctx
+
+    def get_success_url(self):
+        return reverse("mma:organization_detail", args=[self.object.slug])
+
+
+class OrganizationDeleteView(AdminModeRequiredMixin, DeleteView):
+    model = Organization
+    slug_field = "slug"
+    slug_url_kwarg = "slug"
+    template_name = "mma/confirm_delete.html"
+    success_url = reverse_lazy("mma:organization_list")
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["title"] = "Delete Organization"
+        ctx["cancel_url"] = reverse("mma:organization_detail", args=[self.object.slug])
+        return ctx
+
+
+# Event CRUD ------------------------------------------------------------
+
+
+class EventCreateView(AdminModeRequiredMixin, CreateView):
+    model = Event
+    form_class = EventForm
+    template_name = "mma/form.html"
+
+    def get_initial(self):
+        initial = super().get_initial()
+        org_slug = self.request.GET.get("organization")
+        if org_slug:
+            initial["organization"] = get_object_or_404(Organization, slug=org_slug)
+        return initial
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["title"] = "Add Event"
+        return ctx
+
+    def get_success_url(self):
+        return reverse("mma:event_list")
+
+
+class EventUpdateView(AdminModeRequiredMixin, UpdateView):
+    model = Event
+    form_class = EventForm
+    slug_field = "slug"
+    slug_url_kwarg = "slug"
+    template_name = "mma/form.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["title"] = "Edit Event"
+        return ctx
+
+    def get_success_url(self):
+        return reverse("mma:event_detail", args=[self.object.slug])
+
+
+class EventDeleteView(AdminModeRequiredMixin, DeleteView):
+    model = Event
+    slug_field = "slug"
+    slug_url_kwarg = "slug"
+    template_name = "mma/confirm_delete.html"
+    success_url = reverse_lazy("mma:event_list")
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["title"] = "Delete Event"
+        ctx["cancel_url"] = reverse("mma:event_detail", args=[self.object.slug])
+        return ctx
+
+
+# Fighter CRUD ----------------------------------------------------------
+
+
+class FighterCreateView(AdminModeRequiredMixin, CreateView):
+    model = Fighter
+    form_class = FighterForm
+    template_name = "mma/form.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["title"] = "Add Fighter"
+        return ctx
+
+    def get_success_url(self):
+        return reverse("mma:fighter_list")
+
+
+class FighterUpdateView(AdminModeRequiredMixin, UpdateView):
+    model = Fighter
+    form_class = FighterForm
+    slug_field = "slug"
+    slug_url_kwarg = "slug"
+    template_name = "mma/form.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["title"] = "Edit Fighter"
+        return ctx
+
+    def get_success_url(self):
+        return reverse("mma:fighter_detail", args=[self.object.slug])
+
+
+class FighterDeleteView(AdminModeRequiredMixin, DeleteView):
+    model = Fighter
+    slug_field = "slug"
+    slug_url_kwarg = "slug"
+    template_name = "mma/confirm_delete.html"
+    success_url = reverse_lazy("mma:fighter_list")
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["title"] = "Delete Fighter"
+        ctx["cancel_url"] = reverse("mma:fighter_detail", args=[self.object.slug])
+        return ctx
+
+
+# Bout CRUD -------------------------------------------------------------
+
+
+class BoutCreateView(AdminModeRequiredMixin, CreateView):
+    model = Bout
+    form_class = BoutForm
+    template_name = "mma/form.html"
+
+    def get_initial(self):
+        initial = super().get_initial()
+        event_slug = self.kwargs.get("event_slug")
+        if event_slug:
+            initial["event"] = get_object_or_404(Event, slug=event_slug)
+        return initial
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["title"] = "Add Bout"
+        return ctx
+
+    def get_success_url(self):
+        return reverse("mma:event_detail", args=[self.object.event.slug])
+
+
+class BoutUpdateView(AdminModeRequiredMixin, UpdateView):
+    model = Bout
+    form_class = BoutForm
+    template_name = "mma/form.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["title"] = "Edit Bout"
+        return ctx
+
+    def get_success_url(self):
+        return reverse("mma:event_detail", args=[self.object.event.slug])
+
+
+class BoutDeleteView(AdminModeRequiredMixin, DeleteView):
+    model = Bout
+    template_name = "mma/confirm_delete.html"
+
+    def get_success_url(self):
+        return reverse("mma:event_detail", args=[self.object.event.slug])
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["title"] = "Delete Bout"
+        ctx["cancel_url"] = reverse("mma:event_detail", args=[self.object.event.slug])
+        return ctx
+
+
+# Ranking CRUD ----------------------------------------------------------
+
+
+class RankingCreateView(AdminModeRequiredMixin, CreateView):
+    model = Ranking
+    form_class = RankingForm
+    template_name = "mma/form.html"
+
+    def get_initial(self):
+        initial = super().get_initial()
+        org_slug = self.kwargs.get("org_slug") or self.request.GET.get("organization")
+        weight_slug = self.kwargs.get("weight_slug") or self.request.GET.get(
+            "weight_class"
+        )
+        if org_slug:
+            initial["organization"] = get_object_or_404(Organization, slug=org_slug)
+        if weight_slug:
+            initial["weight_class"] = get_object_or_404(WeightClass, slug=weight_slug)
+        return initial
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["title"] = "Add Ranking Entry"
+        return ctx
+
+    def get_success_url(self):
+        return reverse(
+            "mma:ranking_detail",
+            args=[self.object.organization.slug, self.object.weight_class.slug],
+        )
+
+
+class RankingUpdateView(AdminModeRequiredMixin, UpdateView):
+    model = Ranking
+    form_class = RankingForm
+    template_name = "mma/form.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["title"] = "Edit Ranking Entry"
+        return ctx
+
+    def get_success_url(self):
+        return reverse(
+            "mma:ranking_detail",
+            args=[self.object.organization.slug, self.object.weight_class.slug],
+        )
+
+
+class RankingDeleteView(AdminModeRequiredMixin, DeleteView):
+    model = Ranking
+    template_name = "mma/confirm_delete.html"
+
+    def get_success_url(self):
+        return reverse(
+            "mma:ranking_detail",
+            args=[self.object.organization.slug, self.object.weight_class.slug],
+        )
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["title"] = "Delete Ranking Entry"
+        ctx["cancel_url"] = reverse(
+            "mma:ranking_detail",
+            args=[self.object.organization.slug, self.object.weight_class.slug],
+        )
+        return ctx
+
+
+# NewsItem CRUD ---------------------------------------------------------
+
+
+class NewsItemCreateView(AdminModeRequiredMixin, CreateView):
+    model = NewsItem
+    form_class = NewsItemForm
+    template_name = "mma/form.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["title"] = "Add News Item"
+        return ctx
+
+    def get_success_url(self):
+        return reverse("mma:dashboard")
+
+
+class NewsItemUpdateView(AdminModeRequiredMixin, UpdateView):
+    model = NewsItem
+    form_class = NewsItemForm
+    slug_field = "slug"
+    slug_url_kwarg = "slug"
+    template_name = "mma/form.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["title"] = "Edit News Item"
+        return ctx
+
+    def get_success_url(self):
+        return reverse("mma:dashboard")
+
+
+class NewsItemDeleteView(AdminModeRequiredMixin, DeleteView):
+    model = NewsItem
+    slug_field = "slug"
+    slug_url_kwarg = "slug"
+    template_name = "mma/confirm_delete.html"
+    success_url = reverse_lazy("mma:dashboard")
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["title"] = "Delete News Item"
+        ctx["cancel_url"] = reverse("mma:dashboard")
+        return ctx

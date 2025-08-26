@@ -84,3 +84,15 @@ def test_admin_buttons_show(client, db, django_user_model):
     resp = client.get("/mma/organizations/")
     content = resp.content.decode()
     assert "Add Organization" in content
+
+
+def test_organization_add_form_renders(client, db, django_user_model):
+    user = django_user_model.objects.create_user("admin", password="pw", is_staff=True)
+    client.force_login(user)
+    session = client.session
+    session["admin_mode"] = True
+    session.save()
+
+    resp = client.get("/mma/organizations/add/")
+    assert resp.status_code == 200
+    assert "Add Organization" in resp.content.decode()

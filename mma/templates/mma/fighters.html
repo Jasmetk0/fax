@@ -3,7 +3,7 @@
 {% block mma_content %}
 <h1 class="mb-4 text-2xl font-bold">Athletes</h1>
 {% if admin %}
-<a href="{% url 'admin:mma_fighter_add' %}"
+<a href="{% url 'mma:fighter_add' %}"
    class="mb-4 inline-block bg-blue-600 hover:bg-blue-500 text-white rounded-xl px-4 py-2 text-sm"
    aria-label="Add Fighter">Add Fighter</a>
 {% endif %}
@@ -13,8 +13,8 @@
       <a href="{% url 'mma:fighter_detail' fighter.slug %}" class="hover:text-brand-600">{{ fighter.first_name }} {{ fighter.last_name }}</a>
       {% if admin %}
       <span class="text-sm space-x-2">
-        <a href="{% url 'admin:mma_fighter_change' fighter.id %}" class="text-slate-400" aria-label="Edit">Edit</a>
-        <a href="{% url 'admin:mma_fighter_delete' fighter.id %}" class="text-red-500" aria-label="Delete">Delete</a>
+        <a href="{% url 'mma:fighter_edit' fighter.slug %}" class="text-slate-400" aria-label="Edit">Edit</a>
+        <a href="{% url 'mma:fighter_delete' fighter.slug %}" class="text-red-500" aria-label="Delete">Delete</a>
       </span>
       {% endif %}
     </li>
