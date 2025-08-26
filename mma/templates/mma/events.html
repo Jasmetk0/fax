@@ -1,0 +1,28 @@
+{% extends "mma/base.html" %}
+{% block page_title %}MMA Events – FAX{% endblock %}
+{% block mma_content %}
+<h1 class="mb-4 text-2xl font-bold">Events</h1>
+{% if admin %}
+<a href="{% url 'mma:event_add' %}"
+   class="mb-4 inline-block bg-blue-600 hover:bg-blue-500 text-white rounded-xl px-4 py-2 text-sm"
+   aria-label="Add Event">Add Event</a>
+{% endif %}
+<ul class="space-y-2">
+  {% for event in events %}
+    <li class="rounded border p-3 shadow-soft flex justify-between">
+      <div>
+        <a href="{% url 'mma:event_detail' event.slug %}" class="font-medium hover:text-brand-600">{{ event.name }}</a>
+        <div class="text-sm text-slate-600">{{ event.organization.short_name }} – {{ event.date_start|date:"d.m.Y" }}</div>
+      </div>
+      {% if admin %}
+      <span class="text-sm space-x-2">
+        <a href="{% url 'mma:event_edit' event.slug %}" class="text-slate-400" aria-label="Edit">Edit</a>
+        <a href="{% url 'mma:event_delete' event.slug %}" class="text-red-500" aria-label="Delete">Delete</a>
+      </span>
+      {% endif %}
+    </li>
+  {% empty %}
+    <li class="text-sm text-slate-500">No events.</li>
+  {% endfor %}
+</ul>
+{% endblock %}
