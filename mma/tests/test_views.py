@@ -96,3 +96,9 @@ def test_organization_add_form_renders(client, db, django_user_model):
     resp = client.get("/mma/organizations/add/")
     assert resp.status_code == 200
     assert "Add Organization" in resp.content.decode()
+
+
+def test_homepage_includes_mma_widget(client):
+    resp = client.get("/")
+    assert resp.status_code == 200
+    assert 'data-id="mma"' in resp.content.decode()

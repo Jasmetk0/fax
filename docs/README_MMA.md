@@ -19,7 +19,8 @@ All timestamps are returned in the `Europe/Prague` timezone.
 
 ## Widgets
 
-Two homepage widgets are available via the PH0ENIX picker:
+Three homepage widgets are available via the PH0ENIX picker:
 
+- **MMA** – shortcut to the MMA dashboard
 - **MMA Upcoming** – shows the next scheduled events
 - **MMA Results** – lists recent fight cards
