@@ -1,12 +1,16 @@
 {% extends "mma/base.html" %}
 {% block page_title %}{{ organization.short_name }} {{ weight_class.name }} Rankings – FAX{% endblock %}
 {% block mma_content %}
-<h1 class="mb-4 text-2xl font-bold">{{ organization.short_name }} – {{ weight_class.name }} Rankings</h1>
+<div class="flex justify-between items-center mb-2">
+  <h1 class="text-2xl font-bold">{{ organization.short_name }} – {{ weight_class.name }} Rankings</h1>
+  {% if admin %}<a href="{% url 'admin:mma_ranking_add' %}?organization={{ organization.id }}&weight_class={{ weight_class.id }}" class="text-sm text-blue-400" aria-label="Add Entry">Add Entry</a>{% endif %}
+</div>
 <table class="min-w-full text-sm">
   <thead>
     <tr class="border-b">
       <th class="px-2 py-1 text-left">#</th>
       <th class="px-2 py-1 text-left">Fighter</th>
+      {% if admin %}<th class="px-2 py-1 text-right">Actions</th>{% endif %}
     </tr>
   </thead>
   <tbody>
@@ -14,9 +18,10 @@
       <tr class="border-b last:border-0">
         <td class="px-2 py-1">{{ r.position }}</td>
         <td class="px-2 py-1">{{ r.fighter.first_name }} {{ r.fighter.last_name }}</td>
+        {% if admin %}<td class="px-2 py-1 text-right space-x-2"><a href="{% url 'admin:mma_ranking_change' r.id %}" class="text-slate-400" aria-label="Edit">Edit</a><a href="{% url 'admin:mma_ranking_delete' r.id %}" class="text-red-500" aria-label="Delete">Delete</a></td>{% endif %}
       </tr>
     {% empty %}
-      <tr><td colspan="2" class="px-2 py-2 text-slate-500">No rankings.</td></tr>
+      <tr><td colspan="{% if admin %}3{% else %}2{% endif %}" class="px-2 py-2 text-slate-500">No rankings.</td></tr>
     {% endfor %}
   </tbody>
 </table>

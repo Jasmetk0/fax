@@ -70,3 +70,17 @@ def test_section_pages_render(client, db):
     assert client.get(f"/mma/fighters/{f1.slug}/").status_code == 200
     assert client.get("/mma/rankings/").status_code == 200
     assert client.get(f"/mma/rankings/{org.slug}/{weight.slug}/").status_code == 200
+
+
+def test_admin_buttons_show(client, db, django_user_model):
+    user = django_user_model.objects.create_user("admin", password="pw", is_staff=True)
+    client.force_login(user)
+    session = client.session
+    session["admin_mode"] = True
+    session.save()
+
+    Organization.objects.create(slug="org", name="Org", short_name="ORG")
+
+    resp = client.get("/mma/organizations/")
+    content = resp.content.decode()
+    assert "Add Organization" in content

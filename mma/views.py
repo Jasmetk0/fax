@@ -15,6 +15,10 @@ from .models import (
 )
 
 
+def _is_admin(request):
+    return request.user.is_staff and request.session.get("admin_mode")
+
+
 def dashboard(request):
     """Render the MMA dashboard with basic sections."""
     now = timezone.now()
@@ -33,6 +37,7 @@ def dashboard(request):
     ).order_by("position")[:5]
     fighters = Fighter.objects.order_by("last_name")[:5]
     news_items = NewsItem.objects.order_by("-published_at")[:5]
+    admin = _is_admin(request)
 
     return render(
         request,
@@ -43,13 +48,18 @@ def dashboard(request):
             "rankings": rankings,
             "fighters": fighters,
             "news_items": news_items,
+            "admin": admin,
         },
     )
 
 
 def organization_list(request):
     organizations = Organization.objects.order_by("name")
-    return render(request, "mma/organizations.html", {"organizations": organizations})
+    return render(
+        request,
+        "mma/organizations.html",
+        {"organizations": organizations, "admin": _is_admin(request)},
+    )
 
 
 def organization_detail(request, slug):
@@ -58,13 +68,21 @@ def organization_detail(request, slug):
     return render(
         request,
         "mma/organization_detail.html",
-        {"organization": organization, "events": events},
+        {
+            "organization": organization,
+            "events": events,
+            "admin": _is_admin(request),
+        },
     )
 
 
 def event_list(request):
     events = Event.objects.select_related("organization").order_by("-date_start")
-    return render(request, "mma/events.html", {"events": events})
+    return render(
+        request,
+        "mma/events.html",
+        {"events": events, "admin": _is_admin(request)},
+    )
 
 
 def event_detail(request, slug):
@@ -75,7 +93,7 @@ def event_detail(request, slug):
     return render(
         request,
         "mma/event_detail.html",
-        {"event": event, "bouts": bouts},
+        {"event": event, "bouts": bouts, "admin": _is_admin(request)},
     )
 
 
@@ -87,7 +105,11 @@ def fighter_list(request):
             Q(first_name__icontains=query) | Q(last_name__icontains=query)
         )
     fighters = fighters.order_by("last_name")
-    return render(request, "mma/fighters.html", {"fighters": fighters})
+    return render(
+        request,
+        "mma/fighters.html",
+        {"fighters": fighters, "admin": _is_admin(request)},
+    )
 
 
 def fighter_detail(request, slug):
@@ -100,7 +122,7 @@ def fighter_detail(request, slug):
     return render(
         request,
         "mma/fighter_detail.html",
-        {"fighter": fighter, "bouts": bouts},
+        {"fighter": fighter, "bouts": bouts, "admin": _is_admin(request)},
     )
 
 
@@ -132,7 +154,11 @@ def ranking_list(request):
         }
         for r in ranking_groups
     ]
-    return render(request, "mma/rankings.html", {"ranking_groups": ranking_groups})
+    return render(
+        request,
+        "mma/rankings.html",
+        {"ranking_groups": ranking_groups, "admin": _is_admin(request)},
+    )
 
 
 def ranking_detail(request, org_slug, weight_slug):
@@ -150,5 +176,6 @@ def ranking_detail(request, org_slug, weight_slug):
             "organization": organization,
             "weight_class": weight_class,
             "rankings": rankings,
+            "admin": _is_admin(request),
         },
     )
