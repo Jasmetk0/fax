@@ -1,5 +1,91 @@
 {% extends "base.html" %}
+{% block title %}MMA – FAX{% endblock %}
 {% block content %}
-<h1>MMA Dashboard</h1>
-<p>Placeholder dashboard page.</p>
+<h1 class="mb-4 text-2xl font-bold">MMA</h1>
+
+<div class="grid gap-6 md:grid-cols-2">
+  <section>
+    <h2 class="mb-2 text-xl font-semibold">Upcoming Events</h2>
+    <ul class="space-y-2">
+      {% for e in upcoming_events %}
+        <li class="rounded-lg border p-3 shadow-soft">
+          <div class="font-medium">{{ e.name }}</div>
+          <div class="text-sm text-slate-600">
+            {{ e.date_start|date:"d.m.Y H:i" }} – {{ e.organization.short_name }}
+          </div>
+        </li>
+      {% empty %}
+        <li class="text-sm text-slate-500">No upcoming events.</li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  <section>
+    <h2 class="mb-2 text-xl font-semibold">Recent Results</h2>
+    <ul class="space-y-2">
+      {% for e in recent_results %}
+        <li class="rounded-lg border p-3 shadow-soft">
+          <div class="font-medium">{{ e.name }}</div>
+          <div class="text-sm text-slate-600">{{ e.date_start|date:"d.m.Y" }}</div>
+        </li>
+      {% empty %}
+        <li class="text-sm text-slate-500">No results.</li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  <section class="md:col-span-2">
+    <h2 class="mb-2 text-xl font-semibold">Rankings</h2>
+    <table class="min-w-full text-sm">
+      <thead>
+        <tr class="border-b">
+          <th class="px-2 py-1 text-left">#</th>
+          <th class="px-2 py-1 text-left">Fighter</th>
+          <th class="px-2 py-1 text-left">Weight</th>
+          <th class="px-2 py-1 text-left">Org</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rankings %}
+          <tr class="border-b last:border-0">
+            <td class="px-2 py-1">{{ r.position }}</td>
+            <td class="px-2 py-1">{{ r.fighter.first_name }} {{ r.fighter.last_name }}</td>
+            <td class="px-2 py-1">{{ r.weight_class.name }}</td>
+            <td class="px-2 py-1">{{ r.organization.short_name }}</td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="4" class="px-2 py-2 text-sm text-slate-500">No rankings.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2 class="mb-2 text-xl font-semibold">Fighters</h2>
+    <ul class="space-y-1">
+      {% for f in fighters %}
+        <li><span class="font-medium">{{ f.first_name }} {{ f.last_name }}</span></li>
+      {% empty %}
+        <li class="text-sm text-slate-500">No fighters.</li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  <section>
+    <h2 class="mb-2 text-xl font-semibold">News</h2>
+    <ul class="space-y-2">
+      {% for n in news_items %}
+        <li class="rounded-lg border p-3 shadow-soft">
+          <div class="font-medium">{{ n.title }}</div>
+          <div class="text-sm text-slate-600">{{ n.published_at|date:"d.m.Y" }}</div>
+          <p class="text-sm">{{ n.summary }}</p>
+        </li>
+      {% empty %}
+        <li class="text-sm text-slate-500">No news.</li>
+      {% endfor %}
+    </ul>
+  </section>
+</div>
 {% endblock %}

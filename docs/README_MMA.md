@@ -2,6 +2,10 @@
 
 Placeholder documentation for the upcoming MMA integration.
 
+## Pages
+
+- `GET /mma/` – dashboard with upcoming events, results, rankings, fighters, and news.
+
 ## API
 
 The module currently exposes a limited JSON API:
