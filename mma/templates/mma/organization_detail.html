@@ -1,0 +1,29 @@
+{% extends "mma/base.html" %}
+{% block page_title %}{{ organization.name }} – FAX{% endblock %}
+{% block mma_content %}
+<h1 class="mb-4 text-2xl font-bold">{{ organization.name }}
+  {% if admin %}<span class="text-sm space-x-2"><a href="{% url 'mma:organization_edit' organization.slug %}" class="text-slate-400" aria-label="Edit">Edit</a><a href="{% url 'mma:organization_delete' organization.slug %}" class="text-red-500" aria-label="Delete">Delete</a></span>{% endif %}
+</h1>
+<div class="flex justify-between items-center mb-2">
+  <h2 class="text-xl font-semibold">Events</h2>
+  {% if admin %}<a href="{% url 'mma:event_add' %}?organization={{ organization.slug }}" class="text-sm text-blue-400" aria-label="Add Event">Add Event</a>{% endif %}
+</div>
+<ul class="space-y-2">
+  {% for event in events %}
+    <li class="rounded border p-3 shadow-soft flex justify-between">
+      <div>
+        <a href="{% url 'mma:event_detail' event.slug %}" class="font-medium hover:text-brand-600">{{ event.name }}</a>
+        <div class="text-sm text-slate-600">{{ event.date_start|date:"d.m.Y" }}</div>
+      </div>
+      {% if admin %}
+      <span class="text-sm space-x-2">
+        <a href="{% url 'mma:event_edit' event.slug %}" class="text-slate-400" aria-label="Edit">Edit</a>
+        <a href="{% url 'mma:event_delete' event.slug %}" class="text-red-500" aria-label="Delete">Delete</a>
+      </span>
+      {% endif %}
+    </li>
+  {% empty %}
+    <li class="text-sm text-slate-500">No events.</li>
+  {% endfor %}
+</ul>
+{% endblock %}

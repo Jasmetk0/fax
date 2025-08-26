@@ -1,11 +1,17 @@
+// Global widget registry – additional widgets can push into this array
+window.HOME_WIDGETS = window.HOME_WIDGETS || [
+  { id: 'home', href: '/', label: 'Domů', icon: '🏠', defaultSize: 'M', desc: 'Domů' },
+  { id: 'wiki', href: '/wiki/', label: 'Wiki', icon: '📚', defaultSize: 'M', desc: 'Encyklopedie FAX' },
+  { id: 'maps', href: '/maps/', label: 'Mapy', icon: '🗺️', defaultSize: 'M', desc: 'Leaflet mapy' },
+  { id: 'sport', href: '/livesport/', label: 'Sport', icon: '🏅', defaultSize: 'M', desc: 'LiveSport' },
+  { id: 'msa', href: '/msasquashtour/', label: 'MSA Squash', icon: '🎾', defaultSize: 'M', desc: 'MSA Squash Tour' },
+  { id: 'mma', href: '/mma/', label: 'MMA', icon: '🥊', defaultSize: 'M', desc: 'MMA portál' },
+  { id: 'mma-upcoming', href: '/mma/events/', label: 'MMA Upcoming', icon: '🥊', defaultSize: 'M', desc: 'Nejbližší akce' },
+  { id: 'mma-results', href: '/mma/', label: 'MMA Results', icon: '🥊', defaultSize: 'M', desc: 'Poslední výsledky' }
+];
+
 window.initHomeWidgets = function() {
-  const REG = [
-    { id: 'home', href: '/', label: 'Domů', icon: '🏠', defaultSize: 'M', desc: 'Domů' },
-    { id: 'wiki', href: '/wiki/', label: 'Wiki', icon: '📚', defaultSize: 'M', desc: 'Encyklopedie FAX' },
-    { id: 'maps', href: '/maps/', label: 'Mapy', icon: '🗺️', defaultSize: 'M', desc: 'Leaflet mapy' },
-    { id: 'sport', href: '/livesport/', label: 'Sport', icon: '🏅', defaultSize: 'M', desc: 'LiveSport' },
-    { id: 'msa', href: '/msasquashtour/', label: 'MSA Squash', icon: '🎾', defaultSize: 'M', desc: 'MSA Squash Tour' }
-  ];
+  const REG = window.HOME_WIDGETS;
   const REG_MAP = Object.fromEntries(REG.map(r => [r.id, r]));
   const KEY = 'home.widgets.v1';
   const container = document.getElementById('widgets');
