@@ -1,0 +1,11 @@
+{% extends "mma/base.html" %}
+{% block page_title %}{{ title }} – FAX{% endblock %}
+{% block mma_content %}
+<h1 class="mb-4 text-2xl font-bold">{{ title }}</h1>
+<p class="mb-4">Are you sure you want to delete {{ object }}?</p>
+<form method="post" class="space-x-2">
+  {% csrf_token %}
+  <button type="submit" class="bg-red-600 hover:bg-red-500 text-white rounded-xl px-4 py-2 text-sm">Delete</button>
+  <a href="{{ cancel_url }}" class="text-slate-600">Cancel</a>
+</form>
+{% endblock %}
