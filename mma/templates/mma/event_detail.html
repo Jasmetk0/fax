@@ -1,0 +1,26 @@
+{% extends "mma/base.html" %}
+{% block page_title %}{{ event.name }} – FAX{% endblock %}
+{% block mma_content %}
+<h1 class="mb-4 text-2xl font-bold">{{ event.name }}</h1>
+<div class="mb-4 text-sm text-slate-600">{{ event.organization.short_name }} – {{ event.date_start|date:"d.m.Y H:i" }} – {{ event.venue.name }}</div>
+<table class="min-w-full text-sm">
+  <thead>
+    <tr class="border-b">
+      <th class="px-2 py-1 text-left">Red</th>
+      <th class="px-2 py-1 text-left">Blue</th>
+      <th class="px-2 py-1 text-left">Result</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for b in bouts %}
+      <tr class="border-b last:border-0">
+        <td class="px-2 py-1">{{ b.fighter_red.first_name }} {{ b.fighter_red.last_name }}</td>
+        <td class="px-2 py-1">{{ b.fighter_blue.first_name }} {{ b.fighter_blue.last_name }}</td>
+        <td class="px-2 py-1">{{ b.get_result_display }}</td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="3" class="px-2 py-2 text-slate-500">No bouts.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

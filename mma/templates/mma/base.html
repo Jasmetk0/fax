@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}{% block page_title %}MMA – FAX{% endblock %}{% endblock %}
+{% block content %}
+<nav class="mb-6 border-b border-slate-200 pb-2 flex items-center justify-between">
+  <ul class="flex space-x-4 text-sm font-medium">
+    <li><a href="{% url 'mma:dashboard' %}" class="hover:text-brand-600">Home</a></li>
+    <li><a href="{% url 'mma:organization_list' %}" class="hover:text-brand-600">Organizations</a></li>
+    <li><a href="{% url 'mma:event_list' %}" class="hover:text-brand-600">Events</a></li>
+    <li><a href="{% url 'mma:ranking_list' %}" class="hover:text-brand-600">Rankings</a></li>
+    <li><a href="{% url 'mma:fighter_list' %}" class="hover:text-brand-600">Athletes</a></li>
+  </ul>
+  <form action="{% url 'mma:fighter_list' %}" method="get" class="text-sm">
+    <input type="text" name="query" placeholder="Search" value="{{ request.GET.query }}" class="rounded border px-2 py-1" />
+  </form>
+</nav>
+{% block mma_content %}{% endblock %}
+{% endblock %}
