@@ -12,11 +12,6 @@ class Widget:
     render: Callable[..., str]
 
 
-def upcoming_widget() -> Widget:
-    """Placeholder upcoming events widget."""
-    return Widget(title="MMA: Upcoming", render=lambda: "")
-
-
-def results_widget() -> Widget:
-    """Placeholder recent results widget."""
-    return Widget(title="MMA: Results", render=lambda: "")
+def dashboard_widget() -> Widget:
+    """Placeholder MMA dashboard widget."""
+    return Widget(title="MMA", render=lambda: "")

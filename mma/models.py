@@ -18,7 +18,7 @@ class Organization(models.Model):
 class WeightClass(models.Model):
     slug = models.SlugField(unique=True)
     name = models.CharField(max_length=50)
-    limit_kg = models.PositiveIntegerField()
+    limit_kg = models.DecimalField(max_digits=5, decimal_places=2)
 
     class Meta:
         indexes = [models.Index(fields=["slug"])]

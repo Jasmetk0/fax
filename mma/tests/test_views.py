@@ -11,6 +11,7 @@ from mma.models import (
     Venue,
     WeightClass,
 )
+from decimal import Decimal
 
 
 def test_dashboard_renders(client, db):
@@ -33,7 +34,9 @@ def test_dashboard_renders(client, db):
 
 def test_section_pages_render(client, db):
     org = Organization.objects.create(slug="org", name="Org", short_name="ORG")
-    weight = WeightClass.objects.create(slug="lw", name="Lightweight", limit_kg=70)
+    weight = WeightClass.objects.create(
+        slug="lw", name="Lightweight", limit_kg=Decimal("70.30")
+    )
     venue = Venue.objects.create(name="Arena", city="Prague", country="CZ")
     event = Event.objects.create(
         slug="e1",

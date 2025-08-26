@@ -5,9 +5,7 @@ window.HOME_WIDGETS = window.HOME_WIDGETS || [
   { id: 'maps', href: '/maps/', label: 'Mapy', icon: '🗺️', defaultSize: 'M', desc: 'Leaflet mapy' },
   { id: 'sport', href: '/livesport/', label: 'Sport', icon: '🏅', defaultSize: 'M', desc: 'LiveSport' },
   { id: 'msa', href: '/msasquashtour/', label: 'MSA Squash', icon: '🎾', defaultSize: 'M', desc: 'MSA Squash Tour' },
-  { id: 'mma', href: '/mma/', label: 'MMA', icon: '🥊', defaultSize: 'M', desc: 'MMA portál' },
-  { id: 'mma-upcoming', href: '/mma/events/', label: 'MMA Upcoming', icon: '🥊', defaultSize: 'M', desc: 'Nejbližší akce' },
-  { id: 'mma-results', href: '/mma/', label: 'MMA Results', icon: '🥊', defaultSize: 'M', desc: 'Poslední výsledky' }
+  { id: 'mma', href: '/mma/', label: 'MMA', icon: '🥊', defaultSize: 'M', desc: 'MMA portál' }
 ];
 
 window.initHomeWidgets = function() {
