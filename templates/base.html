@@ -21,7 +21,7 @@
 
   <!-- Tailwind CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Lucide icons (pro SVG ikony v topbaru) -->
+  <!-- Lucide icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
 
   <script>
@@ -47,7 +47,6 @@
   <link rel="stylesheet" href="{% static 'shell/home.css' %}" />
 
   <style>
-    /* helper: hide scrollbars on tab list */
     .no-scrollbar::-webkit-scrollbar { display: none; }
     .no-scrollbar { scrollbar-width: none; }
   </style>
@@ -75,12 +74,14 @@
         </a>
       </div>
 
-      <!-- Center: search (desktop) -->
-      <form action="/search" method="get" class="mx-auto hidden w-full max-w-xl items-center sm:flex">
+      <!-- Center: search (desktop) – roztáhnout mezi levý a pravý blok -->
+      <form id="global-search" action="/search" method="get" class="hidden sm:flex flex-1 min-w-0 items-center" role="search">
         <div class="relative w-full">
-          <input name="q" type="search" placeholder="Hledat Woorld… (Ctrl/⌘K)" aria-label="Hledat"
+          <input id="search-input" name="q" type="search" placeholder="Hledat Woorld… (/, Ctrl/⌘K)" aria-label="Hledat" autocomplete="off"
+                 aria-haspopup="listbox" aria-expanded="false" aria-controls="search-sugg-desktop"
                  class="w-full rounded-xl border border-slate-300 bg-white/90 pl-9 pr-3 py-2 text-sm text-slate-900 shadow-soft placeholder:text-slate-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:ring-slate-700" />
           <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <!-- panel s návrhy přidáme v JS -->
         </div>
       </form>
 
@@ -103,7 +104,7 @@
           </div>
         </div>
 
-        <!-- Správcovský režim ON/OFF — výrazné, ale decentní -->
+        <!-- Správcovský režim ON/OFF -->
         {% if request.user.is_staff %}
         <form method="post" action="{% url 'admin-toggle' %}" class="mx-1">{% csrf_token %}
           <button
@@ -119,7 +120,7 @@
         </form>
         {% endif %}
 
-        <!-- Theme toggle (před třítečkami) -->
+        <!-- Theme toggle -->
         <button id="theme-toggle" class="inline-flex h-9 w-9 items-center justify-center rounded-lg hover:bg-slate-100 active:scale-95 dark:hover:bg-slate-800" aria-label="Přepnout téma">
           <span class="dark:hidden">☀️</span>
           <span class="hidden dark:inline">🌙</span>
@@ -144,10 +145,12 @@
     </div>
 
     <!-- Mobile search -->
-    <form action="/search" method="get" class="sm:hidden border-t border-slate-200/70 px-3 py-2 dark:border-slate-800/70">
+    <form id="global-search-mobile" action="/search" method="get" class="sm:hidden border-t border-slate-200/70 px-3 py-2 dark:border-slate-800/70" role="search">
       <div class="relative">
-        <input name="q" type="search" placeholder="Hledat… (Ctrl/⌘K)" class="w-full rounded-lg border border-slate-300 bg-white/90 pl-9 pr-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900/80" />
+        <input name="q" type="search" placeholder="Hledat… (/, Ctrl/⌘K)" class="w-full rounded-lg border border-slate-300 bg-white/90 pl-9 pr-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900/80" autocomplete="off"
+               aria-haspopup="listbox" aria-expanded="false" aria-controls="search-sugg-mobile" />
         <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <!-- panel s návrhy přidáme v JS -->
       </div>
     </form>
   </header>
@@ -156,19 +159,13 @@
   <div id="tab-strip"
        class="sticky top-14 sm:top-16 z-[900] border-b border-slate-200 bg-white/70 px-2 py-1 text-sm backdrop-blur supports-[backdrop-filter]:bg-white/50 dark:border-slate-800 dark:bg-slate-900/70">
     <div class="flex w-full items-center gap-2">
-      <!-- Dropdown (seznam všech) -->
       <div class="relative">
         <button id="tab-dropdown" class="inline-flex h-8 items-center rounded-lg px-2 hover:bg-slate-100 active:scale-[.98] dark:hover:bg-slate-800" aria-label="Seznam oken">▾</button>
         <div id="tab-dropdown-panel" class="hidden absolute left-2 top-full mt-2 w-[min(92vw,360px)] rounded-2xl border border-slate-200 bg-white p-1 shadow-xl dark:border-slate-800 dark:bg-slate-900"></div>
       </div>
-
-      <!-- Tabs -->
       <ul id="tab-list" role="tablist" class="no-scrollbar flex flex-1 items-center gap-2 overflow-x-auto px-1"></ul>
-
-      <!-- Nová záložka -->
       <div class="relative">
         <button id="tab-new" class="inline-flex h-8 items-center rounded-lg px-2 hover:bg-slate-100 active:scale-[.98] dark:hover:bg-slate-800" aria-label="Nová záložka">＋</button>
-        <!-- inline dialog pro novou kartu -->
         <div id="tab-new-panel" class="hidden absolute right-0 top-full mt-2 w-[min(92vw,380px)] rounded-2xl border border-slate-200 bg-white p-3 shadow-xl dark:border-slate-800 dark:bg-slate-900">
           <div class="text-sm font-medium mb-2">Otevřít novou záložku</div>
           <div class="grid grid-cols-2 gap-2 mb-2">
@@ -201,7 +198,7 @@
 
   <script>
   document.addEventListener('DOMContentLoaded', () => {
-    // Inicializace Lucide SVG ikon (převede <i data-lucide> na inline SVG)
+    // Lucide -> inline SVG
     try { window.lucide?.createIcons(); } catch(_) {}
 
     // ---------- Topbar controls ----------
@@ -231,11 +228,28 @@
       try { localStorage.setItem('theme', isDark ? 'dark' : 'light'); } catch(_) {}
     });
 
-    // Ctrl/Cmd+K -> focus search
+    // Helper: preferuj viditelné desktopové pole
+    function findSearchInput() {
+      const desktop = document.querySelector('#global-search input[name="q"]');
+      if (desktop && desktop.offsetParent !== null) return desktop;
+      return document.querySelector('#global-search-mobile input[name="q"]') || desktop;
+    }
+
+    // Zkratky fokus: Ctrl/Cmd+K a "/"
     document.addEventListener('keydown', (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
-        const input = document.querySelector('form[action="/search"] input[name="q"]');
+        const input = findSearchInput();
         if (input) { e.preventDefault(); input.focus(); input.select?.(); }
+      }
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const a = document.activeElement;
+        const isField = a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.isContentEditable);
+        if (!isField) {
+          const input = findSearchInput();
+          if (input) { e.preventDefault(); input.focus(); input.select?.(); }
+        }
       }
     });
 
@@ -249,21 +263,16 @@
     }
     function getStoredDate() { return localStorage.getItem(WD_KEY) || '2020-01-01'; }
     function setStoredDate(iso) { localStorage.setItem(WD_KEY, iso); wdText.textContent = formatDDMMYYYY(iso); }
-    // init
     setStoredDate(getStoredDate());
-    // open/close
     function toggleWoorld(open) {
       wdPanel.classList.toggle('hidden', !open);
       wdBtn.setAttribute('aria-expanded', String(!!open));
       if (open) {
-        // Modernize included widget
         try {
           const widget = document.getElementById('woorld-widget');
-          // hide legacy label text if present
           widget?.querySelectorAll('label, p, span, div').forEach(el => {
             if (/aktuální.*datum.*woorldu/i.test(el.textContent || '')) el.classList.add('hidden');
           });
-          // set value on date-like input (best-effort)
           const iso = getStoredDate();
           const dateInput =
             widget.querySelector('input[type="date"]') ||
@@ -273,7 +282,6 @@
             dateInput.dispatchEvent(new Event('change', { bubbles: true }));
             dateInput.addEventListener('change', () => setStoredDate(dateInput.value));
           }
-          // fallback selector
           widget.querySelectorAll('[data-woorld-date]').forEach(el => {
             el.value = iso;
             el.addEventListener('change', () => setStoredDate(el.value));
@@ -349,7 +357,6 @@
         li.addEventListener('keydown', (e) => { if (e.key === 'Enter') li.click(); });
         tabList.appendChild(li);
       });
-      // dropdown list
       tabDropPanel.innerHTML = '';
       tabs.forEach((t) => {
         const a = document.createElement('a');
@@ -362,7 +369,7 @@
     }
     function closeTab(id) {
       const state = loadTabs();
-      if (state.tabs.length <= 1) return; // never empty
+      if (state.tabs.length <= 1) return;
       const idx = state.tabs.findIndex(t => t.id === id);
       const wasActive = state.activeId === id;
       const next = state.tabs.filter(t => t.id !== id);
@@ -388,23 +395,22 @@
       renderTabs();
       if ((location.pathname + location.search + location.hash) !== href) location.href = href;
     }
-
     renderTabs();
 
     // Dropdowns + New-tab panel
     const toggle = (el, show) => el.classList.toggle('hidden', !show);
-    tabDropBtn?.addEventListener('click', (e) => { e.stopPropagation(); toggle(tabDropPanel, tabDropPanel.classList.contains('hidden')); });
-    tabNewBtn?.addEventListener('click', (e) => { e.stopPropagation(); toggle(tabNewPanel, tabNewPanel.classList.contains('hidden')); document.getElementById('tab-new-input')?.focus(); });
-    tabNewPanel?.querySelectorAll('button[data-href]')?.forEach(btn => btn.addEventListener('click', () => newTab(btn.getAttribute('data-href'))));
-    tabNewConfirm?.addEventListener('click', () => {
+    document.getElementById('tab-dropdown')?.addEventListener('click', (e) => { e.stopPropagation(); toggle(document.getElementById('tab-dropdown-panel'), document.getElementById('tab-dropdown-panel').classList.contains('hidden')); });
+    document.getElementById('tab-new')?.addEventListener('click', (e) => { e.stopPropagation(); toggle(document.getElementById('tab-new-panel'), document.getElementById('tab-new-panel').classList.contains('hidden')); document.getElementById('tab-new-input')?.focus(); });
+    document.querySelectorAll('#tab-new-panel button[data-href]')?.forEach(btn => btn.addEventListener('click', () => newTab(btn.getAttribute('data-href'))));
+    document.getElementById('tab-new-confirm')?.addEventListener('click', () => {
       const v = (document.getElementById('tab-new-input')?.value || '/').trim() || '/';
       newTab(v);
     });
 
-    // Keyboard shortcuts
+    // Klávesové zkratky pro list tabů
     document.addEventListener('keydown', (e) => {
       const isCmd = e.metaKey || e.ctrlKey;
-      if (isCmd && e.key.toLowerCase() === 't') { e.preventDefault(); tabNewBtn?.click(); }
+      if (isCmd && e.key.toLowerCase() === 't') { e.preventDefault(); document.getElementById('tab-new')?.click(); }
       if (isCmd && e.key.toLowerCase() === 'w') { e.preventDefault();
         const { tabs, activeId } = loadTabs();
         const active = tabs.find(t => t.id === activeId);
@@ -422,27 +428,253 @@
       }
     });
 
-    // Arrow navigation on tab list
-    document.getElementById('tab-list')?.addEventListener('keydown', (e) => {
-      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-      const items = Array.from(document.getElementById('tab-list').querySelectorAll('[role="tab"]'));
-      const idx = items.indexOf(document.activeElement);
-      let j = idx;
-      if (e.key === 'ArrowRight') j = Math.min(items.length - 1, (idx < 0 ? 0 : idx + 1));
-      if (e.key === 'ArrowLeft')  j = Math.max(0, (idx < 0 ? 0 : idx - 1));
-      items[j]?.focus();
-    });
-
-    // Outside-click to close dropdowns/panels
+    // Outside-click to close panels
     document.addEventListener('click', (e) => {
       if (!kebabDrop.contains(e.target) && !kebabBtn.contains(e.target)) toggleMenu(false);
-      if (!tabDropPanel.contains(e.target) && !tabDropBtn.contains(e.target)) tabDropPanel.classList.add('hidden');
-      if (!tabNewPanel.contains(e.target) && !tabNewBtn.contains(e.target)) tabNewPanel.classList.add('hidden');
+      if (!document.getElementById('tab-dropdown-panel').contains(e.target) && !document.getElementById('tab-dropdown').contains(e.target)) document.getElementById('tab-dropdown-panel').classList.add('hidden');
+      if (!document.getElementById('tab-new-panel').contains(e.target) && !document.getElementById('tab-new').contains(e.target)) document.getElementById('tab-new-panel').classList.add('hidden');
       if (!wdPanel.contains(e.target) && !wdBtn.contains(e.target)) wdPanel.classList.add('hidden');
     });
+
     if (document.getElementById('widgets')) {
       initHomeWidgets();
     }
+
+    // ---------- Search: přímé zkratky ----------
+    function normalize(str) {
+      try { return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim(); }
+      catch { return (str || '').toLowerCase().trim(); }
+    }
+    function appShortcutPath(q) {
+      const v = normalize(q);
+      if (!v) return null;
+      if (v === '/' || v === 'domu' || v === 'domů' || v === 'home') return '/';
+      if (v === 'wiki') return '/wiki/';
+      if (v === 'mapy' || v === 'maps') return '/maps/';
+      if (v === 'sport' || v === 'livesport') return '/livesport/';
+      if (v === 'msa' || v === 'squash') return '/msasquashtour/';
+      if (v === 'mma') return '/mma/';
+      if (v === 'openfaxmap' || v === 'ofm') return '/openfaxmap/';
+      return null;
+    }
+    function bindSearchShortcuts(formSelector) {
+      const form = document.querySelector(formSelector);
+      if (!form) return;
+      form.addEventListener('submit', (e) => {
+        const input = form.querySelector('input[name="q"]');
+        const q = (input?.value || '').trim();
+        const path = appShortcutPath(q);
+        if (path) {
+          e.preventDefault();
+          location.href = path;
+        }
+      });
+    }
+    bindSearchShortcuts('#global-search');
+    bindSearchShortcuts('#global-search-mobile');
+
+    // ---------- Search suggestions: stabilní našeptávač ----------
+    const SUGGEST_URL = '/search/suggest';
+    const STATIC_PAGES = [
+      { title: 'Wiki', url: '/wiki/', keys: ['wiki'] },
+      { title: 'Mapy', url: '/maps/', keys: ['mapy','maps'] },
+      { title: 'LiveSport', url: '/livesport/', keys: ['sport','livesport'] },
+      { title: 'MSA Squash Tour', url: '/msasquashtour/', keys: ['msa','squash'] },
+      { title: 'MMA portál', url: '/mma/', keys: ['mma'] },
+      { title: 'OpenFaxMap', url: '/openfaxmap/', keys: ['openfaxmap','ofm'] },
+      { title: 'Domů', url: '/', keys: ['domu','domů','home','/'] },
+    ];
+
+    function createPanel(id) {
+      const panel = document.createElement('div');
+      panel.id = id;
+      panel.setAttribute('role', 'listbox');
+      panel.className =
+        'hidden absolute left-0 right-0 mt-1 max-h-80 overflow-auto rounded-xl border border-slate-200 bg-white p-1 text-sm shadow-xl dark:border-slate-800 dark:bg-slate-900 z-[1100]';
+      return panel;
+    }
+
+    function attachSuggest(formSelector, panelId) {
+      const form = document.querySelector(formSelector);
+      if (!form) return;
+      const input = form.querySelector('input[name="q"]');
+      if (!input) return;
+
+      const wrapper = input.closest('.relative') || form;
+      let panel = document.getElementById(panelId);
+      if (!panel) {
+        panel = createPanel(panelId);
+        wrapper.appendChild(panel);
+      }
+      input.setAttribute('aria-controls', panelId);
+
+      let active = -1;
+      let lastQuery = '';
+      let reqId = 0;
+      let ignoreBlur = false;
+      let remoteDownUntil = 0;
+
+      const now = () => Date.now();
+      const remoteEnabled = () => now() > remoteDownUntil;
+
+      const closePanel = () => {
+        panel.classList.add('hidden');
+        input.setAttribute('aria-expanded', 'false');
+        input.removeAttribute('aria-activedescendant');
+        active = -1;
+      };
+
+      const setActive = (i) => {
+        const items = Array.from(panel.querySelectorAll('[role="option"]'));
+        items.forEach((el, idx) => {
+          el.classList.toggle('bg-slate-100', idx === i);
+          el.setAttribute('aria-selected', String(idx === i));
+        });
+        active = i;
+        if (i >= 0 && items[i]) input.setAttribute('aria-activedescendant', items[i].id);
+        else input.removeAttribute('aria-activedescendant');
+      };
+
+      const norm = (s) => normalize(String(s||''));
+      const uniqByUrl = (arr) => {
+        const out = [];
+        const seen = new Set();
+        for (const x of arr) {
+          if (!x || !x.url) continue;
+          if (!/^\/|^https?:\/\//i.test(x.url)) continue;
+          if (seen.has(x.url)) continue;
+          seen.add(x.url); out.push(x);
+        }
+        return out;
+      };
+
+      const staticMatches = (q) => {
+        const v = norm(q);
+        if (!v) return STATIC_PAGES.slice(0, 5);
+        const res = [];
+        for (const p of STATIC_PAGES) {
+          const hit = p.keys.some(k => norm(k).startsWith(v) || v.startsWith(norm(k)));
+          if (hit) res.push({ title: p.title, url: p.url });
+        }
+        return res;
+      };
+
+      const render = (items) => {
+        if (!items || items.length === 0) { closePanel(); return; }
+        panel.innerHTML = '';
+        items.slice(0, 8).forEach((it, i) => {
+          const id = `${panelId}-opt-${i}`;
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.id = id;
+          btn.setAttribute('role', 'option');
+          btn.setAttribute('aria-selected', 'false');
+          btn.className = 'w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800';
+          btn.innerHTML = `<span class="block font-medium truncate">${it.title || it.url}</span>
+                           <span class="block text-[11px] opacity-60 truncate">${it.url}</span>`;
+          // pointerdown = jistota před blur (funguje i na dotyk)
+          btn.addEventListener('pointerdown', (ev) => {
+            ev.preventDefault();
+            ignoreBlur = true;
+            location.href = it.url;
+          });
+          panel.appendChild(btn);
+        });
+        panel.classList.remove('hidden');
+        input.setAttribute('aria-expanded', 'true');
+        setActive(-1);
+      };
+
+      const fetchSuggest = async (q, myId) => {
+        try {
+          const res = await fetch(`${SUGGEST_URL}?q=${encodeURIComponent(q)}`, {
+            headers: { 'Accept': 'application/json' },
+          });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const data = await res.json();
+          if (myId !== reqId) return; // stará odpověď – ignoruj
+          let arr = [];
+          if (Array.isArray(data)) {
+            arr = data.map(x => typeof x === 'string' ? { title: x, url: x } : x);
+          } else if (Array.isArray(data?.results)) {
+            arr = data.results;
+          }
+          const merged = uniqByUrl(arr.length ? arr : staticMatches(q));
+          render(merged);
+        } catch (err) {
+          // Backend je dočasně dole – na 60s přejdeme na čistě statické návrhy
+          remoteDownUntil = now() + 60000;
+          if (myId !== reqId) return;
+          render(staticMatches(q));
+        }
+      };
+
+      // Debounce
+      let t = null;
+      const onInput = () => {
+        const q = input.value.trim();
+        if (q === lastQuery) return;
+        lastQuery = q;
+        clearTimeout(t);
+        t = setTimeout(() => {
+          if (!q) { render(staticMatches('')); return; }
+          if (!remoteEnabled() || q.length < 2) {
+            render(uniqByUrl(staticMatches(q)));
+          } else {
+            const myId = ++reqId;
+            fetchSuggest(q, myId);
+          }
+        }, 150);
+      };
+
+      input.addEventListener('input', onInput);
+      input.addEventListener('focus', () => {
+        const q = input.value.trim();
+        if (!q || q.length < 2 || !remoteEnabled()) render(staticMatches(q));
+        else { const myId = ++reqId; fetchSuggest(q, myId); }
+      });
+      input.addEventListener('blur', () => {
+        // pokud klikáme do panelu, nechej otevřené – zavře se po navigaci
+        setTimeout(() => { if (!ignoreBlur) closePanel(); ignoreBlur = false; }, 0);
+      });
+
+      input.addEventListener('keydown', (e) => {
+        const items = Array.from(panel.querySelectorAll('[role="option"]'));
+        if (e.key === 'ArrowDown' && items.length) {
+          e.preventDefault();
+          setActive((active + 1) % items.length);
+        }
+        if (e.key === 'ArrowUp' && items.length) {
+          e.preventDefault();
+          setActive((active - 1 + items.length) % items.length);
+        }
+        if (e.key === 'Home' && items.length) { e.preventDefault(); setActive(0); }
+        if (e.key === 'End' && items.length) { e.preventDefault(); setActive(items.length - 1); }
+        if (e.key === 'Enter' && !panel.classList.contains('hidden') && items.length) {
+          // když nic není aktivní, vezmeme první
+          e.preventDefault();
+          (items[active >= 0 ? active : 0]).dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+        }
+        if (e.key === 'Escape' && !panel.classList.contains('hidden')) {
+          e.preventDefault(); closePanel();
+        }
+      });
+
+      // Submit: zkratky na hlavní stránky; jinak defaultní /search
+      form.addEventListener('submit', (e) => {
+        const q = input.value.trim();
+        const path = appShortcutPath(q);
+        if (path) { e.preventDefault(); location.href = path; }
+      });
+
+      // Klik mimo – zavři panel
+      document.addEventListener('click', (ev) => {
+        if (!panel.contains(ev.target) && ev.target !== input) closePanel();
+      });
+    }
+
+    attachSuggest('#global-search', 'search-sugg-desktop');
+    attachSuggest('#global-search-mobile', 'search-sugg-mobile');
 
     // Service worker
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('/service-worker.js');
