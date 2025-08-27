@@ -245,7 +245,11 @@
     document.addEventListener('keydown', (e) => {
       if (e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey) {
         const a = document.activeElement;
-        const isField = a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.isContentEditable);
+        const isField =
+          a &&
+          (a.tagName === 'INPUT' ||
+            a.tagName === 'TEXTAREA' ||
+            a.getAttribute('contenteditable') === 'true');
         if (!isField) {
           const input = findSearchInput();
           if (input) { e.preventDefault(); input.focus(); input.select?.(); }
