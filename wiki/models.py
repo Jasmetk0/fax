@@ -66,6 +66,9 @@ class Article(models.Model):
             self.slug = slugify(self.title)
         super().save(*args, **kwargs)
 
+    def get_absolute_url(self):
+        return reverse("wiki:article-detail", kwargs={"slug": self.slug})
+
     def content_html(self) -> str:
         from .infoboxes import parser as infobox_parser
 
