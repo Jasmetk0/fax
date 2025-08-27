@@ -1,37 +1,108 @@
 {% extends "base.html" %}
 {% block content %}
-<section class="max-w-4xl mx-auto py-6">
-  <form action="/search" method="get" class="mb-6">
-    <input
-      name="q"
-      value="{{ q|default:'' }}"
-      type="search"
-      placeholder="Search Woorld…"
-      class="w-full h-12 rounded-2xl border px-4"
-      aria-label="Search Woorld"
-    />
+<section class="mx-auto max-w-4xl py-6 space-y-6">
+  <form action="/search" method="get">
+    <input name="q" value="{{ q|default:'' }}" type="search" placeholder="Hledat Woorld…"
+           class="w-full rounded-xl border px-4 py-2" />
   </form>
 
   {% if q %}
-    <p class="text-sm text-muted-foreground mb-4">
-      Výsledky pro „{{ q }}“ ({{ results|length }})
-    </p>
+  <div class="space-y-4">
+    <div class="flex flex-wrap items-center gap-2" id="toolbar">
+      <p class="text-sm">Výsledky pro „{{ q }}“ (<span id="shown-count">{{ results|length }}</span>)</p>
+      <div id="filter-chips" class="flex flex-wrap gap-2 ml-auto">
+        {% for t in types %}
+          <button type="button" class="filter-chip rounded-full border px-3 py-1 text-sm" data-type="{{ t }}">{{ t }}</button>
+        {% endfor %}
+      </div>
+    </div>
 
-    <div class="space-y-4">
+    <div id="result-list" class="space-y-4">
       {% for r in results %}
-        <a href="{{ r.url }}" class="block rounded-xl border p-4 hover:shadow focus:outline-none focus:ring">
-          <div class="text-xs uppercase tracking-wide opacity-70">{{ r.type }}</div>
-          <h3 class="text-lg font-semibold">{{ r.title }}</h3>
-          {% if r.snippet %}
-            <p class="text-sm mt-1">{{ r.snippet }}</p>
-          {% endif %}
-        </a>
-      {% empty %}
-        <div class="text-sm">Nic jsme nenašli. Zkuste kratší nebo jiné klíčové slovo.</div>
+      <article class="result-card border rounded-xl p-4 hover:shadow" data-type="{{ r.type }}">
+        <div class="text-xs font-semibold mb-1 uppercase opacity-60">{{ r.type }}</div>
+        <h3 class="text-lg font-semibold"><a href="{{ r.url }}" class="r-title">{{ r.title }}</a></h3>
+        {% if r.snippet %}
+        <p class="r-snippet text-sm mt-1">{{ r.snippet }}</p>
+        {% endif %}
+      </article>
       {% endfor %}
     </div>
+    <div class="text-center">
+      <button id="load-more" type="button" class="mt-4 rounded-lg border px-4 py-2">Zobrazit další</button>
+    </div>
+  </div>
   {% else %}
-    <div class="text-sm text-muted-foreground">Zadejte dotaz a stiskněte Enter.</div>
+  <div class="text-sm text-slate-500">Zadejte dotaz a stiskněte Enter.</div>
   {% endif %}
 </section>
+
+{% if q %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const norm = (s) => (s || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const q = norm('{{ q|escapejs }}');
+  const cards = Array.from(document.querySelectorAll('.result-card'));
+  const pageSize = 12;
+  let shown = pageSize;
+  let activeType = null;
+  const countEl = document.getElementById('shown-count');
+  const btnMore = document.getElementById('load-more');
+
+  const update = () => {
+    let visible = 0;
+    cards.forEach((el, idx) => {
+      const matchType = !activeType || el.dataset.type === activeType;
+      const show = idx < shown && matchType;
+      el.classList.toggle('hidden', !show);
+      if (show) visible++;
+    });
+    countEl.textContent = visible;
+    if (visible < shown || shown >= cards.length) btnMore.classList.add('hidden');
+    else btnMore.classList.remove('hidden');
+  };
+
+  document.querySelectorAll('.filter-chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      activeType = activeType === btn.dataset.type ? null : btn.dataset.type;
+      document.querySelectorAll('.filter-chip').forEach(b => {
+        b.classList.toggle('bg-brand-500', activeType && b === btn);
+        b.classList.toggle('text-white', activeType && b === btn);
+      });
+      shown = pageSize;
+      update();
+    });
+  });
+
+  btnMore.addEventListener('click', () => {
+    shown += pageSize;
+    update();
+  });
+
+  const markText = (el) => {
+    const text = el.textContent;
+    const map = [];
+    let normText = '';
+    for (let i = 0; i < text.length; i++) {
+      const n = norm(text[i]);
+      for (const ch of n) { map.push(i); normText += ch; }
+    }
+    const idx = normText.indexOf(q);
+    if (idx === -1) return;
+    const start = map[idx];
+    const end = map[idx + q.length - 1] + 1;
+    el.innerHTML = text.slice(0, start) + '<mark>' + text.slice(start, end) + '</mark>' + text.slice(end);
+  };
+
+  cards.forEach(card => {
+    const t = card.querySelector('.r-title');
+    const s = card.querySelector('.r-snippet');
+    if (t) markText(t);
+    if (s) markText(s);
+  });
+
+  update();
+});
+</script>
+{% endif %}
 {% endblock %}
