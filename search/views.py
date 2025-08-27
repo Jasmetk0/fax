@@ -1,350 +1,232 @@
-# Search views for fulltext results and JSON suggestions
+from typing import Dict, List
+
 from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import render
-from django.urls import reverse
 from django.utils.text import slugify
 
+from .utils import normalize
 from wiki.models import Article
 
-try:  # optional apps
-    from maps.models import Place
-except Exception:  # ImportError or attribute
-    Place = None
-
-try:
-    from sports.models import Event
-except Exception:
-    Event = None
-
-try:
-    from mma.models import (
-        Fighter as MmaFighter,
-        Event as MmaEvent,
-        Organization as MmaOrg,
-    )
-except Exception:
-    MmaFighter = MmaEvent = MmaOrg = None
-
-try:
+try:  # optional apps for suggestions
     from msa.models import (
         Player as MsaPlayer,
         Tournament as MsaTournament,
         NewsPost as MsaNews,
     )
-except Exception:
+except Exception:  # pragma: no cover - optional
     MsaPlayer = MsaTournament = MsaNews = None
 
+try:
+    from mma.models import Fighter as MmaFighter, Event as MmaEvent, NewsItem as MmaNews
+except Exception:  # pragma: no cover - optional
+    MmaFighter = MmaEvent = MmaNews = None
 
-def _has_field(model, name: str) -> bool:
-    try:
-        return any(f.name == name for f in model._meta.get_fields())
-    except Exception:
-        return False
+
+def _score_match(
+    q_norm: str, slug_q: str, title: str, slug: str | None, content: str | None
+) -> int:
+    title_norm = normalize(title)
+    slug_norm = slug or ""
+    content_norm = normalize(content or "")
+    score = 0
+    if q_norm and (title_norm.startswith(q_norm) or slug_norm.startswith(slug_q)):
+        score += 100
+    if q_norm and q_norm in title_norm:
+        score += 40
+    if q_norm and q_norm in content_norm:
+        score += 15
+    return score
 
 
 def search(request):
     q = (request.GET.get("q") or "").strip()
+    q_norm = normalize(q)
     slug_q = slugify(q)
-    results: list[dict] = []
-    if q:
-        wiki = Article.objects.filter(
-            Q(title__icontains=q)
-            | Q(slug__icontains=slug_q)
-            | Q(content_md__icontains=q)
-        )[:20]
+    results: List[Dict] = []
 
-        def pack(items, typ, get_url, get_title, get_snippet):
-            for it in items:
+    if q:
+        qs = (
+            Article.objects.filter(is_deleted=False)
+            .filter(
+                Q(title__icontains=q)
+                | Q(slug__icontains=slug_q)
+                | Q(summary__icontains=q)
+                | Q(content_md__icontains=q)
+            )
+            .order_by("-updated_at")[:600]
+        )
+        for a in qs:
+            score = _score_match(
+                q_norm, slug_q, a.title, a.slug, a.summary or a.content_md
+            )
+            if score:
                 results.append(
                     {
-                        "type": typ,
-                        "url": get_url(it),
-                        "title": get_title(it),
-                        "snippet": (get_snippet(it) or "")[:180],
+                        "type": "Wiki",
+                        "url": a.get_absolute_url(),
+                        "title": a.title,
+                        "snippet": (a.summary or a.content_md or "")[:180],
+                        "score": score,
+                        "date": a.updated_at,
                     }
                 )
 
-        pack(
-            wiki,
-            "Wiki",
-            lambda a: f"/wiki/{a.slug}/",
-            lambda a: a.title,
-            lambda a: getattr(a, "summary", None) or a.content_md,
+    results.sort(
+        key=lambda r: (
+            -r["score"],
+            -(r["date"].timestamp() if r.get("date") else 0),
+            r["title"],
         )
-        if Place is not None:
-            if _has_field(Place, "slug"):
-                places = Place.objects.filter(
-                    Q(name__icontains=q)
-                    | Q(description__icontains=q)
-                    | Q(slug__icontains=slug_q)
-                )[:20]
-            else:
-                places = Place.objects.filter(
-                    Q(name__icontains=q) | Q(description__icontains=q)
-                )[:20]
-            pack(
-                places,
-                "Map",
-                lambda p: f"/maps/place/{p.slug}/",
-                lambda p: p.name,
-                lambda p: getattr(p, "description", ""),
-            )
-        if Event is not None:
-            if _has_field(Event, "slug"):
-                events = Event.objects.filter(
-                    Q(name__icontains=q)
-                    | Q(summary__icontains=q)
-                    | Q(slug__icontains=slug_q)
-                )[:20]
-            else:
-                events = Event.objects.filter(
-                    Q(name__icontains=q) | Q(summary__icontains=q)
-                )[:20]
-            pack(
-                events,
-                "LiveSport",
-                lambda e: f"/livesport/event/{e.slug}/",
-                lambda e: getattr(e, "summary", None) or e.name,
-                lambda e: getattr(e, "summary", ""),
-            )
-    return render(request, "search/results.html", {"q": q, "results": results})
+    )
+    for r in results:
+        r.pop("score", None)
+        r.pop("date", None)
+
+    types = sorted({r["type"] for r in results})
+    return render(
+        request, "search/results.html", {"q": q, "results": results, "types": types}
+    )
+
+
+def _suggest_pack(arr, title, slug, url, source, q_norm, slug_q):
+    title_norm = normalize(title)
+    slug_norm = slug or ""
+    if q_norm and (title_norm.startswith(q_norm) or slug_norm.startswith(slug_q)):
+        score = 2
+    elif q_norm and q_norm in title_norm:
+        score = 1
+    else:
+        score = 0
+    if score:
+        arr.append({"title": title, "url": url, "source": source, "score": score})
 
 
 def suggest(request):
-    """
-    GET /search/suggest?q=...
-    Vrací JSON: {"results": [{"title":"...", "url":"/cesta/"}]}
-    - podporuje prefix 'wiki/' → hledá jen ve wiki podle zbytku dotazu
-    - nabízí i deep stránky (wiki, mma, msa)
-    - doplňuje statické hlavní stránky (/, /wiki/, /maps/, /livesport/, /mma/, /msasquashtour/, /openfaxmap/)
-    """
     q = (request.GET.get("q") or "").strip()
-    q_norm = q.lower()
+    q_norm = normalize(q)
     slug_q = slugify(q)
+    results: List[Dict] = []
 
-    results = []  # dočasně se "score", nakonec odřízneme na {title,url}
-
-    # --- statické hlavní stránky (fallback a prefix match) ---
-    static_pages = [
-        ("Domů", "/"),
-        ("Wiki", "/wiki/"),
-        ("Mapy", "/maps/"),
-        ("LiveSport", "/livesport/"),
-        ("MMA", "/mma/"),
-        ("MSA Squash", "/msasquashtour/"),
-        ("OpenFaxMap", "/openfaxmap/"),
-    ]
-
-    def add_static():
-        if not q_norm:
-            # prázdný dotaz → krátký seznam top stránek
-            for title, url in static_pages[:5]:
-                results.append({"title": title, "url": url, "score": 10})
-        else:
-            path_like = slug_q.lstrip("/")
-            for title, url in static_pages:
-                title_slug = slugify(title)
-                # match na title prefix (case & diacritics insensitive)
-                # nebo na začátek cesty (bez počáteční '/')
-                if (
-                    title.lower().startswith(q_norm)
-                    or title_slug.startswith(slug_q)
-                    or url.lstrip("/").startswith(path_like)
-                ):
-                    results.append({"title": title, "url": url, "score": 30})
-
-    # --- wiki provider (Article) ---
-    def add_wiki(term: str):
-        slug_term = slugify(term)
-        filters = Q(title__icontains=term)
-        if slug_term:
-            filters |= Q(slug__icontains=slug_term)
-        qs = Article.objects.filter(is_deleted=False).filter(filters)[:30]
-
-        t = term.lower()
-        for a in qs:
-            title_l = (a.title or "").lower()
-            slug_l = (a.slug or "").lower()
-            # skórování: slug prefix > title prefix > contains
-            if slug_term and slug_l.startswith(slug_term):
-                sc = 120
-            elif title_l.startswith(t):
-                sc = 110
-            else:
-                sc = 80
-            url = reverse("wiki:article-detail", kwargs={"slug": a.slug})
-            results.append({"title": a.title, "url": url, "score": sc})
-
-    # --- MMA provider (fighters, events, orgs) ---
-    def add_mma(term: str):
-        if not (MmaFighter or MmaEvent or MmaOrg):
-            return
-        t = term.lower()
-        slug_t = slugify(term)
-        # Fighters
-        if MmaFighter:
-            filt = (
-                Q(first_name__icontains=t)
-                | Q(last_name__icontains=t)
-                | Q(nickname__icontains=t)
+    if q_norm:
+        wiki_qs = Article.objects.filter(
+            Q(title__icontains=q) | Q(slug__icontains=slug_q)
+        ).order_by("-updated_at")[:20]
+        for a in wiki_qs:
+            _suggest_pack(
+                results, a.title, a.slug, a.get_absolute_url(), "wiki", q_norm, slug_q
             )
-            if slug_t:
-                filt |= Q(slug__icontains=slug_t)
-            qs = MmaFighter.objects.filter(filt)[:20]
-            for f in qs:
-                name = f"{f.first_name} {f.last_name}".strip()
-                slug_l = (f.slug or "").lower()
-                name_l = name.lower()
-                sc = (
-                    120
-                    if (slug_t and slug_l.startswith(slug_t)) or name_l.startswith(t)
-                    else 80
-                )
-                results.append(
-                    {
-                        "title": name or f.slug,
-                        "url": f"/mma/fighters/{f.slug}/",
-                        "score": sc,
-                    }
-                )
-        # Events
-        if MmaEvent:
-            filt = Q(name__icontains=t)
-            if slug_t:
-                filt |= Q(slug__icontains=slug_t)
-            qs = MmaEvent.objects.filter(filt)[:20]
-            for e in qs:
-                name_l = (e.name or "").lower()
-                slug_l = (e.slug or "").lower()
-                sc = (
-                    120
-                    if (slug_t and slug_l.startswith(slug_t)) or name_l.startswith(t)
-                    else 80
-                )
-                results.append(
-                    {
-                        "title": e.name or e.slug,
-                        "url": f"/mma/events/{e.slug}/",
-                        "score": sc,
-                    }
-                )
-        # Orgs
-        if MmaOrg:
-            filt = Q(name__icontains=t) | Q(short_name__icontains=t)
-            if slug_t:
-                filt |= Q(slug__icontains=slug_t)
-            qs = MmaOrg.objects.filter(filt)[:20]
-            for o in qs:
-                label = o.name or o.short_name or o.slug
-                label_l = (label or "").lower()
-                slug_l = (o.slug or "").lower()
-                sc = (
-                    120
-                    if (slug_t and slug_l.startswith(slug_t)) or label_l.startswith(t)
-                    else 70
-                )
-                results.append(
-                    {
-                        "title": label,
-                        "url": f"/mma/organizations/{o.slug}/",
-                        "score": sc,
-                    }
-                )
 
-    # --- MSA provider (players, tournaments, news) ---
-    def add_msa(term: str):
-        if not (MsaPlayer or MsaTournament or MsaNews):
-            return
-        t = term.lower()
-        slug_t = slugify(term)
         if MsaPlayer:
-            filt = Q(name__icontains=t)
-            if slug_t:
-                filt |= Q(slug__icontains=slug_t)
-            qs = MsaPlayer.objects.filter(filt)[:20]
+            qs = MsaPlayer.objects.filter(
+                Q(name__icontains=q) | Q(slug__icontains=slug_q)
+            )[:20]
             for p in qs:
-                name_l = (p.name or "").lower()
-                slug_l = (p.slug or "").lower()
-                sc = (
-                    120
-                    if (slug_t and slug_l.startswith(slug_t)) or name_l.startswith(t)
-                    else 80
-                )
-                results.append(
-                    {
-                        "title": p.name or p.slug,
-                        "url": f"/msasquashtour/players/{p.slug}/",
-                        "score": sc,
-                    }
+                _suggest_pack(
+                    results,
+                    p.name,
+                    p.slug,
+                    f"/msasquashtour/players/{p.slug}/",
+                    "msa",
+                    q_norm,
+                    slug_q,
                 )
         if MsaTournament:
-            filt = Q(name__icontains=t)
-            if slug_t:
-                filt |= Q(slug__icontains=slug_t)
-            qs = MsaTournament.objects.filter(filt)[:20]
-            for tmt in qs:
-                name_l = (tmt.name or "").lower()
-                slug_l = (tmt.slug or "").lower()
-                sc = (
-                    120
-                    if (slug_t and slug_l.startswith(slug_t)) or name_l.startswith(t)
-                    else 80
-                )
-                results.append(
-                    {
-                        "title": tmt.name or tmt.slug,
-                        "url": f"/msasquashtour/tournaments/{tmt.slug}/",
-                        "score": sc,
-                    }
+            qs = MsaTournament.objects.filter(
+                Q(name__icontains=q) | Q(slug__icontains=slug_q)
+            )[:20]
+            for t in qs:
+                _suggest_pack(
+                    results,
+                    t.name,
+                    t.slug,
+                    f"/msasquashtour/tournaments/{t.slug}/",
+                    "msa",
+                    q_norm,
+                    slug_q,
                 )
         if MsaNews:
-            filt = Q(title__icontains=t)
-            if slug_t:
-                filt |= Q(slug__icontains=slug_t)
-            qs = MsaNews.objects.filter(filt)[:20]
+            qs = MsaNews.objects.filter(
+                Q(title__icontains=q) | Q(slug__icontains=slug_q)
+            )[:20]
             for n in qs:
-                title_l = (n.title or "").lower()
-                slug_l = (n.slug or "").lower()
-                sc = (
-                    110
-                    if title_l.startswith(t) or (slug_t and slug_l.startswith(slug_t))
-                    else 75
+                _suggest_pack(
+                    results,
+                    n.title,
+                    n.slug,
+                    f"/msasquashtour/news/{n.slug}/",
+                    "msa",
+                    q_norm,
+                    slug_q,
                 )
-                results.append(
-                    {
-                        "title": n.title or n.slug,
-                        "url": f"/msasquashtour/news/{n.slug}/",
-                        "score": sc,
-                    }
+        if MmaFighter:
+            qs = MmaFighter.objects.filter(
+                Q(first_name__icontains=q)
+                | Q(last_name__icontains=q)
+                | Q(nickname__icontains=q)
+                | Q(slug__icontains=slug_q)
+            )[:20]
+            for f in qs:
+                name = " ".join(filter(None, [f.first_name, f.last_name]))
+                _suggest_pack(
+                    results,
+                    name or f.slug,
+                    f.slug,
+                    f"/mma/fighters/{f.slug}/",
+                    "mma",
+                    q_norm,
+                    slug_q,
+                )
+        if MmaEvent:
+            qs = MmaEvent.objects.filter(
+                Q(name__icontains=q) | Q(slug__icontains=slug_q)
+            )[:20]
+            for e in qs:
+                _suggest_pack(
+                    results,
+                    e.name,
+                    e.slug,
+                    f"/mma/events/{e.slug}/",
+                    "mma",
+                    q_norm,
+                    slug_q,
+                )
+        if MmaNews:
+            qs = MmaNews.objects.filter(
+                Q(title__icontains=q) | Q(slug__icontains=slug_q)
+            )[:20]
+            for n in qs:
+                _suggest_pack(
+                    results,
+                    n.title,
+                    n.slug,
+                    f"/mma/news/{n.slug}/",
+                    "mma",
+                    q_norm,
+                    slug_q,
                 )
 
-    # --- řízení providerů podle dotazu ---
-    if q_norm.startswith("wiki/"):
-        # explicitní wiki/… → hledej jen ve wiki
-        term = q_norm.split("/", 1)[1]
-        slug_term = slugify(term)
-        if slug_term:
-            add_wiki(term)
-    else:
-        if q_norm:
-            add_wiki(q_norm)
-            add_mma(q_norm)
-            add_msa(q_norm)
+    results.sort(key=lambda r: r.get("score", 0), reverse=True)
+    static = [
+        {"title": "Domů", "url": "/", "source": "static"},
+        {"title": "Wiki", "url": "/wiki/", "source": "static"},
+        {"title": "Mapy", "url": "/maps/", "source": "static"},
+        {"title": "OpenFaxMap", "url": "/openfaxmap/", "source": "static"},
+        {"title": "LiveSport", "url": "/livesport/", "source": "static"},
+        {"title": "MMA", "url": "/mma/", "source": "static"},
+        {"title": "MSA Squash Tour", "url": "/msasquashtour/", "source": "static"},
+    ]
+    results.extend(static)
 
-    # vždy doplň statické stránky (prefix match)
-    add_static()
-
-    # deduplikace + seřazení + limit 10
     seen = set()
-    uniq = []
+    out = []
     for r in results:
         url = r.get("url")
         if not url or url in seen:
             continue
         seen.add(url)
-        uniq.append(r)
+        out.append({"title": r["title"], "url": url, "source": r.get("source")})
+        if len(out) >= 10:
+            break
 
-    uniq.sort(key=lambda r: r.get("score", 0), reverse=True)
-    payload = [{"title": r["title"], "url": r["url"]} for r in uniq[:10]]
-    return JsonResponse({"results": payload})
+    return JsonResponse({"results": out})
