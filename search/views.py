@@ -1,7 +1,9 @@
 from django.db.models import Q
-from django.shortcuts import render
 from django.http import JsonResponse
+from django.shortcuts import render
 from django.urls import reverse
+from django.utils.text import slugify
+
 
 from wiki.models import Article
 
@@ -34,12 +36,22 @@ except Exception:
     MsaPlayer = MsaTournament = MsaNews = None
 
 
+def _has_field(model, name: str) -> bool:
+    try:
+        return any(f.name == name for f in model._meta.get_fields())
+    except Exception:
+        return False
+
+
 def search(request):
     q = (request.GET.get("q") or "").strip()
+    slug_q = slugify(q)
     results: list[dict] = []
     if q:
         wiki = Article.objects.filter(
-            Q(title__icontains=q) | Q(content_md__icontains=q)
+            Q(title__icontains=q)
+            | Q(slug__icontains=slug_q)
+            | Q(content_md__icontains=q)
         )[:20]
 
         def pack(items, typ, get_url, get_title, get_snippet):
@@ -61,9 +73,16 @@ def search(request):
             lambda a: getattr(a, "summary", None) or a.content_md,
         )
         if Place is not None:
-            places = Place.objects.filter(
-                Q(name__icontains=q) | Q(description__icontains=q)
-            )[:20]
+            if _has_field(Place, "slug"):
+                places = Place.objects.filter(
+                    Q(name__icontains=q)
+                    | Q(description__icontains=q)
+                    | Q(slug__icontains=slug_q)
+                )[:20]
+            else:
+                places = Place.objects.filter(
+                    Q(name__icontains=q) | Q(description__icontains=q)
+                )[:20]
             pack(
                 places,
                 "Map",
@@ -72,9 +91,16 @@ def search(request):
                 lambda p: getattr(p, "description", ""),
             )
         if Event is not None:
-            events = Event.objects.filter(
-                Q(name__icontains=q) | Q(summary__icontains=q)
-            )[:20]
+            if _has_field(Event, "slug"):
+                events = Event.objects.filter(
+                    Q(name__icontains=q)
+                    | Q(summary__icontains=q)
+                    | Q(slug__icontains=slug_q)
+                )[:20]
+            else:
+                events = Event.objects.filter(
+                    Q(name__icontains=q) | Q(summary__icontains=q)
+                )[:20]
             pack(
                 events,
                 "LiveSport",
@@ -95,6 +121,7 @@ def suggest(request):
     """
     q = (request.GET.get("q") or "").strip()
     q_norm = q.lower()
+    slug_q = slugify(q)
 
     results = []  # dočasně se "score", nakonec odřízneme na {title,url}
 
@@ -115,7 +142,7 @@ def suggest(request):
             for title, url in static_pages[:5]:
                 results.append({"title": title, "url": url, "score": 10})
         else:
-            path_like = q_norm.lstrip("/")
+            path_like = slug_q.lstrip("/")
             for title, url in static_pages:
                 # match na title prefix nebo na začátek cesty (bez počáteční '/')
                 if title.lower().startswith(q_norm) or url.lstrip("/").startswith(
@@ -125,8 +152,9 @@ def suggest(request):
 
     # --- wiki provider (Article) ---
     def add_wiki(term: str):
+        slug_term = slugify(term)
         qs = Article.objects.filter(is_deleted=False).filter(
-            Q(title__icontains=term) | Q(slug__icontains=term)
+            Q(title__icontains=term) | Q(slug__icontains=slug_term)
         )[:30]
 
         t = term.lower()
@@ -134,7 +162,7 @@ def suggest(request):
             title_l = (a.title or "").lower()
             slug_l = (a.slug or "").lower()
             # skórování: slug prefix > title prefix > contains
-            if slug_l.startswith(t):
+            if slug_l.startswith(slug_term):
                 sc = 120
             elif title_l.startswith(t):
                 sc = 110
@@ -148,19 +176,20 @@ def suggest(request):
         if not (MmaFighter or MmaEvent or MmaOrg):
             return
         t = term.lower()
+        slug_t = slugify(term)
         # Fighters
         if MmaFighter:
             qs = MmaFighter.objects.filter(
                 Q(first_name__icontains=t)
                 | Q(last_name__icontains=t)
                 | Q(nickname__icontains=t)
-                | Q(slug__icontains=t)
+                | Q(slug__icontains=slug_t)
             )[:20]
             for f in qs:
                 name = f"{f.first_name} {f.last_name}".strip()
                 slug_l = (f.slug or "").lower()
                 name_l = name.lower()
-                sc = 120 if slug_l.startswith(t) or name_l.startswith(t) else 80
+                sc = 120 if slug_l.startswith(slug_t) or name_l.startswith(t) else 80
                 results.append(
                     {
                         "title": name or f.slug,
@@ -170,13 +199,13 @@ def suggest(request):
                 )
         # Events
         if MmaEvent:
-            qs = MmaEvent.objects.filter(Q(name__icontains=t) | Q(slug__icontains=t))[
-                :20
-            ]
+            qs = MmaEvent.objects.filter(
+                Q(name__icontains=t) | Q(slug__icontains=slug_t)
+            )[:20]
             for e in qs:
                 name_l = (e.name or "").lower()
                 slug_l = (e.slug or "").lower()
-                sc = 120 if slug_l.startswith(t) or name_l.startswith(t) else 80
+                sc = 120 if slug_l.startswith(slug_t) or name_l.startswith(t) else 80
                 results.append(
                     {
                         "title": e.name or e.slug,
@@ -187,13 +216,15 @@ def suggest(request):
         # Orgs
         if MmaOrg:
             qs = MmaOrg.objects.filter(
-                Q(name__icontains=t) | Q(short_name__icontains=t) | Q(slug__icontains=t)
+                Q(name__icontains=t)
+                | Q(short_name__icontains=t)
+                | Q(slug__icontains=slug_t)
             )[:20]
             for o in qs:
                 label = o.name or o.short_name or o.slug
                 label_l = (label or "").lower()
                 slug_l = (o.slug or "").lower()
-                sc = 120 if slug_l.startswith(t) or label_l.startswith(t) else 70
+                sc = 120 if slug_l.startswith(slug_t) or label_l.startswith(t) else 70
                 results.append(
                     {
                         "title": label,
@@ -207,14 +238,15 @@ def suggest(request):
         if not (MsaPlayer or MsaTournament or MsaNews):
             return
         t = term.lower()
+        slug_t = slugify(term)
         if MsaPlayer:
-            qs = MsaPlayer.objects.filter(Q(name__icontains=t) | Q(slug__icontains=t))[
-                :20
-            ]
+            qs = MsaPlayer.objects.filter(
+                Q(name__icontains=t) | Q(slug__icontains=slug_t)
+            )[:20]
             for p in qs:
                 name_l = (p.name or "").lower()
                 slug_l = (p.slug or "").lower()
-                sc = 120 if slug_l.startswith(t) or name_l.startswith(t) else 80
+                sc = 120 if slug_l.startswith(slug_t) or name_l.startswith(t) else 80
                 results.append(
                     {
                         "title": p.name or p.slug,
@@ -224,12 +256,12 @@ def suggest(request):
                 )
         if MsaTournament:
             qs = MsaTournament.objects.filter(
-                Q(name__icontains=t) | Q(slug__icontains=t)
+                Q(name__icontains=t) | Q(slug__icontains=slug_t)
             )[:20]
             for tmt in qs:
                 name_l = (tmt.name or "").lower()
                 slug_l = (tmt.slug or "").lower()
-                sc = 120 if slug_l.startswith(t) or name_l.startswith(t) else 80
+                sc = 120 if slug_l.startswith(slug_t) or name_l.startswith(t) else 80
                 results.append(
                     {
                         "title": tmt.name or tmt.slug,
@@ -238,13 +270,13 @@ def suggest(request):
                     }
                 )
         if MsaNews:
-            qs = MsaNews.objects.filter(Q(title__icontains=t) | Q(slug__icontains=t))[
-                :20
-            ]
+            qs = MsaNews.objects.filter(
+                Q(title__icontains=t) | Q(slug__icontains=slug_t)
+            )[:20]
             for n in qs:
                 title_l = (n.title or "").lower()
                 slug_l = (n.slug or "").lower()
-                sc = 110 if title_l.startswith(t) or slug_l.startswith(t) else 75
+                sc = 110 if title_l.startswith(t) or slug_l.startswith(slug_t) else 75
                 results.append(
                     {
                         "title": n.title or n.slug,
@@ -257,7 +289,8 @@ def suggest(request):
     if q_norm.startswith("wiki/"):
         # explicitní wiki/… → hledej jen ve wiki
         term = q_norm.split("/", 1)[1]
-        if term:
+        slug_term = slugify(term)
+        if slug_term:
             add_wiki(term)
     else:
         if q_norm:
