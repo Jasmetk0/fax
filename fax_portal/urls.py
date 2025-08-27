@@ -17,6 +17,7 @@ urlpatterns = [
     path("api/mma/", include("mma.api.urls")),
     path("msasquashtour/", include("msa.urls")),
     path("woorld/", include("fax_calendar.urls")),
+    path("search/suggest", search_views.suggest, name="search-suggest"),
     path("search", search_views.search, name="search"),
     path(
         "manifest.json",
