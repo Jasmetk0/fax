@@ -245,7 +245,11 @@
     document.addEventListener('keydown', (e) => {
       if (e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey) {
         const a = document.activeElement;
-        const isField = a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.isContentEditable);
+        const isField =
+          a &&
+          (a.tagName === 'INPUT' ||
+            a.tagName === 'TEXTAREA' ||
+            a.getAttribute('contenteditable') === 'true');
         if (!isField) {
           const input = findSearchInput();
           if (input) { e.preventDefault(); input.focus(); input.select?.(); }
@@ -639,24 +643,9 @@
       });
 
       input.addEventListener('keydown', (e) => {
-        const items = Array.from(panel.querySelectorAll('[role="option"]'));
-        if (e.key === 'ArrowDown' && items.length) {
-          e.preventDefault();
-          setActive((active + 1) % items.length);
-        }
-        if (e.key === 'ArrowUp' && items.length) {
-          e.preventDefault();
-          setActive((active - 1 + items.length) % items.length);
-        }
-        if (e.key === 'Home' && items.length) { e.preventDefault(); setActive(0); }
-        if (e.key === 'End' && items.length) { e.preventDefault(); setActive(items.length - 1); }
-        if (e.key === 'Enter' && !panel.classList.contains('hidden') && items.length) {
-          // když nic není aktivní, vezmeme první
-          e.preventDefault();
-          (items[active >= 0 ? active : 0]).dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
-        }
         if (e.key === 'Escape' && !panel.classList.contains('hidden')) {
-          e.preventDefault(); closePanel();
+          e.preventDefault();
+          closePanel();
         }
       });
 
