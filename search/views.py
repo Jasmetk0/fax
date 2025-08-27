@@ -156,16 +156,17 @@ def suggest(request):
     # --- wiki provider (Article) ---
     def add_wiki(term: str):
         slug_term = slugify(term)
-        qs = Article.objects.filter(is_deleted=False).filter(
-            Q(title__icontains=term) | Q(slug__icontains=slug_term)
-        )[:30]
+        filters = Q(title__icontains=term)
+        if slug_term:
+            filters |= Q(slug__icontains=slug_term)
+        qs = Article.objects.filter(is_deleted=False).filter(filters)[:30]
 
         t = term.lower()
         for a in qs:
             title_l = (a.title or "").lower()
             slug_l = (a.slug or "").lower()
             # skórování: slug prefix > title prefix > contains
-            if slug_l.startswith(slug_term):
+            if slug_term and slug_l.startswith(slug_term):
                 sc = 120
             elif title_l.startswith(t):
                 sc = 110
@@ -182,17 +183,23 @@ def suggest(request):
         slug_t = slugify(term)
         # Fighters
         if MmaFighter:
-            qs = MmaFighter.objects.filter(
+            filt = (
                 Q(first_name__icontains=t)
                 | Q(last_name__icontains=t)
                 | Q(nickname__icontains=t)
-                | Q(slug__icontains=slug_t)
-            )[:20]
+            )
+            if slug_t:
+                filt |= Q(slug__icontains=slug_t)
+            qs = MmaFighter.objects.filter(filt)[:20]
             for f in qs:
                 name = f"{f.first_name} {f.last_name}".strip()
                 slug_l = (f.slug or "").lower()
                 name_l = name.lower()
-                sc = 120 if slug_l.startswith(slug_t) or name_l.startswith(t) else 80
+                sc = (
+                    120
+                    if (slug_t and slug_l.startswith(slug_t)) or name_l.startswith(t)
+                    else 80
+                )
                 results.append(
                     {
                         "title": name or f.slug,
@@ -202,13 +209,18 @@ def suggest(request):
                 )
         # Events
         if MmaEvent:
-            qs = MmaEvent.objects.filter(
-                Q(name__icontains=t) | Q(slug__icontains=slug_t)
-            )[:20]
+            filt = Q(name__icontains=t)
+            if slug_t:
+                filt |= Q(slug__icontains=slug_t)
+            qs = MmaEvent.objects.filter(filt)[:20]
             for e in qs:
                 name_l = (e.name or "").lower()
                 slug_l = (e.slug or "").lower()
-                sc = 120 if slug_l.startswith(slug_t) or name_l.startswith(t) else 80
+                sc = (
+                    120
+                    if (slug_t and slug_l.startswith(slug_t)) or name_l.startswith(t)
+                    else 80
+                )
                 results.append(
                     {
                         "title": e.name or e.slug,
@@ -218,16 +230,19 @@ def suggest(request):
                 )
         # Orgs
         if MmaOrg:
-            qs = MmaOrg.objects.filter(
-                Q(name__icontains=t)
-                | Q(short_name__icontains=t)
-                | Q(slug__icontains=slug_t)
-            )[:20]
+            filt = Q(name__icontains=t) | Q(short_name__icontains=t)
+            if slug_t:
+                filt |= Q(slug__icontains=slug_t)
+            qs = MmaOrg.objects.filter(filt)[:20]
             for o in qs:
                 label = o.name or o.short_name or o.slug
                 label_l = (label or "").lower()
                 slug_l = (o.slug or "").lower()
-                sc = 120 if slug_l.startswith(slug_t) or label_l.startswith(t) else 70
+                sc = (
+                    120
+                    if (slug_t and slug_l.startswith(slug_t)) or label_l.startswith(t)
+                    else 70
+                )
                 results.append(
                     {
                         "title": label,
@@ -243,13 +258,18 @@ def suggest(request):
         t = term.lower()
         slug_t = slugify(term)
         if MsaPlayer:
-            qs = MsaPlayer.objects.filter(
-                Q(name__icontains=t) | Q(slug__icontains=slug_t)
-            )[:20]
+            filt = Q(name__icontains=t)
+            if slug_t:
+                filt |= Q(slug__icontains=slug_t)
+            qs = MsaPlayer.objects.filter(filt)[:20]
             for p in qs:
                 name_l = (p.name or "").lower()
                 slug_l = (p.slug or "").lower()
-                sc = 120 if slug_l.startswith(slug_t) or name_l.startswith(t) else 80
+                sc = (
+                    120
+                    if (slug_t and slug_l.startswith(slug_t)) or name_l.startswith(t)
+                    else 80
+                )
                 results.append(
                     {
                         "title": p.name or p.slug,
@@ -258,13 +278,18 @@ def suggest(request):
                     }
                 )
         if MsaTournament:
-            qs = MsaTournament.objects.filter(
-                Q(name__icontains=t) | Q(slug__icontains=slug_t)
-            )[:20]
+            filt = Q(name__icontains=t)
+            if slug_t:
+                filt |= Q(slug__icontains=slug_t)
+            qs = MsaTournament.objects.filter(filt)[:20]
             for tmt in qs:
                 name_l = (tmt.name or "").lower()
                 slug_l = (tmt.slug or "").lower()
-                sc = 120 if slug_l.startswith(slug_t) or name_l.startswith(t) else 80
+                sc = (
+                    120
+                    if (slug_t and slug_l.startswith(slug_t)) or name_l.startswith(t)
+                    else 80
+                )
                 results.append(
                     {
                         "title": tmt.name or tmt.slug,
@@ -273,13 +298,18 @@ def suggest(request):
                     }
                 )
         if MsaNews:
-            qs = MsaNews.objects.filter(
-                Q(title__icontains=t) | Q(slug__icontains=slug_t)
-            )[:20]
+            filt = Q(title__icontains=t)
+            if slug_t:
+                filt |= Q(slug__icontains=slug_t)
+            qs = MsaNews.objects.filter(filt)[:20]
             for n in qs:
                 title_l = (n.title or "").lower()
                 slug_l = (n.slug or "").lower()
-                sc = 110 if title_l.startswith(t) or slug_l.startswith(slug_t) else 75
+                sc = (
+                    110
+                    if title_l.startswith(t) or (slug_t and slug_l.startswith(slug_t))
+                    else 75
+                )
                 results.append(
                     {
                         "title": n.title or n.slug,
