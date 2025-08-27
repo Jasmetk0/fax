@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Dict, List
 
 from django.db.models import Q
@@ -37,9 +38,9 @@ def _score_match(
     if q_norm and (title_norm.startswith(q_norm) or slug_norm.startswith(slug_q)):
         score += 100
     if q_norm and q_norm in title_norm:
-        score += 60
+        score += 40
     if q_norm and q_norm in content_norm:
-        score += 30
+        score += 15
     return score
 
 
@@ -207,7 +208,7 @@ def search(request):
                             "title": e.name,
                             "snippet": snippet,
                             "score": score,
-                            "date": e.date_start,
+                            "date": datetime.combine(e.date_start, datetime.min.time()),
                         }
                     )
 
@@ -270,10 +271,9 @@ def search(request):
             r["title"],
         )
     )
-    results = results[:200]
+    results = results[:150]
     for r in results:
         r.pop("score", None)
-        r.pop("date", None)
 
     types = sorted({r["type"] for r in results})
     return render(
