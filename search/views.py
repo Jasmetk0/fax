@@ -4,6 +4,7 @@ from django.shortcuts import render
 from django.urls import reverse
 from django.utils.text import slugify
 
+
 from wiki.models import Article
 
 try:  # optional apps
