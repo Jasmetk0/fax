@@ -4,7 +4,6 @@ from django.shortcuts import render
 from django.urls import reverse
 from django.utils.text import slugify
 
-
 from wiki.models import Article
 
 try:  # optional apps
@@ -144,9 +143,13 @@ def suggest(request):
         else:
             path_like = slug_q.lstrip("/")
             for title, url in static_pages:
-                # match na title prefix nebo na začátek cesty (bez počáteční '/')
-                if title.lower().startswith(q_norm) or url.lstrip("/").startswith(
-                    path_like
+                title_slug = slugify(title)
+                # match na title prefix (case & diacritics insensitive)
+                # nebo na začátek cesty (bez počáteční '/')
+                if (
+                    title.lower().startswith(q_norm)
+                    or title_slug.startswith(slug_q)
+                    or url.lstrip("/").startswith(path_like)
                 ):
                     results.append({"title": title, "url": url, "score": 30})
 
