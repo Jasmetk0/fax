@@ -6,7 +6,7 @@ from django.http import JsonResponse
 from django.shortcuts import render
 from django.utils.text import slugify
 
-from .utils import normalize
+from .utils import fuzzy1_token_match, normalize
 from wiki.models import Article
 
 try:  # optional apps
@@ -26,6 +26,13 @@ try:
     )
 except Exception:  # pragma: no cover - optional
     MmaFighter = MmaEvent = MmaOrg = None
+
+
+MAX_CANDIDATES_PER_MODEL = 200
+
+
+def _tokenize(text: str) -> set[str]:
+    return {normalize(t) for t in text.replace("-", " ").split() if t}
 
 
 def _score_match(
@@ -275,6 +282,156 @@ def search(request):
     for r in results:
         r.pop("score", None)
 
+    found_urls = {r["url"] for r in results}
+    q_tokens = _tokenize(q)
+    fuzzy_hits: List[Dict] = []
+
+    if q_tokens:
+        for a in Article.objects.filter(is_deleted=False).order_by("-updated_at")[
+            :MAX_CANDIDATES_PER_MODEL
+        ]:
+            url = a.get_absolute_url()
+            if url in found_urls:
+                continue
+            tokens = _tokenize(a.title) | _tokenize(a.slug or "")
+            if any(fuzzy1_token_match(qt, tt) for qt in q_tokens for tt in tokens):
+                snippet = a.summary or a.content_md
+                fuzzy_hits.append(
+                    {
+                        "type": "Wiki",
+                        "url": url,
+                        "title": a.title,
+                        "snippet": (snippet or "")[:180],
+                        "date": a.updated_at,
+                    }
+                )
+                found_urls.add(url)
+
+        if MsaPlayer:
+            for p in MsaPlayer.objects.order_by("-updated_at")[
+                :MAX_CANDIDATES_PER_MODEL
+            ]:
+                url = f"/msasquashtour/players/{p.slug}/"
+                if url in found_urls:
+                    continue
+                tokens = _tokenize(p.name) | _tokenize(p.slug or "")
+                if any(fuzzy1_token_match(qt, tt) for qt in q_tokens for tt in tokens):
+                    fuzzy_hits.append(
+                        {
+                            "type": "MSA",
+                            "url": url,
+                            "title": p.name,
+                            "snippet": p.country or "",
+                            "date": p.updated_at,
+                        }
+                    )
+                    found_urls.add(url)
+
+        if MsaTournament:
+            for t in MsaTournament.objects.order_by("-updated_at")[
+                :MAX_CANDIDATES_PER_MODEL
+            ]:
+                url = f"/msasquashtour/tournaments/{t.slug}/"
+                if url in found_urls:
+                    continue
+                tokens = _tokenize(t.name) | _tokenize(t.slug or "")
+                if any(fuzzy1_token_match(qt, tt) for qt in q_tokens for tt in tokens):
+                    snippet = ", ".join(filter(None, [t.city, t.country]))
+                    fuzzy_hits.append(
+                        {
+                            "type": "MSA",
+                            "url": url,
+                            "title": t.name,
+                            "snippet": snippet,
+                            "date": t.updated_at,
+                        }
+                    )
+                    found_urls.add(url)
+
+        if MsaNews:
+            for n in MsaNews.objects.order_by("-published_at")[
+                :MAX_CANDIDATES_PER_MODEL
+            ]:
+                url = f"/msasquashtour/news/{n.slug}/"
+                if url in found_urls:
+                    continue
+                tokens = _tokenize(n.title) | _tokenize(n.slug or "")
+                if any(fuzzy1_token_match(qt, tt) for qt in q_tokens for tt in tokens):
+                    snippet = n.excerpt
+                    fuzzy_hits.append(
+                        {
+                            "type": "MSA",
+                            "url": url,
+                            "title": n.title,
+                            "snippet": (snippet or "")[:180],
+                            "date": n.published_at,
+                        }
+                    )
+                    found_urls.add(url)
+
+        if MmaFighter:
+            for f in MmaFighter.objects.order_by("-id")[:MAX_CANDIDATES_PER_MODEL]:
+                url = f"/mma/fighters/{f.slug}/"
+                if url in found_urls:
+                    continue
+                title = " ".join(filter(None, [f.first_name, f.last_name])) or f.slug
+                tokens = _tokenize(title) | _tokenize(f.slug or "")
+                if any(fuzzy1_token_match(qt, tt) for qt in q_tokens for tt in tokens):
+                    snippet = f.nickname or f.country or ""
+                    fuzzy_hits.append(
+                        {
+                            "type": "MMA",
+                            "url": url,
+                            "title": title,
+                            "snippet": snippet,
+                            "date": None,
+                        }
+                    )
+                    found_urls.add(url)
+
+        if MmaEvent:
+            for e in MmaEvent.objects.order_by("-date_start")[
+                :MAX_CANDIDATES_PER_MODEL
+            ]:
+                url = f"/mma/events/{e.slug}/"
+                if url in found_urls:
+                    continue
+                tokens = _tokenize(e.name) | _tokenize(e.slug or "")
+                if any(fuzzy1_token_match(qt, tt) for qt in q_tokens for tt in tokens):
+                    snippet = getattr(e.organization, "name", "")
+                    fuzzy_hits.append(
+                        {
+                            "type": "MMA",
+                            "url": url,
+                            "title": e.name,
+                            "snippet": snippet,
+                            "date": datetime.combine(e.date_start, datetime.min.time()),
+                        }
+                    )
+                    found_urls.add(url)
+
+        if MmaOrg:
+            for o in MmaOrg.objects.order_by("-id")[:MAX_CANDIDATES_PER_MODEL]:
+                url = f"/mma/organizations/{o.slug}/"
+                if url in found_urls:
+                    continue
+                tokens = _tokenize(o.name) | _tokenize(o.slug or "")
+                if any(fuzzy1_token_match(qt, tt) for qt in q_tokens for tt in tokens):
+                    snippet = o.short_name or ""
+                    fuzzy_hits.append(
+                        {
+                            "type": "MMA",
+                            "url": url,
+                            "title": o.name,
+                            "snippet": snippet,
+                            "date": None,
+                        }
+                    )
+                    found_urls.add(url)
+
+    fuzzy_hits.sort(key=lambda r: r["title"])
+    results.extend(fuzzy_hits)
+
     types = sorted({r["type"] for r in results})
     return render(
         request, "search/results.html", {"q": q, "results": results, "types": types}
@@ -436,5 +593,122 @@ def suggest(request):
         out.append({"title": r["title"], "url": url, "source": r.get("source")})
         if len(out) >= 10:
             break
+    if len(out) < 10:
+        q_tokens = _tokenize(q)
+        fuzzy_hits: List[Dict] = []
+        if q_tokens:
+            for a in Article.objects.filter(is_deleted=False).order_by("-updated_at")[
+                :MAX_CANDIDATES_PER_MODEL
+            ]:
+                url = a.get_absolute_url()
+                if url in seen:
+                    continue
+                tokens = _tokenize(a.title) | _tokenize(a.slug or "")
+                if any(fuzzy1_token_match(qt, tt) for qt in q_tokens for tt in tokens):
+                    fuzzy_hits.append({"title": a.title, "url": url, "source": "wiki"})
+                    seen.add(url)
+
+            if MsaPlayer:
+                for p in MsaPlayer.objects.order_by("-updated_at")[
+                    :MAX_CANDIDATES_PER_MODEL
+                ]:
+                    url = f"/msasquashtour/players/{p.slug}/"
+                    if url in seen:
+                        continue
+                    tokens = _tokenize(p.name) | _tokenize(p.slug or "")
+                    if any(
+                        fuzzy1_token_match(qt, tt) for qt in q_tokens for tt in tokens
+                    ):
+                        fuzzy_hits.append(
+                            {"title": p.name, "url": url, "source": "msa"}
+                        )
+                        seen.add(url)
+
+            if MsaTournament:
+                for t in MsaTournament.objects.order_by("-updated_at")[
+                    :MAX_CANDIDATES_PER_MODEL
+                ]:
+                    url = f"/msasquashtour/tournaments/{t.slug}/"
+                    if url in seen:
+                        continue
+                    tokens = _tokenize(t.name) | _tokenize(t.slug or "")
+                    if any(
+                        fuzzy1_token_match(qt, tt) for qt in q_tokens for tt in tokens
+                    ):
+                        fuzzy_hits.append(
+                            {"title": t.name, "url": url, "source": "msa"}
+                        )
+                        seen.add(url)
+
+            if MsaNews:
+                for n in MsaNews.objects.order_by("-published_at")[
+                    :MAX_CANDIDATES_PER_MODEL
+                ]:
+                    url = f"/msasquashtour/news/{n.slug}/"
+                    if url in seen:
+                        continue
+                    tokens = _tokenize(n.title) | _tokenize(n.slug or "")
+                    if any(
+                        fuzzy1_token_match(qt, tt) for qt in q_tokens for tt in tokens
+                    ):
+                        fuzzy_hits.append(
+                            {"title": n.title, "url": url, "source": "msa"}
+                        )
+                        seen.add(url)
+
+            if MmaFighter:
+                for f in MmaFighter.objects.order_by("-id")[:MAX_CANDIDATES_PER_MODEL]:
+                    url = f"/mma/fighters/{f.slug}/"
+                    if url in seen:
+                        continue
+                    title = (
+                        " ".join(filter(None, [f.first_name, f.last_name])) or f.slug
+                    )
+                    tokens = _tokenize(title) | _tokenize(f.slug or "")
+                    if any(
+                        fuzzy1_token_match(qt, tt) for qt in q_tokens for tt in tokens
+                    ):
+                        fuzzy_hits.append({"title": title, "url": url, "source": "mma"})
+                        seen.add(url)
+
+            if MmaEvent:
+                for e in MmaEvent.objects.order_by("-date_start")[
+                    :MAX_CANDIDATES_PER_MODEL
+                ]:
+                    url = f"/mma/events/{e.slug}/"
+                    if url in seen:
+                        continue
+                    tokens = _tokenize(e.name) | _tokenize(e.slug or "")
+                    if any(
+                        fuzzy1_token_match(qt, tt) for qt in q_tokens for tt in tokens
+                    ):
+                        fuzzy_hits.append(
+                            {"title": e.name, "url": url, "source": "mma"}
+                        )
+                        seen.add(url)
+
+            if MmaOrg:
+                for o in MmaOrg.objects.order_by("-id")[:MAX_CANDIDATES_PER_MODEL]:
+                    url = f"/mma/organizations/{o.slug}/"
+                    if url in seen:
+                        continue
+                    tokens = _tokenize(o.name) | _tokenize(o.slug or "")
+                    if any(
+                        fuzzy1_token_match(qt, tt) for qt in q_tokens for tt in tokens
+                    ):
+                        fuzzy_hits.append(
+                            {"title": o.name, "url": url, "source": "mma"}
+                        )
+                        seen.add(url)
+
+        fuzzy_hits.sort(key=lambda r: r["title"])
+        for fh in fuzzy_hits:
+            if len(out) >= 10:
+                break
+            url = fh["url"]
+            if url in seen:
+                continue
+            seen.add(url)
+            out.append(fh)
 
     return JsonResponse({"results": out})
