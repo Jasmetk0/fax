@@ -1,3 +1,4 @@
+# Search views for fulltext results and JSON suggestions
 from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import render
