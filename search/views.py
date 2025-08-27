@@ -8,7 +8,7 @@ from django.utils.text import slugify
 from .utils import normalize
 from wiki.models import Article
 
-try:  # optional apps for suggestions
+try:  # optional apps
     from msa.models import (
         Player as MsaPlayer,
         Tournament as MsaTournament,
@@ -18,24 +18,28 @@ except Exception:  # pragma: no cover - optional
     MsaPlayer = MsaTournament = MsaNews = None
 
 try:
-    from mma.models import Fighter as MmaFighter, Event as MmaEvent, NewsItem as MmaNews
+    from mma.models import (
+        Fighter as MmaFighter,
+        Event as MmaEvent,
+        Organization as MmaOrg,
+    )
 except Exception:  # pragma: no cover - optional
-    MmaFighter = MmaEvent = MmaNews = None
+    MmaFighter = MmaEvent = MmaOrg = None
 
 
 def _score_match(
     q_norm: str, slug_q: str, title: str, slug: str | None, content: str | None
 ) -> int:
     title_norm = normalize(title)
-    slug_norm = slug or ""
+    slug_norm = normalize(slug or "")
     content_norm = normalize(content or "")
     score = 0
     if q_norm and (title_norm.startswith(q_norm) or slug_norm.startswith(slug_q)):
         score += 100
     if q_norm and q_norm in title_norm:
-        score += 40
+        score += 60
     if q_norm and q_norm in content_norm:
-        score += 15
+        score += 30
     return score
 
 
@@ -46,31 +50,218 @@ def search(request):
     results: List[Dict] = []
 
     if q:
-        qs = (
-            Article.objects.filter(is_deleted=False)
-            .filter(
-                Q(title__icontains=q)
-                | Q(slug__icontains=slug_q)
-                | Q(summary__icontains=q)
-                | Q(content_md__icontains=q)
-            )
-            .order_by("-updated_at")[:600]
+        # Wiki articles
+        base = Article.objects.filter(is_deleted=False).order_by("-updated_at")
+        filtered = base.filter(
+            Q(title__icontains=q)
+            | Q(summary__icontains=q)
+            | Q(content_md__icontains=q)
+            | Q(slug__icontains=slug_q)
         )
-        for a in qs:
-            score = _score_match(
-                q_norm, slug_q, a.title, a.slug, a.summary or a.content_md
+        wiki_qs = list(filtered[:600])
+        if len(wiki_qs) < 600:
+            wiki_qs += list(
+                base.exclude(id__in=[a.id for a in wiki_qs])[: 600 - len(wiki_qs)]
             )
+        for a in wiki_qs:
+            snippet = a.summary or a.content_md
+            score = _score_match(q_norm, slug_q, a.title, a.slug, snippet)
             if score:
                 results.append(
                     {
                         "type": "Wiki",
                         "url": a.get_absolute_url(),
                         "title": a.title,
-                        "snippet": (a.summary or a.content_md or "")[:180],
+                        "snippet": (snippet or "")[:180],
                         "score": score,
                         "date": a.updated_at,
                     }
                 )
+
+        # MSA players
+        if MsaPlayer:
+            base = MsaPlayer.objects.order_by("-updated_at")
+            filtered = base.filter(Q(name__icontains=q) | Q(slug__icontains=slug_q))
+            players = list(filtered[:600])
+            if len(players) < 600:
+                players += list(
+                    base.exclude(id__in=[p.id for p in players])[: 600 - len(players)]
+                )
+            for p in players:
+                snippet = p.country or ""
+                score = _score_match(q_norm, slug_q, p.name, p.slug, snippet)
+                if score:
+                    results.append(
+                        {
+                            "type": "MSA",
+                            "url": f"/msasquashtour/players/{p.slug}/",
+                            "title": p.name,
+                            "snippet": snippet,
+                            "score": score,
+                            "date": p.updated_at,
+                        }
+                    )
+
+        # MSA tournaments
+        if MsaTournament:
+            base = MsaTournament.objects.order_by("-updated_at")
+            filtered = base.filter(Q(name__icontains=q) | Q(slug__icontains=slug_q))
+            tournaments = list(filtered[:600])
+            if len(tournaments) < 600:
+                tournaments += list(
+                    base.exclude(id__in=[t.id for t in tournaments])[
+                        : 600 - len(tournaments)
+                    ]
+                )
+            for t in tournaments:
+                snippet = ", ".join(filter(None, [t.city, t.country]))
+                score = _score_match(q_norm, slug_q, t.name, t.slug, snippet)
+                if score:
+                    results.append(
+                        {
+                            "type": "MSA",
+                            "url": f"/msasquashtour/tournaments/{t.slug}/",
+                            "title": t.name,
+                            "snippet": snippet,
+                            "score": score,
+                            "date": t.updated_at,
+                        }
+                    )
+
+        # MSA news
+        if MsaNews:
+            base = MsaNews.objects.order_by("-published_at")
+            filtered = base.filter(
+                Q(title__icontains=q)
+                | Q(excerpt__icontains=q)
+                | Q(body__icontains=q)
+                | Q(slug__icontains=slug_q)
+            )
+            news = list(filtered[:600])
+            if len(news) < 600:
+                news += list(
+                    base.exclude(id__in=[n.id for n in news])[: 600 - len(news)]
+                )
+            for n in news:
+                snippet = n.excerpt
+                score = _score_match(q_norm, slug_q, n.title, n.slug, snippet)
+                if score:
+                    results.append(
+                        {
+                            "type": "MSA",
+                            "url": f"/msasquashtour/news/{n.slug}/",
+                            "title": n.title,
+                            "snippet": (snippet or "")[:180],
+                            "score": score,
+                            "date": n.published_at,
+                        }
+                    )
+
+        # MMA fighters
+        if MmaFighter:
+            base = MmaFighter.objects.order_by("-id")
+            filtered = base.filter(
+                Q(first_name__icontains=q)
+                | Q(last_name__icontains=q)
+                | Q(nickname__icontains=q)
+                | Q(slug__icontains=slug_q)
+            )
+            fighters = list(filtered[:600])
+            if len(fighters) < 600:
+                fighters += list(
+                    base.exclude(id__in=[f.id for f in fighters])[: 600 - len(fighters)]
+                )
+            for f in fighters:
+                title = " ".join(filter(None, [f.first_name, f.last_name])) or f.slug
+                snippet = f.nickname or f.country or ""
+                score = _score_match(q_norm, slug_q, title, f.slug, snippet)
+                if score:
+                    results.append(
+                        {
+                            "type": "MMA",
+                            "url": f"/mma/fighters/{f.slug}/",
+                            "title": title,
+                            "snippet": snippet,
+                            "score": score,
+                            "date": None,
+                        }
+                    )
+
+        # MMA events
+        if MmaEvent:
+            base = MmaEvent.objects.order_by("-date_start")
+            filtered = base.filter(Q(name__icontains=q) | Q(slug__icontains=slug_q))
+            events = list(filtered[:600])
+            if len(events) < 600:
+                events += list(
+                    base.exclude(id__in=[e.id for e in events])[: 600 - len(events)]
+                )
+            for e in events:
+                snippet = getattr(e.organization, "name", "")
+                score = _score_match(q_norm, slug_q, e.name, e.slug, snippet)
+                if score:
+                    results.append(
+                        {
+                            "type": "MMA",
+                            "url": f"/mma/events/{e.slug}/",
+                            "title": e.name,
+                            "snippet": snippet,
+                            "score": score,
+                            "date": e.date_start,
+                        }
+                    )
+
+        # MMA organizations
+        if MmaOrg:
+            base = MmaOrg.objects.order_by("-id")
+            filtered = base.filter(
+                Q(name__icontains=q)
+                | Q(short_name__icontains=q)
+                | Q(slug__icontains=slug_q)
+            )
+            orgs = list(filtered[:600])
+            if len(orgs) < 600:
+                orgs += list(
+                    base.exclude(id__in=[o.id for o in orgs])[: 600 - len(orgs)]
+                )
+            for o in orgs:
+                snippet = o.short_name or ""
+                score = _score_match(q_norm, slug_q, o.name, o.slug, snippet)
+                if score:
+                    results.append(
+                        {
+                            "type": "MMA",
+                            "url": f"/mma/organizations/{o.slug}/",
+                            "title": o.name,
+                            "snippet": snippet,
+                            "score": score,
+                            "date": None,
+                        }
+                    )
+
+        # Static app homes
+        static_pages = [
+            ("FAX – Domů", "/", "fax"),
+            ("Wiki – Domů", "/wiki/", "wiki"),
+            ("Mapy – Domů", "/maps/", "maps"),
+            ("OpenFaxMap – Domů", "/openfaxmap/", "openfaxmap"),
+            ("LiveSport – Domů", "/livesport/", "livesport"),
+            ("MMA – Domů", "/mma/", "mma"),
+            ("MSA Squash – Domů", "/msasquashtour/", "msa"),
+        ]
+        if q_norm and len(q_norm) >= 3:
+            for title, url, key in static_pages:
+                if normalize(key).startswith(q_norm):
+                    results.append(
+                        {
+                            "type": "App",
+                            "url": url,
+                            "title": title,
+                            "snippet": "",
+                            "score": 10,
+                            "date": None,
+                        }
+                    )
 
     results.sort(
         key=lambda r: (
@@ -79,6 +270,7 @@ def search(request):
             r["title"],
         )
     )
+    results = results[:200]
     for r in results:
         r.pop("score", None)
         r.pop("date", None)
@@ -89,9 +281,17 @@ def search(request):
     )
 
 
-def _suggest_pack(arr, title, slug, url, source, q_norm, slug_q):
+def _suggest_pack(
+    arr: List[Dict],
+    title: str,
+    slug: str | None,
+    url: str,
+    source: str,
+    q_norm: str,
+    slug_q: str,
+):
     title_norm = normalize(title)
-    slug_norm = slug or ""
+    slug_norm = normalize(slug or "")
     if q_norm and (title_norm.startswith(q_norm) or slug_norm.startswith(slug_q)):
         score = 2
     elif q_norm and q_norm in title_norm:
@@ -120,7 +320,7 @@ def suggest(request):
         if MsaPlayer:
             qs = MsaPlayer.objects.filter(
                 Q(name__icontains=q) | Q(slug__icontains=slug_q)
-            )[:20]
+            ).order_by("-updated_at")[:20]
             for p in qs:
                 _suggest_pack(
                     results,
@@ -131,10 +331,11 @@ def suggest(request):
                     q_norm,
                     slug_q,
                 )
+
         if MsaTournament:
             qs = MsaTournament.objects.filter(
                 Q(name__icontains=q) | Q(slug__icontains=slug_q)
-            )[:20]
+            ).order_by("-updated_at")[:20]
             for t in qs:
                 _suggest_pack(
                     results,
@@ -145,10 +346,11 @@ def suggest(request):
                     q_norm,
                     slug_q,
                 )
+
         if MsaNews:
             qs = MsaNews.objects.filter(
                 Q(title__icontains=q) | Q(slug__icontains=slug_q)
-            )[:20]
+            ).order_by("-published_at")[:20]
             for n in qs:
                 _suggest_pack(
                     results,
@@ -159,13 +361,14 @@ def suggest(request):
                     q_norm,
                     slug_q,
                 )
+
         if MmaFighter:
             qs = MmaFighter.objects.filter(
                 Q(first_name__icontains=q)
                 | Q(last_name__icontains=q)
                 | Q(nickname__icontains=q)
                 | Q(slug__icontains=slug_q)
-            )[:20]
+            ).order_by("-id")[:20]
             for f in qs:
                 name = " ".join(filter(None, [f.first_name, f.last_name]))
                 _suggest_pack(
@@ -177,10 +380,11 @@ def suggest(request):
                     q_norm,
                     slug_q,
                 )
+
         if MmaEvent:
             qs = MmaEvent.objects.filter(
                 Q(name__icontains=q) | Q(slug__icontains=slug_q)
-            )[:20]
+            ).order_by("-date_start")[:20]
             for e in qs:
                 _suggest_pack(
                     results,
@@ -191,22 +395,26 @@ def suggest(request):
                     q_norm,
                     slug_q,
                 )
-        if MmaNews:
-            qs = MmaNews.objects.filter(
-                Q(title__icontains=q) | Q(slug__icontains=slug_q)
-            )[:20]
-            for n in qs:
+
+        if MmaOrg:
+            qs = MmaOrg.objects.filter(
+                Q(name__icontains=q)
+                | Q(short_name__icontains=q)
+                | Q(slug__icontains=slug_q)
+            ).order_by("-id")[:20]
+            for o in qs:
                 _suggest_pack(
                     results,
-                    n.title,
-                    n.slug,
-                    f"/mma/news/{n.slug}/",
+                    o.name,
+                    o.slug,
+                    f"/mma/organizations/{o.slug}/",
                     "mma",
                     q_norm,
                     slug_q,
                 )
 
-    results.sort(key=lambda r: r.get("score", 0), reverse=True)
+    results.sort(key=lambda r: (-r.get("score", 0), r["title"]))
+
     static = [
         {"title": "Domů", "url": "/", "source": "static"},
         {"title": "Wiki", "url": "/wiki/", "source": "static"},
