@@ -7,7 +7,7 @@
 </div>
 
 <form method="get" class="mb-4">
-  <input type="date" name="as_of" value="{{ snapshot.as_of|date:'Y-m-d' if snapshot }}" class="border border-slate-800 bg-slate-900 rounded px-2 py-1"/>
+  <input type="date" name="as_of" {% if snapshot %}value="{{ snapshot.as_of|date:'Y-m-d' }}"{% endif %} class="border border-slate-800 bg-slate-900 rounded px-2 py-1"/>
   <button class="bg-slate-800 text-slate-100 rounded px-3 py-1">Zobraz</button>
 </form>
 
