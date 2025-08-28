@@ -1,19 +1,29 @@
 {% extends 'msa/base.html' %}
 {% block msa_content %}
-{% include 'msa/nav.html' %}
-<div class="flex justify-between items-center mb-4">
-  <h1 class="text-3xl font-semibold">Squash TV</h1>
-  {% if admin %}<a href="{% url 'msa:media-create' %}" class="bg-blue-600 hover:bg-blue-500 text-white rounded-xl px-4 py-2 text-sm" aria-label="Add Media">Add Media</a>{% endif %}
-</div>
-<div class="space-y-4">
-  {% for m in media %}
-  <div class="border border-slate-800 rounded-2xl p-4 flex justify-between">
-    <a href="{{ m.video_url }}" target="_blank" class="text-blue-400 hover:text-blue-300">{{ m.title }}</a>
-    {% if admin %}<span class="text-sm space-x-2"><a href="{% url 'msa:media-edit' m.slug %}" class="text-slate-400" aria-label="Edit">Edit</a><a href="{% url 'msa:media-delete' m.slug %}" class="text-red-500" aria-label="Delete">Delete</a></span>{% endif %}
+<!-- MSA-REDESIGN: new TV layout -->
+<div class="max-w-7xl mx-auto px-4 py-6">
+  <div class="flex justify-between items-center mb-4">
+    <h1 class="text-3xl font-semibold">Squash TV</h1>
   </div>
-  {% empty %}
-  <div class="border border-slate-800 rounded-2xl p-5 text-center">No media.</div>
-  {% endfor %}
+  {% if live or upcoming %}
+    <h2 class="text-xl font-semibold mb-2">Schedule / Live</h2>
+    {% for match in live %}
+      {% include 'msa/partials/match_card.html' %}
+    {% endfor %}
+    {% for match in upcoming %}
+      {% include 'msa/partials/match_card.html' %}
+    {% endfor %}
+  {% endif %}
+  <h2 class="text-xl font-semibold mt-8 mb-2">VOD / Highlights</h2>
+  <div class="space-y-4">
+    {% for m in media %}
+      <div class="card p-4 flex justify-between">
+        <a href="{{ m.video_url }}" target="_blank" class="link-muted hover:link-active">{{ m.title }}</a>
+        {% if admin %}<span class="text-sm space-x-2"><a href="{% url 'msa:media-edit' m.slug %}" class="link-muted">Edit</a></span>{% endif %}
+      </div>
+    {% empty %}
+      <div class="card p-5 text-center text-[color:var(--muted)]">No media.</div>
+    {% endfor %}
+  </div>
 </div>
 {% endblock %}
-
