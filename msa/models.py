@@ -134,6 +134,7 @@ class Match(AuditModel):
     live_p1_points = models.IntegerField(null=True, blank=True)
     live_p2_points = models.IntegerField(null=True, blank=True)
     live_game_no = models.IntegerField(null=True, blank=True)
+    video_url = models.URLField(blank=True, null=True)
 
     def __str__(self) -> str:  # pragma: no cover - trivial
         return f"{self.player1} vs {self.player2}"
