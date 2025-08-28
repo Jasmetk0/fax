@@ -10,6 +10,9 @@ from .models import Match, MediaItem, NewsPost, Player, RankingSnapshot, Tournam
 from .utils import filter_by_tour  # MSA-REDESIGN
 
 
+tab_choices = [("live", "Live"), ("upcoming", "Upcoming"), ("results", "Results")]
+
+
 def _is_admin(request):
     return request.user.is_staff and request.session.get("admin_mode")
 
@@ -201,6 +204,7 @@ def scores(request):
     ctx = {
         "tab": tab,
         "tour": tour,
+        "tab_choices": tab_choices,
         "live": live[:100],
         "upcoming": upcoming[:100],
         "results": results[:100],

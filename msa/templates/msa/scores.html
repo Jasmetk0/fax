@@ -9,11 +9,11 @@
   <h1 class="text-2xl font-semibold mb-4">Scores</h1>
 
   <div class="flex items-center gap-2 mb-4">
-    {% for key,label in [('live','Live'),('upcoming','Upcoming'),('results','Results')] %}
+    {% for key, label in tab_choices %}
       <a href="?tab={{ key }}{% if tour %}&tour={{ tour }}{% endif %}"
          class="segment focus-ring"
          data-tab="{{ key }}"
-         data-active="{{ 'true' if tab == key else 'false' }}">{{ label }}</a>
+         data-active="{% if tab == key %}true{% else %}false{% endif %}">{{ label }}</a>
     {% endfor %}
   </div>
 
