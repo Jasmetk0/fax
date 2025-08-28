@@ -1,0 +1,13 @@
+<div class="flex items-center justify-between card p-3">
+  <div class="flex items-center gap-2">
+<!-- MSA-REDESIGN -->
+    <div class="w-8 h-8 rounded-full bg-[color:var(--border)]"></div>
+    <div>
+      <div class="font-medium">{{ player.name }}</div>
+      {% if player.country %}<div class="text-xs text-[color:var(--muted)]">{{ player.country }}</div>{% endif %}
+    </div>
+  </div>
+  {% if player.current_rank %}
+    <span class="badge">#{{ player.current_rank }}</span>
+  {% endif %}
+</div>

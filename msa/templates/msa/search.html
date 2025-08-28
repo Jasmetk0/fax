@@ -1,0 +1,68 @@
+{% extends "msa/base.html" %}
+{% block msa_content %}
+<!-- MSA-REDESIGN -->
+<style>
+  mark{ background: color-mix(in oklab, var(--accent) 30%, transparent); color: var(--text); padding: .05rem .25rem; border-radius: .25rem; }
+</style>
+<div class="max-w-7xl mx-auto px-4 py-6">
+  <h1 class="text-2xl font-semibold mb-3">Search</h1>
+  <p class="text-sm text-[color:var(--muted)] mb-6">Query: <strong>{{ q }}</strong>{% if tour %} • Tour filter: {{ tour|title }}{% endif %}</p>
+
+  {% if results.players %}
+    <h2 class="text-xl font-semibold mt-6 mb-2">Players</h2>
+    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      {% for player in results.players %}
+        {% include "msa/partials/player_chip.html" %}
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  {% if results.tournaments %}
+    <h2 class="text-xl font-semibold mt-8 mb-2">Tournaments</h2>
+    <div class="grid sm:grid-cols-2 gap-3">
+      {% for t in results.tournaments %}
+        <a href="{% url 'msa:tournament-detail' t.slug %}" class="card p-4 hover:underline">
+          <div class="font-medium">{{ t.name }}</div>
+          {% if t.start_date %}<div class="text-xs text-[color:var(--muted)]">{{ t.start_date }}{% if t.end_date %} – {{ t.end_date }}{% endif %}</div>{% endif %}
+        </a>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  {% if results.news %}
+    <h2 class="text-xl font-semibold mt-8 mb-2">News</h2>
+    <div class="space-y-2">
+      {% for n in results.news %}
+        <a href="{% url 'msa:news-detail' n.slug %}" class="block card p-4 hover:underline">
+          <div class="font-medium">{{ n.title }}</div>
+          {% if n.published_at %}<div class="text-xs text-[color:var(--muted)]">{{ n.published_at }}</div>{% endif %}
+        </a>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  {% if not results.players and not results.tournaments and not results.news %}
+    <div class="card p-6 text-[color:var(--muted)]">No results.</div>
+  {% endif %}
+</div>
+
+<script>
+  (function(){
+    const q={{ q|safe|json_script:"qraw" }};
+    const qv = document.getElementById("qraw").textContent || "";
+    if(!qv) return;
+    const walker=document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT,null,false);
+    const rx=new RegExp(qv.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    let node;
+    while(node=walker.nextNode()){
+      if(node.parentElement.tagName==="SCRIPT"||node.parentElement.closest("input,textarea")) continue;
+      const m = node.nodeValue.match(rx);
+      if(m){
+        const span=document.createElement("span");
+        span.innerHTML = node.nodeValue.replace(rx, '<mark>$&</mark>');
+        node.parentNode.replaceChild(span, node);
+      }
+    }
+  })();
+</script>
+{% endblock %}

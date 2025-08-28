@@ -12,7 +12,14 @@ urlpatterns = [
         views.tournament_detail,
         name="tournament-detail",
     ),
-    path("live/", views.live, name="live"),
+    path("live/", views.live, name="live"),  # MSA-REDESIGN: redirect to scores
+    path("scores/", views.scores, name="scores"),  # MSA-REDESIGN
+    path("search/", views.msa_search, name="search"),  # MSA-REDESIGN
+    path("tickets/", views.tickets, name="tickets"),  # MSA-REDESIGN
+    path("stats/", views.stats, name="stats"),  # MSA-REDESIGN
+    path("shop/", views.shop, name="shop"),  # MSA-REDESIGN
+    path("press/", views.press, name="press"),  # MSA-REDESIGN
+    path("about/", views.about, name="about"),  # MSA-REDESIGN
     path("rankings/", views.rankings, name="rankings"),
     path("players/", views.players, name="player-list"),
     path("players/<slug:slug>/", views.player_detail, name="player-detail"),
