@@ -43,12 +43,9 @@
     var days = document.createElement("div");
     days.className = "wp-days";
     picker.appendChild(days);
-    document.body.appendChild(picker);
-    function position() {
-      var r = input.getBoundingClientRect();
-      picker.style.left = r.left + window.scrollX + "px";
-      picker.style.top = r.bottom + window.scrollY + "px";
-    }
+    input.parentNode.classList.add("woorld-wrapper");
+    input.parentNode.insertBefore(picker, input.nextSibling);
+    picker.style.display = "block";
     function renderDays() {
       days.innerHTML = "";
       var max = daysInMonth(parseInt(mSel.value, 10));
@@ -59,19 +56,11 @@
           cell.textContent = pad(day);
           cell.addEventListener("click", function () {
             input.value = pad(day) + "/" + pad(parseInt(mSel.value, 10)) + "/" + yInp.value;
-            hide();
             input.dispatchEvent(new Event("change"));
           });
           days.appendChild(cell);
         })(d);
       }
-    }
-    function show() {
-      picker.style.display = "block";
-      position();
-    }
-    function hide() {
-      picker.style.display = "none";
     }
     prev.addEventListener("click", function () {
       var m = parseInt(mSel.value, 10) - 1;
@@ -86,11 +75,6 @@
       renderDays();
     });
     mSel.addEventListener("change", renderDays);
-    document.addEventListener("click", function (e) {
-      if (!picker.contains(e.target) && e.target !== input) {
-        hide();
-      }
-    });
     input.addEventListener("focus", function () {
       var m = input.value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{1,4})$/);
       if (m) {
@@ -98,9 +82,8 @@
         yInp.value = parseInt(m[3], 10);
       }
       renderDays();
-      show();
     });
-    return { hide: hide };
+    renderDays();
   }
   document.addEventListener("DOMContentLoaded", function () {
     var inputs = document.querySelectorAll("[data-woorld-datepicker]");
