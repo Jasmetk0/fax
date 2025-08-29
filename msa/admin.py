@@ -4,11 +4,20 @@ from django.contrib import admin
 from django.utils.html import format_html
 
 from .models import (
+    AdvancementEdge,
     Category,
     CategorySeason,
     BracketPolicy,
+    DrawTemplate,
+    EventBrand,
+    EventEdition,
+    EventEntry,
+    EventMatch,
+    EventPhase,
+    PhaseRound,
     PointsTable,
     PrizeTable,
+    ScoringRule,
     SeedingPolicy,
     MediaItem,
     Match,
@@ -19,6 +28,8 @@ from .models import (
     RankingSnapshot,
     Tournament,
 )
+
+from .services.draw_engine import expand_template
 
 
 @admin.register(Player)
@@ -218,3 +229,97 @@ class BracketPolicyAdmin(admin.ModelAdmin):
 class SeedingPolicyAdmin(admin.ModelAdmin):
     list_display = ("name",)
     search_fields = ("name",)
+
+
+@admin.register(ScoringRule)
+class ScoringRuleAdmin(admin.ModelAdmin):
+    list_display = ("name",)
+    search_fields = ("name",)
+
+
+@admin.register(DrawTemplate)
+class DrawTemplateAdmin(admin.ModelAdmin):
+    list_display = ("code", "name", "version")
+    search_fields = ("code", "name")
+
+
+@admin.register(EventBrand)
+class EventBrandAdmin(admin.ModelAdmin):
+    list_display = ("name", "slug")
+    search_fields = ("name", "slug")
+    prepopulated_fields = {"slug": ("name",)}
+    readonly_fields = ("created_at", "updated_at", "created_by", "updated_by")
+
+
+@admin.action(description="Expandovat z šablony")
+def expand_from_template(modeladmin, request, queryset):
+    for event in queryset:
+        expand_template(event.pk)
+
+
+@admin.register(EventEdition)
+class EventEditionAdmin(admin.ModelAdmin):
+    list_display = ("name", "brand", "season")
+    actions = [expand_from_template]
+    autocomplete_fields = ("brand", "season", "draw_template", "uses_snapshot")
+    search_fields = ("name", "brand__name", "season__name")
+    readonly_fields = ("created_at", "updated_at", "created_by", "updated_by")
+
+
+class PhaseRoundInline(admin.TabularInline):
+    model = PhaseRound
+    extra = 0
+    readonly_fields = ("order",)
+
+
+class EventMatchInline(admin.TabularInline):
+    model = EventMatch
+    fk_name = "phase"
+    extra = 0
+    fields = ("round", "order", "a_player", "b_player", "a_score", "b_score", "winner")
+    autocomplete_fields = ("round", "a_player", "b_player", "winner")
+
+
+@admin.register(EventPhase)
+class EventPhaseAdmin(admin.ModelAdmin):
+    list_display = ("event", "order", "type", "name")
+    inlines = [PhaseRoundInline, EventMatchInline]
+    autocomplete_fields = (
+        "event",
+        "points_table",
+        "scoring_rules",
+        "seeding_policy",
+        "uses_snapshot",
+    )
+    search_fields = ("name", "event__name")
+    readonly_fields = ("created_at", "updated_at", "created_by", "updated_by")
+
+
+@admin.register(PhaseRound)
+class PhaseRoundAdmin(admin.ModelAdmin):
+    list_display = ("phase", "order", "code", "label")
+    autocomplete_fields = ("phase",)
+    search_fields = ("code", "label")
+    readonly_fields = ("created_at", "updated_at", "created_by", "updated_by")
+
+
+@admin.register(EventMatch)
+class EventMatchAdmin(admin.ModelAdmin):
+    list_display = ("phase", "round", "order", "a_player", "b_player", "winner")
+    autocomplete_fields = ("phase", "round", "a_player", "b_player", "winner")
+    readonly_fields = ("created_at", "updated_at", "created_by", "updated_by")
+
+
+@admin.register(AdvancementEdge)
+class AdvancementEdgeAdmin(admin.ModelAdmin):
+    list_display = ("phase", "from_ref", "to_ref")
+    autocomplete_fields = ("phase",)
+    readonly_fields = ("created_at", "updated_at", "created_by", "updated_by")
+
+
+@admin.register(EventEntry)
+class EventEntryAdmin(admin.ModelAdmin):
+    list_display = ("event", "player", "entry_type", "seed_no")
+    list_filter = ("entry_type",)
+    autocomplete_fields = ("event", "player")
+    readonly_fields = ("created_at", "updated_at", "created_by", "updated_by")

@@ -8,6 +8,7 @@ from django.utils import timezone
 
 from .models import (
     CategorySeason,
+    EventEdition,
     Match,
     MediaItem,
     NewsPost,
@@ -475,6 +476,28 @@ def api_rankings(request):
         ],
     }
     return JsonResponse(data)
+
+
+def api_event_structure(request, pk):
+    event = get_object_or_404(EventEdition, pk=pk)
+    phases = []
+    for phase in event.phases.all().order_by("order"):
+        rounds = []
+        match_count = 0
+        for rnd in phase.rounds.all().order_by("order"):
+            rounds.append(
+                {"code": rnd.code, "label": rnd.label, "matches": rnd.matches}
+            )
+            match_count += rnd.matches
+        phases.append(
+            {
+                "type": phase.type,
+                "name": phase.name,
+                "rounds": rounds,
+                "matches_count": match_count,
+            }
+        )
+    return JsonResponse({"phases": phases})
 
 
 def api_h2h(request):

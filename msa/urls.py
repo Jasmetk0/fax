@@ -120,6 +120,11 @@ urlpatterns = [
         name="api_tournament_matches",
     ),
     path("api/rankings/", views.api_rankings, name="api_rankings"),
+    path(
+        "api/events/<int:pk>/structure/",
+        views.api_event_structure,
+        name="api_event_structure",
+    ),
     path("api/h2h/", views.api_h2h, name="api_h2h"),
     path("api/live/", views.api_live, name="api_live"),
 ]
