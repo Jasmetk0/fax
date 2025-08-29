@@ -4,6 +4,12 @@ from django.contrib import admin
 from django.utils.html import format_html
 
 from .models import (
+    Category,
+    CategorySeason,
+    BracketPolicy,
+    PointsTable,
+    PrizeTable,
+    SeedingPolicy,
     MediaItem,
     Match,
     NewsPost,
@@ -164,3 +170,51 @@ class MediaItemAdmin(admin.ModelAdmin):
         return urlparse(obj.video_url).netloc
 
     video_host.short_description = "Video host"
+
+
+@admin.register(Category)
+class CategoryAdmin(admin.ModelAdmin):
+    list_display = ("name", "slug")
+    search_fields = ("name",)
+    prepopulated_fields = {"slug": ("name",)}
+    readonly_fields = ("created_at", "updated_at", "created_by", "updated_by")
+
+
+@admin.register(CategorySeason)
+class CategorySeasonAdmin(admin.ModelAdmin):
+    list_display = ("season", "category", "label")
+    list_filter = ("season", "category")
+    search_fields = ("label", "season__name", "category__name")
+    autocomplete_fields = (
+        "season",
+        "category",
+        "points_table",
+        "prize_table",
+        "bracket_policy",
+        "seeding_policy",
+    )
+    readonly_fields = ("created_at", "updated_at", "created_by", "updated_by")
+
+
+@admin.register(PointsTable)
+class PointsTableAdmin(admin.ModelAdmin):
+    list_display = ("name",)
+    search_fields = ("name",)
+
+
+@admin.register(PrizeTable)
+class PrizeTableAdmin(admin.ModelAdmin):
+    list_display = ("name",)
+    search_fields = ("name",)
+
+
+@admin.register(BracketPolicy)
+class BracketPolicyAdmin(admin.ModelAdmin):
+    list_display = ("name",)
+    search_fields = ("name",)
+
+
+@admin.register(SeedingPolicy)
+class SeedingPolicyAdmin(admin.ModelAdmin):
+    list_display = ("name",)
+    search_fields = ("name",)

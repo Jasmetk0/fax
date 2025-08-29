@@ -199,3 +199,78 @@ class MediaItem(AuditModel):
 
     def __str__(self) -> str:  # pragma: no cover - trivial
         return self.title
+
+
+class PointsTable(AuditModel):
+    name = models.CharField(max_length=100)
+
+    def __str__(self) -> str:  # pragma: no cover - trivial
+        return self.name
+
+
+class PrizeTable(AuditModel):
+    name = models.CharField(max_length=100)
+
+    def __str__(self) -> str:  # pragma: no cover - trivial
+        return self.name
+
+
+class BracketPolicy(AuditModel):
+    name = models.CharField(max_length=100)
+
+    def __str__(self) -> str:  # pragma: no cover - trivial
+        return self.name
+
+
+class SeedingPolicy(AuditModel):
+    name = models.CharField(max_length=100)
+
+    def __str__(self) -> str:  # pragma: no cover - trivial
+        return self.name
+
+
+class Category(AuditModel):
+    name = models.CharField(max_length=100, unique=True)
+    slug = models.SlugField(unique=True, blank=True)
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            base_slug = slugify(self.name)
+            slug = base_slug
+            counter = 2
+            while Category.objects.filter(slug=slug).exclude(pk=self.pk).exists():
+                slug = f"{base_slug}-{counter}"
+                counter += 1
+            self.slug = slug
+        super().save(*args, **kwargs)
+
+    def __str__(self) -> str:  # pragma: no cover - trivial
+        return self.name
+
+
+class CategorySeason(AuditModel):
+    season = models.ForeignKey(
+        Season, on_delete=models.CASCADE, related_name="category_seasons"
+    )
+    category = models.ForeignKey(
+        Category, on_delete=models.CASCADE, related_name="category_seasons"
+    )
+    label = models.CharField(max_length=100, db_index=True)
+    points_table = models.ForeignKey(
+        PointsTable, null=True, blank=True, on_delete=models.SET_NULL
+    )
+    prize_table = models.ForeignKey(
+        PrizeTable, null=True, blank=True, on_delete=models.SET_NULL
+    )
+    bracket_policy = models.ForeignKey(
+        BracketPolicy, null=True, blank=True, on_delete=models.SET_NULL
+    )
+    seeding_policy = models.ForeignKey(
+        SeedingPolicy, null=True, blank=True, on_delete=models.SET_NULL
+    )
+
+    class Meta:
+        unique_together = ("season", "category")
+
+    def __str__(self) -> str:  # pragma: no cover - trivial
+        return f"{self.season} - {self.category}"

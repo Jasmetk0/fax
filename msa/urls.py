@@ -103,6 +103,11 @@ urlpatterns = [
     path("api/players/", views.api_players, name="api_players"),
     path("api/players/<slug:slug>/", views.api_player_detail, name="api_player"),
     path("api/seasons/", views.api_seasons, name="api_seasons"),
+    path(
+        "api/seasons/<int:pk>/category-seasons/",
+        views.api_category_seasons,
+        name="api_category_seasons",
+    ),
     path("api/tournaments/", views.api_tournaments, name="api_tournaments"),
     path(
         "api/tournaments/<slug:slug>/",
