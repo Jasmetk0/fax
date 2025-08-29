@@ -102,48 +102,50 @@
     });
     return { hide: hide };
   }
-  var inputs = document.querySelectorAll("[data-woorld-datepicker]");
-  inputs.forEach(function (inp) {
-    inp.addEventListener("change", function () {
-      if (!validDate(inp.value)) {
-        inp.setCustomValidity("Neplatné Woorld datum");
-      } else {
-        inp.setCustomValidity("");
-      }
+  document.addEventListener("DOMContentLoaded", function () {
+    var inputs = document.querySelectorAll("[data-woorld-datepicker]");
+    inputs.forEach(function (inp) {
+      inp.addEventListener("change", function () {
+        if (!validDate(inp.value)) {
+          inp.setCustomValidity("Neplatné Woorld datum");
+        } else {
+          inp.setCustomValidity("");
+        }
+      });
+      buildPicker(inp);
     });
-    buildPicker(inp);
-  });
-  var form = document.getElementById("woorld-date-form");
-  if (form) {
-    form.addEventListener("submit", function (e) {
-      e.preventDefault();
-      var input = form.querySelector("#woorld-date-input");
-      if (input && !validDate(input.value)) {
-        input.setCustomValidity("Neplatné Woorld datum");
-        input.reportValidity();
-        return;
-      }
-      var data = new FormData(form);
-      var endpoint = form.dataset.endpoint || form.action;
-      var csrf = form.querySelector('[name=csrfmiddlewaretoken]').value;
-      fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "X-Requested-With": "XMLHttpRequest",
-          "X-CSRFToken": csrf,
-        },
-        body: data,
-      })
-        .then(function (resp) {
-          return resp.json();
+    var form = document.getElementById("woorld-date-form");
+    if (form) {
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        var input = form.querySelector("#woorld-date-input");
+        if (input && !validDate(input.value)) {
+          input.setCustomValidity("Neplatné Woorld datum");
+          input.reportValidity();
+          return;
+        }
+        var data = new FormData(form);
+        var endpoint = form.dataset.endpoint || form.action;
+        var csrf = form.querySelector('[name=csrfmiddlewaretoken]').value;
+        fetch(endpoint, {
+          method: "POST",
+          headers: {
+            "X-Requested-With": "XMLHttpRequest",
+            "X-CSRFToken": csrf,
+          },
+          body: data,
         })
-        .then(function (data) {
-          if (data.error) {
-            alert(data.error);
-          } else if (data.value && input) {
-            input.value = data.value;
-          }
-        });
-    });
-  }
+          .then(function (resp) {
+            return resp.json();
+          })
+          .then(function (data) {
+            if (data.error) {
+              alert(data.error);
+            } else if (data.value && input) {
+              input.value = data.value;
+            }
+          });
+      });
+    }
+  });
 })();
