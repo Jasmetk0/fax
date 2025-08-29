@@ -16,7 +16,9 @@ from .models import (
     EventPhase,
     PhaseRound,
     PointsTable,
+    PointsRow,
     PrizeTable,
+    PrizeRow,
     ScoringRule,
     SeedingPolicy,
     MediaItem,
@@ -207,16 +209,28 @@ class CategorySeasonAdmin(admin.ModelAdmin):
     readonly_fields = ("created_at", "updated_at", "created_by", "updated_by")
 
 
+class PointsRowInline(admin.TabularInline):
+    model = PointsRow
+    extra = 0
+
+
 @admin.register(PointsTable)
 class PointsTableAdmin(admin.ModelAdmin):
     list_display = ("name",)
     search_fields = ("name",)
+    inlines = [PointsRowInline]
+
+
+class PrizeRowInline(admin.TabularInline):
+    model = PrizeRow
+    extra = 0
 
 
 @admin.register(PrizeTable)
 class PrizeTableAdmin(admin.ModelAdmin):
     list_display = ("name",)
     search_fields = ("name",)
+    inlines = [PrizeRowInline]
 
 
 @admin.register(BracketPolicy)
