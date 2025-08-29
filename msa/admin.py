@@ -210,7 +210,7 @@ class PrizeTableAdmin(admin.ModelAdmin):
 
 @admin.register(BracketPolicy)
 class BracketPolicyAdmin(admin.ModelAdmin):
-    list_display = ("name",)
+    list_display = ("name", "draw_size", "format")
     search_fields = ("name",)
 
 

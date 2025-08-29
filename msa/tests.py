@@ -7,6 +7,7 @@ from django.db import IntegrityError
 from .models import (
     Category,
     CategorySeason,
+    BracketPolicy,
     Match,
     Player,
     RankingEntry,
@@ -157,6 +158,24 @@ class MSAViewsTests(TestCase):
         CategorySeason.objects.create(season=season, category=cat, label="WT")
         with self.assertRaises(IntegrityError):
             CategorySeason.objects.create(season=season, category=cat, label="WT2")
+
+
+class BracketPolicyTests(TestCase):
+    def test_generate_round_labels(self):
+        policy = BracketPolicy.objects.create(name="Test", draw_size=96)
+        self.assertEqual(
+            policy.generate_round_labels(),
+            [
+                (1, "Round of 96"),
+                (2, "Round of 64"),
+                (3, "Round of 32"),
+                (4, "Round of 16"),
+                (5, "Quarter Final"),
+                (6, "Semi Final"),
+                (7, "Final"),
+                (8, "Winner"),
+            ],
+        )
 
 
 def test_admin_index_lists_msa_models(admin_client):
