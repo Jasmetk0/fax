@@ -306,3 +306,192 @@ class CategorySeason(AuditModel):
 
     def __str__(self) -> str:  # pragma: no cover - trivial
         return f"{self.season} - {self.category}"
+
+
+class ScoringRule(AuditModel):
+    """Placeholder scoring rule model."""
+
+    name = models.CharField(max_length=100)
+
+    def __str__(self) -> str:  # pragma: no cover - trivial
+        return self.name
+
+
+class DrawTemplate(AuditModel):
+    code = models.SlugField(unique=True)
+    name = models.CharField(max_length=100)
+    version = models.IntegerField(default=1)
+    dsl_json = models.JSONField()
+
+    def __str__(self) -> str:  # pragma: no cover - trivial
+        return self.name
+
+
+class EventBrand(AuditModel):
+    name = models.CharField(max_length=100)
+    slug = models.SlugField(unique=True, blank=True)
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            base_slug = slugify(self.name)
+            slug = base_slug
+            counter = 2
+            while EventBrand.objects.filter(slug=slug).exclude(pk=self.pk).exists():
+                slug = f"{base_slug}-{counter}"
+                counter += 1
+            self.slug = slug
+        super().save(*args, **kwargs)
+
+    def __str__(self) -> str:  # pragma: no cover - trivial
+        return self.name
+
+
+class EventEdition(AuditModel):
+    brand = models.ForeignKey(
+        EventBrand, on_delete=models.CASCADE, related_name="editions"
+    )
+    season = models.ForeignKey(
+        Season, on_delete=models.CASCADE, related_name="event_editions"
+    )
+    name = models.CharField(max_length=200)
+    draw_template = models.ForeignKey(
+        "DrawTemplate", null=True, blank=True, on_delete=models.SET_NULL
+    )
+    uses_snapshot = models.ForeignKey(
+        RankingSnapshot, null=True, blank=True, on_delete=models.SET_NULL
+    )
+
+    def __str__(self) -> str:  # pragma: no cover - trivial
+        return self.name
+
+
+class EventPhase(AuditModel):
+    TYPE_CHOICES = [
+        ("single_elim", "Single Elimination"),
+        ("qualifying", "Qualifying"),
+        ("round_robin", "Round Robin"),
+        ("swiss", "Swiss"),
+        ("placement", "Placement"),
+        ("exhibition", "Exhibition"),
+    ]
+
+    event = models.ForeignKey(
+        EventEdition, on_delete=models.CASCADE, related_name="phases"
+    )
+    order = models.IntegerField()
+    type = models.CharField(max_length=20, choices=TYPE_CHOICES)
+    name = models.CharField(max_length=100)
+    config = models.JSONField(default=dict)
+    points_table = models.ForeignKey(
+        PointsTable, null=True, blank=True, on_delete=models.SET_NULL
+    )
+    scoring_rules = models.ForeignKey(
+        ScoringRule, null=True, blank=True, on_delete=models.SET_NULL
+    )
+    seeding_policy = models.ForeignKey(
+        SeedingPolicy, null=True, blank=True, on_delete=models.SET_NULL
+    )
+    uses_snapshot = models.ForeignKey(
+        RankingSnapshot, null=True, blank=True, on_delete=models.SET_NULL
+    )
+
+    class Meta:
+        unique_together = ("event", "order")
+        ordering = ["order"]
+
+    def __str__(self) -> str:  # pragma: no cover - trivial
+        return f"{self.event} - {self.name}"
+
+
+class PhaseRound(AuditModel):
+    phase = models.ForeignKey(
+        EventPhase, on_delete=models.CASCADE, related_name="rounds"
+    )
+    order = models.IntegerField()
+    code = models.CharField(max_length=10)
+    label = models.CharField(max_length=100)
+    entrants = models.IntegerField()
+    matches = models.IntegerField()
+    best_of = models.IntegerField()
+
+    class Meta:
+        unique_together = ("phase", "order")
+        ordering = ["order"]
+
+    def __str__(self) -> str:  # pragma: no cover - trivial
+        return f"{self.phase} - {self.code}"
+
+
+class EventMatch(AuditModel):
+    phase = models.ForeignKey(
+        EventPhase, on_delete=models.CASCADE, related_name="matches"
+    )
+    round = models.ForeignKey(
+        PhaseRound, on_delete=models.CASCADE, related_name="round_matches"
+    )
+    order = models.IntegerField()
+    a_player = models.ForeignKey(
+        Player,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="event_matches_as_a",
+    )
+    b_player = models.ForeignKey(
+        Player,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="event_matches_as_b",
+    )
+    a_source = models.CharField(max_length=40, null=True, blank=True)
+    b_source = models.CharField(max_length=40, null=True, blank=True)
+    a_score = models.IntegerField(null=True, blank=True)
+    b_score = models.IntegerField(null=True, blank=True)
+    winner = models.ForeignKey(
+        Player,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="event_match_wins",
+    )
+
+    class Meta:
+        unique_together = ("phase", "round", "order")
+        ordering = ["phase", "round", "order"]
+
+    def __str__(self) -> str:  # pragma: no cover - trivial
+        return f"{self.round.code} M{self.order}"
+
+
+class AdvancementEdge(AuditModel):
+    phase = models.ForeignKey(
+        EventPhase, on_delete=models.CASCADE, related_name="edges"
+    )
+    from_ref = models.CharField(max_length=40)
+    to_ref = models.CharField(max_length=40)
+
+    def __str__(self) -> str:  # pragma: no cover - trivial
+        return f"{self.from_ref} -> {self.to_ref}"
+
+
+class EventEntry(AuditModel):
+    ENTRY_CHOICES = [
+        ("direct", "Direct"),
+        ("qualifier", "Qualifier"),
+        ("wildcard", "Wildcard"),
+        ("protected", "Protected"),
+    ]
+
+    event = models.ForeignKey(
+        EventEdition, on_delete=models.CASCADE, related_name="entries"
+    )
+    player = models.ForeignKey(
+        Player, on_delete=models.CASCADE, related_name="event_entries"
+    )
+    entry_type = models.CharField(max_length=20, choices=ENTRY_CHOICES)
+    seed_no = models.IntegerField(null=True, blank=True)
+    club_id = models.IntegerField(null=True, blank=True)
+
+    def __str__(self) -> str:  # pragma: no cover - trivial
+        return f"{self.player} @ {self.event}"
