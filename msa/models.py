@@ -1,3 +1,5 @@
+import math
+
 from django.conf import settings
 from django.db import models
 from django.utils.text import slugify
@@ -217,6 +219,36 @@ class PrizeTable(AuditModel):
 
 class BracketPolicy(AuditModel):
     name = models.CharField(max_length=100)
+    draw_size = models.IntegerField()
+    format = models.CharField(
+        max_length=50,
+        choices=[("playoff", "Play-off")],
+        null=True,
+        blank=True,
+    )
+
+    def generate_round_labels(self):
+        rounds = []
+        n = self.draw_size
+        order = 1
+        while True:
+            if n > 8:
+                label = f"Round of {n}"
+            elif n == 8:
+                label = "Quarter Final"
+            elif n == 4:
+                label = "Semi Final"
+            elif n == 2:
+                label = "Final"
+            elif n == 1:
+                label = "Winner"
+            rounds.append((order, label))
+            if n <= 1:
+                break
+            next_power = 2 ** int(math.floor(math.log2(n)))
+            n = n // 2 if n == next_power else next_power
+            order += 1
+        return rounds
 
     def __str__(self) -> str:  # pragma: no cover - trivial
         return self.name
