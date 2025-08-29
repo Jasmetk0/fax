@@ -7,6 +7,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from .models import (
+    CategorySeason,
     Match,
     MediaItem,
     NewsPost,
@@ -406,6 +407,22 @@ def api_player_detail(request, slug):
 
 def api_seasons(request):
     data = list(Season.objects.values("name", "code", "start_date", "end_date"))
+    return JsonResponse(data, safe=False)
+
+
+def api_category_seasons(request, pk):
+    season = get_object_or_404(Season, pk=pk)
+    qs = CategorySeason.objects.filter(season=season).select_related("category")
+    data = list(
+        qs.values(
+            "category__name",
+            "label",
+            "points_table_id",
+            "prize_table_id",
+            "bracket_policy_id",
+            "seeding_policy_id",
+        )
+    )
     return JsonResponse(data, safe=False)
 
 

@@ -2,8 +2,18 @@ from django.test import Client, TestCase
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 from django.utils import timezone
+from django.db import IntegrityError
 
-from .models import Match, Player, RankingEntry, RankingSnapshot, Season, Tournament
+from .models import (
+    Category,
+    CategorySeason,
+    Match,
+    Player,
+    RankingEntry,
+    RankingSnapshot,
+    Season,
+    Tournament,
+)
 
 
 class MSAViewsTests(TestCase):
@@ -131,6 +141,23 @@ class MSAViewsTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertGreaterEqual(len(resp.json()), 1)
 
+    def test_api_category_seasons(self):
+        season = Season.objects.create(name="2025")
+        cat = Category.objects.create(name="World Tour")
+        CategorySeason.objects.create(season=season, category=cat, label="WT")
+        resp = self.client.get(reverse("msa:api_category_seasons", args=[season.pk]))
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(len(data), 1)
+        self.assertEqual(data[0]["label"], "WT")
+
+    def test_categoryseason_unique(self):
+        season = Season.objects.create(name="2025")
+        cat = Category.objects.create(name="World Tour")
+        CategorySeason.objects.create(season=season, category=cat, label="WT")
+        with self.assertRaises(IntegrityError):
+            CategorySeason.objects.create(season=season, category=cat, label="WT2")
+
 
 def test_admin_index_lists_msa_models(admin_client):
     response = admin_client.get(reverse("admin:index"))
@@ -146,5 +173,7 @@ def test_admin_index_lists_msa_models(admin_client):
         "rankingentry",
         "newspost",
         "mediaitem",
+        "category",
+        "categoryseason",
     ]:
         assert f"msa/{model}/" in content
