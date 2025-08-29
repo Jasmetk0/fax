@@ -210,11 +210,40 @@ class PointsTable(AuditModel):
         return self.name
 
 
+class PointsRow(AuditModel):
+    points_table = models.ForeignKey(
+        PointsTable, on_delete=models.CASCADE, related_name="rows"
+    )
+    round_code = models.CharField(max_length=10)
+    points = models.IntegerField()
+    co_sanction_pct = models.IntegerField(default=100)
+
+    class Meta:
+        unique_together = ("points_table", "round_code")
+
+    def __str__(self) -> str:  # pragma: no cover - trivial
+        return f"{self.points_table} {self.round_code}"
+
+
 class PrizeTable(AuditModel):
     name = models.CharField(max_length=100)
 
     def __str__(self) -> str:  # pragma: no cover - trivial
         return self.name
+
+
+class PrizeRow(AuditModel):
+    prize_table = models.ForeignKey(
+        PrizeTable, on_delete=models.CASCADE, related_name="rows"
+    )
+    round_code = models.CharField(max_length=10)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+
+    class Meta:
+        unique_together = ("prize_table", "round_code")
+
+    def __str__(self) -> str:  # pragma: no cover - trivial
+        return f"{self.prize_table} {self.round_code}"
 
 
 class BracketPolicy(AuditModel):

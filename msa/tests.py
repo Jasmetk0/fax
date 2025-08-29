@@ -8,6 +8,8 @@ from .models import (
     Category,
     CategorySeason,
     BracketPolicy,
+    PointsRow,
+    PointsTable,
     Match,
     Player,
     RankingEntry,
@@ -158,6 +160,20 @@ class MSAViewsTests(TestCase):
         CategorySeason.objects.create(season=season, category=cat, label="WT")
         with self.assertRaises(IntegrityError):
             CategorySeason.objects.create(season=season, category=cat, label="WT2")
+
+    def test_api_category_season_points(self):
+        season = Season.objects.create(name="2025")
+        cat = Category.objects.create(name="World Tour")
+        table = PointsTable.objects.create(name="Main")
+        cs = CategorySeason.objects.create(
+            season=season, category=cat, label="WT", points_table=table
+        )
+        PointsRow.objects.create(points_table=table, round_code="R32", points=100)
+        resp = self.client.get(reverse("msa:api_category_season_points", args=[cs.pk]))
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(len(data), 1)
+        self.assertEqual(data[0]["round_code"], "R32")
 
 
 class BracketPolicyTests(TestCase):

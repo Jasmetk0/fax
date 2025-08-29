@@ -8,6 +8,7 @@ from django.utils import timezone
 
 from .models import (
     CategorySeason,
+    PointsRow,
     EventEdition,
     Match,
     MediaItem,
@@ -425,6 +426,18 @@ def api_category_seasons(request, pk):
         )
     )
     return JsonResponse(data, safe=False)
+
+
+def api_category_season_points(request, pk):
+    cs = get_object_or_404(CategorySeason, pk=pk)
+    if not cs.points_table:
+        return JsonResponse([], safe=False)
+    rows = (
+        PointsRow.objects.filter(points_table=cs.points_table)
+        .order_by("round_code")
+        .values("round_code", "points", "co_sanction_pct")
+    )
+    return JsonResponse(list(rows), safe=False)
 
 
 def api_tournaments(request):
