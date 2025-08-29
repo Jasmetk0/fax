@@ -6,7 +6,15 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import Match, MediaItem, NewsPost, Player, RankingSnapshot, Tournament
+from .models import (
+    Match,
+    MediaItem,
+    NewsPost,
+    Player,
+    RankingSnapshot,
+    Season,
+    Tournament,
+)
 from .utils import filter_by_tour  # MSA-REDESIGN
 
 
@@ -394,6 +402,11 @@ def api_player_detail(request, slug):
     player = get_object_or_404(Player, slug=slug)
     data = {"name": player.name, "slug": player.slug, "country": player.country}
     return JsonResponse(data)
+
+
+def api_seasons(request):
+    data = list(Season.objects.values("name", "code", "start_date", "end_date"))
+    return JsonResponse(data, safe=False)
 
 
 def api_tournaments(request):

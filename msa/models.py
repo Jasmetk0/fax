@@ -82,6 +82,18 @@ class Player(AuditModel):
         return self.name
 
 
+class Season(AuditModel):
+    """A single Woorld calendar season."""
+
+    name = models.CharField(max_length=100)
+    code = models.CharField(max_length=20, unique=True, null=True, blank=True)
+    start_date = WoorldDateField(null=True, blank=True)
+    end_date = WoorldDateField(null=True, blank=True)
+
+    def __str__(self) -> str:  # pragma: no cover - trivial
+        return self.name
+
+
 class Tournament(AuditModel):
     STATUS_CHOICES = [
         ("upcoming", "Upcoming"),
