@@ -8,6 +8,7 @@ from .models import (
     Match,
     NewsPost,
     Player,
+    Season,
     RankingEntry,
     RankingSnapshot,
     Tournament,
@@ -41,6 +42,18 @@ class PlayerAdmin(admin.ModelAdmin):
         if obj.photo_url:
             return format_html('<img src="{}" style="height:50px;"/>', obj.photo_url)
         return ""
+
+
+@admin.register(Season)
+class SeasonAdmin(admin.ModelAdmin):
+    list_display = ("name", "code", "start_date", "end_date")
+    search_fields = ("name", "code")
+    readonly_fields = (
+        "created_at",
+        "updated_at",
+        "created_by",
+        "updated_by",
+    )
 
 
 @admin.register(Tournament)

@@ -3,7 +3,7 @@ from django.contrib.auth import get_user_model
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import Match, Player, RankingEntry, RankingSnapshot, Tournament
+from .models import Match, Player, RankingEntry, RankingSnapshot, Season, Tournament
 
 
 class MSAViewsTests(TestCase):
@@ -107,7 +107,7 @@ class MSAViewsTests(TestCase):
         self.assertContains(resp, "Up")
         self.assertNotContains(resp, "Fin")
 
-    def test_api_players_and_tournaments(self):
+    def test_api_players_tournaments_seasons(self):
         Player.objects.create(name="A", slug="a", country="C")
         today = timezone.now().date()
         Tournament.objects.create(
@@ -120,10 +120,14 @@ class MSAViewsTests(TestCase):
             country="C",
             status="upcoming",
         )
+        Season.objects.create(name="2024")
         resp = self.client.get(reverse("msa:api_players"))
         self.assertEqual(resp.status_code, 200)
         self.assertGreaterEqual(len(resp.json()), 1)
         resp = self.client.get(reverse("msa:api_tournaments"))
+        self.assertEqual(resp.status_code, 200)
+        self.assertGreaterEqual(len(resp.json()), 1)
+        resp = self.client.get(reverse("msa:api_seasons"))
         self.assertEqual(resp.status_code, 200)
         self.assertGreaterEqual(len(resp.json()), 1)
 
@@ -135,6 +139,7 @@ def test_admin_index_lists_msa_models(admin_client):
     assert "MSA" in content
     for model in [
         "player",
+        "season",
         "tournament",
         "match",
         "rankingsnapshot",
