@@ -250,11 +250,17 @@ const WEEKDAY_NAMES = [
       // FOOTER
       const footer = document.createElement("div");
       footer.className = "wc-footer";
-      footer.innerHTML =
+      const footerInfo = document.createElement("div");
+      footerInfo.style.display = "flex";
+      footerInfo.style.gap = "12px";
+      footerInfo.innerHTML =
         '<div><strong>Datum:</strong> <span class="js-date"></span></div>' +
         '<div><strong>Weekday:</strong> <span class="js-weekday"></span></div>' +
         '<div><strong>Sezóna:</strong> <span class="js-season"></span></div>' +
         '<div><strong>Den v roce:</strong> <span class="js-doy"></span> / <span class="js-yearlen2"></span></div>';
+      const confirmBtn = buildBtn("Confirm", () => choose(y, m, d), "wc-btn--primary");
+      confirmBtn.dataset.act = "confirm";
+      footer.append(footerInfo, confirmBtn);
       card.appendChild(footer);
 
       function clampDay() {
