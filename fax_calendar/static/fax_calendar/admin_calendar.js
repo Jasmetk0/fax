@@ -274,52 +274,60 @@ const WEEKDAY_NAMES = [
       function updateAnchors() {
         anchorRow.innerHTML = "";
         const events = eventsForYear(y);
+
+        // Winter buttons: one per anchor
+        if (events.winters.length) {
+          events.winters.forEach((w) => {
+            const btn = buildBtn("Winter", () => choose(w.y, w.m, w.d));
+            btn.dataset.season = "winter";
+            btn.title = `Day ${w.doy}`;
+            anchorRow.appendChild(btn);
+          });
+        } else {
+          const btn = buildBtn("Winter", null);
+          btn.dataset.season = "winter";
+          btn.disabled = true;
+          btn.title = "Anchor not present in this year";
+          anchorRow.appendChild(btn);
+        }
+
+        // Other seasons: at most one button each
         const cfg = [
-          ["Winter", events.winters, "winter"],
           ["Spring", events.springs, "spring"],
           ["Summer", events.summers, "summer"],
           ["Autumn", events.autumns, "autumn"],
         ];
         cfg.forEach(([label, arr, season]) => {
-          const btn = buildBtn(label, () => {
-            if (arr.length) choose(arr[0].y, arr[0].m, arr[0].d);
-          });
-          btn.dataset.season = season;
-          if (!arr.length) {
+          let btn;
+          if (arr.length) {
+            const a = arr[0];
+            btn = buildBtn(label, () => choose(a.y, a.m, a.d));
+            btn.title = `Day ${a.doy}`;
+          } else {
+            btn = buildBtn(label, null);
             btn.disabled = true;
             btn.title = "Anchor not present in this year";
           }
+          btn.dataset.season = season;
           anchorRow.appendChild(btn);
-          if (label === "Winter" && arr.length > 1) {
-            const btn2 = buildBtn("Winter II", () => {
-              choose(arr[1].y, arr[1].m, arr[1].d);
-            });
-            btn2.dataset.season = "winter2";
-            anchorRow.appendChild(btn2);
-          }
         });
       }
 
       function updateSeasonBar() {
         seasonbar.innerHTML = "";
         const yl = yearLength(y);
-        const { segs, winterMarks } = seasonSegments(y);
-        const clsMap = {
-          winter_i: "winter",
-          spring: "spring",
-          summer: "summer",
-          autumn: "autumn",
-        };
+        const { segs, marks } = seasonSegments(y);
         segs.forEach((seg) => {
           const div = document.createElement("div");
-          div.className = `wc-seasonbar__seg ${clsMap[seg.kind]}`;
-          div.style.width = `${((seg.endDoy - seg.startDoy + 1) / yl) * 100}%`;
+          div.className = `wc-seasonbar__seg ${seg.kind}`;
+          const len = seg.endDoy - seg.startDoy + 1;
+          div.style.width = `${(len / yl) * 100}%`;
           seasonbar.appendChild(div);
         });
-        winterMarks.forEach((w) => {
+        marks.forEach((m) => {
           const mark = document.createElement("div");
           mark.className = "wc-seasonbar__mark";
-          mark.style.left = `${((w.doy - 0.5) / yl) * 100}%`;
+          mark.style.left = `${((m.doy - 0.5) / yl) * 100}%`;
           seasonbar.appendChild(mark);
         });
 
@@ -339,12 +347,6 @@ const WEEKDAY_NAMES = [
           sp.textContent = label;
           legend.appendChild(sp);
         });
-        if (winterMarks.length === 2) {
-          const sp = document.createElement("span");
-          sp.dataset.season = "winter2";
-          sp.textContent = "Zima II (den)";
-          legend.appendChild(sp);
-        }
 
         yearLabel.innerHTML = `Rok <span class="js-year">${y}</span> • <span class="js-yearlen">${yl}</span> dní`;
       }
@@ -365,11 +367,10 @@ const WEEKDAY_NAMES = [
           const doy = toOrdinal(y, m, dd);
           const seasonFull = seasonOf(y, doy);
           const seasonMap = {
-            "Zima I": "winter",
-            "Zima II": "winter",
-            Jaro: "spring",
-            "Léto": "summer",
-            Podzim: "autumn",
+            Winter: "winter",
+            Spring: "spring",
+            Summer: "summer",
+            Autumn: "autumn",
           };
           const seasonCls = seasonMap[seasonFull] || "winter";
           cell.classList.add(`season-${seasonCls}`);

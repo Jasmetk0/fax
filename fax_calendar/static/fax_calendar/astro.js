@@ -75,63 +75,78 @@ export function eventsForYear(y) {
   return { springs, summers, autumns, winters };
 }
 
-// Compute season segments for season bar, using real anchors present in y.
-// Returns [{kind:"winter_i|spring|summer|autumn", startDoy, endDoy}] and an array of winter marks [{doy}]
 export function seasonSegments(y) {
   const start = ordinalAtYearStart(y);
-  const { springs, summers, autumns, winters } = eventsForYear(y);
   const yl = yearLength(y);
+  const end = start + yl - 1;
 
-  // Helper to get DOY arrays
-  const sDOY = springs.map((a) => a.doy).sort((a, b) => a - b);
-  const uDOY = summers.map((a) => a.doy).sort((a, b) => a - b);
-  const aDOY = autumns.map((a) => a.doy).sort((a, b) => a - b);
-  const wDOY = winters.map((a) => a.doy).sort((a, b) => a - b); // 0..2
+  // collect anchors inside year
+  const inside = [
+    ...anchorsInRange(start, end, PHASES.spring).map((o) => ({ ord: o, kind: "spring" })),
+    ...anchorsInRange(start, end, PHASES.summer).map((o) => ({ ord: o, kind: "summer" })),
+    ...anchorsInRange(start, end, PHASES.autumn).map((o) => ({ ord: o, kind: "autumn" })),
+    ...anchorsInRange(start, end, PHASES.winter).map((o) => ({ ord: o, kind: "winter" })),
+  ];
 
-  const segs = [];
-  // Winter I: from 1 to day before first Spring (if any); else to before Summer; else before Autumn; else until before Winter; else to yl (no anchors at all)
-  const firstSpring = sDOY[0],
-    firstSummer = uDOY[0],
-    firstAutumn = aDOY[0],
-    firstWinter = wDOY[0];
-  let cut = yl; // default cut at end
-  if (firstSpring) cut = Math.min(cut, firstSpring - 1);
-  if (!firstSpring && firstSummer) cut = Math.min(cut, firstSummer - 1);
-  if (!firstSpring && !firstSummer && firstAutumn) cut = Math.min(cut, firstAutumn - 1);
-  if (!firstSpring && !firstSummer && !firstAutumn && firstWinter)
-    cut = Math.min(cut, firstWinter - 1);
-  segs.push({ kind: "winter_i", startDoy: 1, endDoy: Math.max(1, cut) });
+  // nearest anchors just BEFORE start and just AFTER end (to determine start season and final cut)
+  const nearestBefore = (phase) =>
+    Math.round(phase + Math.floor((start - 0.5 - phase) / TROPICAL_YEAR) * TROPICAL_YEAR);
+  const nearestAfter = (phase) =>
+    Math.round(phase + Math.ceil((end + 0.5 - phase) / TROPICAL_YEAR) * TROPICAL_YEAR);
 
-  // Spring segment if Spring and Summer exist (use first occurrences)
-  if (firstSpring && firstSummer)
-    segs.push({ kind: "spring", startDoy: firstSpring, endDoy: firstSummer - 1 });
-  // Summer segment if Summer and Autumn exist
-  if (firstSummer && firstAutumn)
-    segs.push({ kind: "summer", startDoy: firstSummer, endDoy: firstAutumn - 1 });
-  // Autumn segment: from Autumn to day before first Winter if exists, else to yl
-  if (firstAutumn) {
-    const endA = firstWinter ? firstWinter - 1 : yl;
-    segs.push({ kind: "autumn", startDoy: firstAutumn, endDoy: endA });
-  }
+  const before = [
+    { ord: nearestBefore(PHASES.spring), kind: "spring" },
+    { ord: nearestBefore(PHASES.summer), kind: "summer" },
+    { ord: nearestBefore(PHASES.autumn), kind: "autumn" },
+    { ord: nearestBefore(PHASES.winter), kind: "winter" },
+  ].filter((a) => a.ord < start);
 
-  const winterMarks = wDOY.map((d) => ({ doy: d }));
-  return { segs, winterMarks };
-}
+  const after = [
+    { ord: nearestAfter(PHASES.spring), kind: "spring" },
+    { ord: nearestAfter(PHASES.summer), kind: "summer" },
+    { ord: nearestAfter(PHASES.autumn), kind: "autumn" },
+    { ord: nearestAfter(PHASES.winter), kind: "winter" },
+  ].filter((a) => a.ord > end);
 
-// Which season a given DOY belongs to, using segments computed above
-export function seasonOf(y, doy) {
-  const { segs, winterMarks } = seasonSegments(y);
-  if (winterMarks.some((w) => w.doy === doy)) return "Zima II";
-  for (const s of segs) {
-    if (doy >= s.startDoy && doy <= s.endDoy) {
-      if (s.kind === "winter_i") return "Zima I";
-      if (s.kind === "spring") return "Jaro";
-      if (s.kind === "summer") return "Léto";
-      if (s.kind === "autumn") return "Podzim";
+  const events = [...before, ...inside, ...after].sort((a, b) => a.ord - b.ord);
+
+  // find last anchor before start → starting season for DOY 1
+  let iPrev = -1;
+  for (let i = events.length - 1; i >= 0; i--) {
+    if (events[i].ord < start) {
+      iPrev = i;
+      break;
     }
   }
-  // fallback
-  return "Zima I";
+  let currentKind = iPrev >= 0 ? events[iPrev].kind : "winter"; // fallback
+  let cursor = 1;
+
+  const segs = [];
+  const marks = [];
+
+  for (const e of events) {
+    if (e.ord < start || e.ord > end) continue;
+    const doy = e.ord - start + 1;
+    // close running segment up to day before this anchor
+    if (cursor <= doy - 1)
+      segs.push({ kind: currentKind, startDoy: cursor, endDoy: doy - 1 });
+    // this anchor DAY starts its season
+    marks.push({ kind: e.kind, doy });
+    currentKind = e.kind;
+    cursor = doy; // anchor belongs to the new season
+  }
+  // close to end of year
+  if (cursor <= yl) segs.push({ kind: currentKind, startDoy: cursor, endDoy: yl });
+
+  return { segs, marks };
+}
+
+export function seasonOf(y, doy) {
+  const { segs } = seasonSegments(y);
+  const s = segs.find((s) => doy >= s.startDoy && doy <= s.endDoy);
+  const k = s ? s.kind : "winter";
+  // Capitalize: "Winter"/"Spring"/"Summer"/"Autumn"
+  return k.charAt(0).toUpperCase() + k.slice(1);
 }
 
 if (typeof window !== "undefined") {
