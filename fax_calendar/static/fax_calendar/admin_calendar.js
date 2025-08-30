@@ -36,7 +36,7 @@
     if (!button || !button.classList.contains("woorld-calendar-btn")) {
       button = document.createElement("button");
       button.type = "button";
-      button.textContent = "\uD83D\uDCC5"; // calendar emoji
+      button.textContent = "📅"; // calendar emoji
       button.className = "woorld-calendar-btn";
       input.insertAdjacentElement("afterend", button);
     }
