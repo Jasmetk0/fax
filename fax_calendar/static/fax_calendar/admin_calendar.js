@@ -112,6 +112,13 @@ const WEEKDAY_NAMES = [
         close();
       }
 
+      function selectDate(yy, mm, dd) {
+        y = yy;
+        m = mm;
+        d = dd;
+        updateMonth();
+      }
+
       // HEADER
       const header = document.createElement("div");
       header.className = "wc-header";
@@ -194,14 +201,18 @@ const WEEKDAY_NAMES = [
       // TOOLBAR
       const toolbar = document.createElement("div");
       toolbar.className = "wc-toolbar";
-      const firstBtn = buildBtn("1. den", () => choose(y, 1, 1));
+      const firstBtn = buildBtn("1. den", () => selectDate(y, 1, 1));
       firstBtn.dataset.act = "first-day";
       const lastBtn = buildBtn("Poslední den", () => {
         const [yy, mm, dd] = fromOrdinal(y, yearLength(y));
-        choose(yy, mm, dd);
+        selectDate(yy, mm, dd);
       });
       lastBtn.dataset.act = "last-day";
-      const resetBtn = buildBtn("Reset", () => choose(2020, 1, 1), "wc-btn--ghost");
+      const resetBtn = buildBtn(
+        "Reset",
+        () => selectDate(2020, 1, 1),
+        "wc-btn--ghost",
+      );
       resetBtn.dataset.act = "reset";
       toolbar.append(firstBtn, lastBtn, resetBtn);
       card.appendChild(toolbar);
@@ -284,7 +295,7 @@ const WEEKDAY_NAMES = [
         // Winter buttons: one per anchor
         if (events.winters.length) {
           events.winters.forEach((w) => {
-            const btn = buildBtn("Winter", () => choose(w.y, w.m, w.d));
+            const btn = buildBtn("Winter", () => selectDate(w.y, w.m, w.d));
             btn.dataset.season = "winter";
             btn.title = `Day ${w.doy}`;
             anchorRow.appendChild(btn);
@@ -307,7 +318,7 @@ const WEEKDAY_NAMES = [
           let btn;
           if (arr.length) {
             const a = arr[0];
-            btn = buildBtn(label, () => choose(a.y, a.m, a.d));
+            btn = buildBtn(label, () => selectDate(a.y, a.m, a.d));
             btn.title = `Day ${a.doy}`;
           } else {
             btn = buildBtn(label, null);
@@ -391,7 +402,7 @@ const WEEKDAY_NAMES = [
             cell.classList.add("is-today");
           }
           if (dd === d) cell.classList.add("is-selected");
-          cell.addEventListener("click", () => choose(y, m, dd));
+          cell.addEventListener("click", () => selectDate(y, m, dd));
           grid.appendChild(cell);
         }
         monthSection.querySelector(".js-month").textContent = m;
