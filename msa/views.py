@@ -10,6 +10,8 @@ from .models import (
     CategorySeason,
     PointsRow,
     EventEdition,
+    EventMatch,
+    AdvancementEdge,
     Match,
     MediaItem,
     NewsPost,
@@ -18,6 +20,8 @@ from .models import (
     Season,
     Tournament,
 )
+from .services.seeding_service import preview_seeding, apply_seeding
+import json
 from .utils import filter_by_tour  # MSA-REDESIGN
 
 
@@ -511,6 +515,66 @@ def api_event_structure(request, pk):
             }
         )
     return JsonResponse({"phases": phases})
+
+
+def api_event_seeding_preview(request, pk):
+    event = get_object_or_404(EventEdition, pk=pk)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405)
+    pairs = preview_seeding(event.pk)
+    return JsonResponse({"pairs": pairs})
+
+
+def api_event_seeding_apply(request, pk):
+    event = get_object_or_404(EventEdition, pk=pk)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405)
+    res = apply_seeding(event.pk)
+    return JsonResponse(res)
+
+
+def api_match_result(request, pk):
+    match = get_object_or_404(EventMatch, pk=pk)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405)
+    try:
+        data = json.loads(request.body or b"{}")
+    except json.JSONDecodeError:  # pragma: no cover - guard
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+    sets = data.get("sets", [])
+    a_sets = b_sets = 0
+    for s in sets:
+        if len(s) != 2:
+            continue
+        if s[0] > s[1]:
+            a_sets += 1
+        elif s[1] > s[0]:
+            b_sets += 1
+    needed = match.round.best_of // 2 + 1
+    if a_sets < needed and b_sets < needed:
+        return JsonResponse({"error": "Match incomplete"}, status=400)
+    winner = match.a_player if a_sets > b_sets else match.b_player
+    match.a_score = a_sets
+    match.b_score = b_sets
+    match.winner = winner
+    match.save()
+    from_ref = f"{match.round.code}:M{match.order}:W"
+    edges = AdvancementEdge.objects.filter(phase=match.phase, from_ref=from_ref)
+    for edge in edges:
+        try:
+            round_code, rest = edge.to_ref.split(":M")
+            match_no, slot = rest.split(":")
+            target = EventMatch.objects.get(
+                phase=edge.phase, round__code=round_code, order=int(match_no)
+            )
+            if slot == "A":
+                target.a_player = winner
+            else:
+                target.b_player = winner
+            target.save()
+        except Exception:  # pragma: no cover - safeguard
+            continue
+    return JsonResponse({"a_score": a_sets, "b_score": b_sets, "winner": winner.id})
 
 
 def api_h2h(request):
