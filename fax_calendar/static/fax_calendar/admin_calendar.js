@@ -154,29 +154,31 @@ const WEEKDAY_NAMES = [
 
       const yearCtrl = document.createElement("div");
       yearCtrl.className = "wc-year-ctrl";
-      const yearInput = document.createElement("input");
-      yearInput.type = "number";
-      yearInput.className = "wc-input";
-      yearInput.setAttribute("aria-label", "Year");
-      const yArrows = document.createElement("div");
-      yArrows.className = "wc-vert-arrows";
-      const yUp = document.createElement("button");
-      yUp.className = "wc-iconbtn";
-      yUp.dataset.act = "year-up";
-      yUp.textContent = "↑";
-      const yDown = document.createElement("button");
-      yDown.className = "wc-iconbtn";
-      yDown.dataset.act = "year-down";
-      yDown.textContent = "↓";
-      yArrows.append(yUp, yDown);
-      const yScrollBtn = document.createElement("button");
-      yScrollBtn.className = "wc-iconbtn";
-      yScrollBtn.dataset.act = "year-scroller";
-      yScrollBtn.textContent = "◎";
-      const yearScroller = document.createElement("div");
-      yearScroller.className = "wc-year-scroller";
-      yearScroller.style.display = "none";
-      yearCtrl.append(yearInput, yArrows, yScrollBtn, yearScroller);
+        const yearSel = document.createElement("select");
+        yearSel.className = "wc-select";
+        yearSel.setAttribute("aria-label", "Year");
+        const yArrows = document.createElement("div");
+        yArrows.className = "wc-vert-arrows";
+        const yUp = document.createElement("button");
+        yUp.className = "wc-iconbtn";
+        yUp.dataset.act = "year-up";
+        yUp.textContent = "↑";
+        const yDown = document.createElement("button");
+        yDown.className = "wc-iconbtn";
+        yDown.dataset.act = "year-down";
+        yDown.textContent = "↓";
+        yArrows.append(yUp, yDown);
+        yearCtrl.append(yearSel, yArrows);
+
+        function populateYearSelect(center) {
+          yearSel.innerHTML = "";
+          for (let i = center - 24; i <= center + 24; i++) {
+            const opt = document.createElement("option");
+            opt.value = i;
+            opt.textContent = i;
+            yearSel.appendChild(opt);
+          }
+        }
 
       const yearLenDiv = document.createElement("div");
       yearLenDiv.className = "wc-year-len";
@@ -200,26 +202,7 @@ const WEEKDAY_NAMES = [
       // TOOLBAR
       const toolbar = document.createElement("div");
       toolbar.className = "wc-toolbar";
-      const firstBtn = buildBtn("1. den", () => selectDate(y, 1, 1));
-      firstBtn.dataset.act = "first-day";
-      const lastBtn = buildBtn("Poslední den", () => {
-        const [yy, mm, dd] = fromOrdinal(y, yearLength(y));
-        selectDate(yy, mm, dd);
-      });
-      lastBtn.dataset.act = "last-day";
-      const resetBtn = buildBtn(
-        "Reset",
-        () => selectDate(2020, 1, 1),
-        "wc-btn--ghost",
-      );
-      resetBtn.dataset.act = "reset";
-      toolbar.append(firstBtn, lastBtn, resetBtn);
       card.appendChild(toolbar);
-
-      // ANCHORS
-      const anchorRow = document.createElement("div");
-      anchorRow.className = "wc-anchors";
-      card.appendChild(anchorRow);
 
       // SEASON BAR
       const seasonbar = document.createElement("div");
@@ -266,9 +249,15 @@ const WEEKDAY_NAMES = [
         '<div><strong>Weekday:</strong> <span class="js-weekday"></span></div>' +
         '<div><strong>Season:</strong> <span class="js-season"></span></div>' +
         '<div><strong>Day in year:</strong> <span class="js-doy"></span> / <span class="js-yearlen2"></span></div>';
+      const resetBtn = buildBtn(
+        "Reset",
+        () => selectDate(2020, 1, 1),
+        "wc-btn--ghost",
+      );
+      resetBtn.dataset.act = "reset";
       const confirmBtn = buildBtn("Confirm", () => choose(y, m, d), "wc-btn--primary");
       confirmBtn.dataset.act = "confirm";
-      footer.append(footerInfo, confirmBtn);
+      footer.append(footerInfo, resetBtn, confirmBtn);
 
       const bodyWrap = document.createElement("div");
       bodyWrap.className = "wc-body";
@@ -281,53 +270,91 @@ const WEEKDAY_NAMES = [
         if (d > max) d = max;
       }
 
-      function updateHeader() {
-        const months = monthLengths(y);
-        monthSel.value = String(m);
-        monthPill.textContent = `${months[m - 1]} days`;
-        yearInput.value = String(y);
-        yearPill.textContent = `${yearLength(y)} days`;
-      }
-
-      function updateAnchors() {
-        anchorRow.innerHTML = "";
-        const events = eventsForYear(y);
-
-        // Winter buttons: one per anchor
-        if (events.winters.length) {
-          events.winters.forEach((w) => {
-            const btn = buildBtn("Winter", () => selectDate(w.y, w.m, w.d));
-            btn.dataset.season = "winter";
-            btn.title = `Day ${w.doy}`;
-            anchorRow.appendChild(btn);
-          });
-        } else {
-          const btn = buildBtn("Winter", null);
-          btn.dataset.season = "winter";
-          btn.disabled = true;
-          btn.title = "Anchor not present in this year";
-          anchorRow.appendChild(btn);
+        function updateHeader() {
+          const months = monthLengths(y);
+          monthSel.value = String(m);
+          monthPill.textContent = `${months[m - 1]} days`;
+          populateYearSelect(y);
+          yearSel.value = String(y);
+          yearPill.textContent = `${yearLength(y)} days`;
         }
 
-        // Other seasons: at most one button each
+      function updateToolbar() {
+        toolbar.innerHTML = "";
+        const events = eventsForYear(y);
+
+        const buttons = [];
+
+        buttons.push({
+          label: "1. den",
+          handler: () => selectDate(y, 1, 1),
+          doy: 1,
+          act: "first-day",
+        });
+
+        if (events.winters.length) {
+          events.winters.forEach((w) => {
+            buttons.push({
+              label: "Winter",
+              handler: () => selectDate(w.y, w.m, w.d),
+              doy: w.doy,
+              season: "winter",
+            });
+          });
+        } else {
+          buttons.push({
+            label: "Winter",
+            handler: null,
+            disabled: true,
+            season: "winter",
+            doy: Infinity,
+          });
+        }
+
         const cfg = [
           ["Spring", events.springs, "spring"],
           ["Summer", events.summers, "summer"],
           ["Autumn", events.autumns, "autumn"],
         ];
         cfg.forEach(([label, arr, season]) => {
-          let btn;
           if (arr.length) {
             const a = arr[0];
-            btn = buildBtn(label, () => selectDate(a.y, a.m, a.d));
-            btn.title = `Day ${a.doy}`;
+            buttons.push({
+              label,
+              handler: () => selectDate(a.y, a.m, a.d),
+              doy: a.doy,
+              season,
+            });
           } else {
-            btn = buildBtn(label, null);
-            btn.disabled = true;
-            btn.title = "Anchor not present in this year";
+            buttons.push({
+              label,
+              handler: null,
+              disabled: true,
+              season,
+              doy: Infinity,
+            });
           }
-          btn.dataset.season = season;
-          anchorRow.appendChild(btn);
+        });
+
+        const lastDoy = yearLength(y);
+        const [yy, mm, dd] = fromOrdinal(y, lastDoy);
+        buttons.push({
+          label: "Poslední den",
+          handler: () => selectDate(yy, mm, dd),
+          doy: lastDoy,
+          act: "last-day",
+        });
+
+        buttons.sort((a, b) => a.doy - b.doy);
+
+        buttons.forEach((b) => {
+          const btn = buildBtn(b.label, b.handler, b.cls || "");
+          if (b.disabled) btn.disabled = true;
+          if (b.act) btn.dataset.act = b.act;
+          if (b.season) btn.dataset.season = b.season;
+          if (Number.isFinite(b.doy)) btn.title = `Day ${b.doy}`;
+          else if (b.disabled) btn.title = "Anchor not present in this year";
+          toolbar.appendChild(btn);
         });
       }
 
@@ -372,7 +399,7 @@ const WEEKDAY_NAMES = [
       function updateMonth() {
         clampDay();
         updateHeader();
-        updateAnchors();
+        updateToolbar();
         updateSeasonBar();
         grid.innerHTML = "";
         const months = monthLengths(y);
@@ -456,51 +483,18 @@ const WEEKDAY_NAMES = [
         updateMonth();
       });
 
-      yearInput.addEventListener("change", () => {
-        y = parseInt(yearInput.value, 10);
-        updateMonth();
-      });
-      yUp.addEventListener("click", () => {
-        y += 1;
-        updateMonth();
-      });
-      yDown.addEventListener("click", () => {
-        y -= 1;
-        updateMonth();
-      });
-
-      function toggleYearScroller() {
-        if (yearScroller.style.display === "block") {
-          yearScroller.style.display = "none";
-          yearScroller.innerHTML = "";
-          return;
-        }
-        yearScroller.innerHTML = "";
-        for (let i = y - 24; i <= y + 24; i++) {
-          const btn = document.createElement("button");
-          btn.type = "button";
-          btn.textContent = `${i} — ${yearLength(i)} days`;
-          btn.addEventListener("click", () => {
-            y = i;
-            yearScroller.style.display = "none";
-            yearScroller.innerHTML = "";
-            updateMonth();
-          });
-          yearScroller.appendChild(btn);
-        }
-        yearScroller.style.display = "block";
-      }
-
-      yScrollBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        toggleYearScroller();
-      });
-      overlay.addEventListener("click", (e) => {
-        if (!yearCtrl.contains(e.target)) {
-          yearScroller.style.display = "none";
-          yearScroller.innerHTML = "";
-        }
-      });
+        yearSel.addEventListener("change", () => {
+          y = parseInt(yearSel.value, 10);
+          updateMonth();
+        });
+        yUp.addEventListener("click", () => {
+          y += 1;
+          updateMonth();
+        });
+        yDown.addEventListener("click", () => {
+          y -= 1;
+          updateMonth();
+        });
     }
 
     btn.addEventListener("click", open);
