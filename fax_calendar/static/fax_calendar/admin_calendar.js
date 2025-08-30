@@ -206,6 +206,10 @@ const WEEKDAY_NAMES = [
       scrubTrack.className = "wc-doy-track";
       scrubWrap.appendChild(scrubTrack);
       card.appendChild(scrubWrap);
+      const jumpsEl = document.createElement("div");
+      jumpsEl.className = "wc-jumps";
+      jumpsEl.setAttribute("aria-label", "Quick jumps");
+      card.appendChild(jumpsEl);
 
       // MONTH SECTION
       const monthSection = document.createElement("section");
@@ -298,6 +302,50 @@ const WEEKDAY_NAMES = [
       }
 
       let trackYear = null;
+      let jumpYear = null;
+
+      function jumpToDoy(doy) {
+        const [_, mm, dd] = fromOrdinal(y, doy);
+        selectDate(y, mm, dd);
+      }
+
+      function renderJumpButtons(yy) {
+        const yl = yearLength(yy);
+        const { marks } = seasonSegments(yy);
+        let items = [{ label: "First Day", kind: "first", doy: 1 }];
+        marks.forEach((mark) => {
+          items.push({
+            label: mark.kind.charAt(0).toUpperCase() + mark.kind.slice(1),
+            kind: mark.kind,
+            doy: mark.doy,
+          });
+        });
+        items.push({ label: "Last Day", kind: "last", doy: yl });
+        const mids = items
+          .filter((x) => x.kind !== "first" && x.kind !== "last")
+          .sort((a, b) => a.doy - b.doy);
+        items = [items[0], ...mids, items[items.length - 1]];
+        jumpsEl.innerHTML = "";
+        const counts = {};
+        items.forEach((item) => {
+          const btn = buildBtn(item.label, () => {
+            scrubRange.value = String(item.doy);
+            jumpToDoy(item.doy);
+          });
+          if (item.kind !== "first" && item.kind !== "last") {
+            btn.dataset.season = item.kind;
+          }
+          const [_, mm, dd] = fromOrdinal(yy, item.doy);
+          btn.title = `${item.label} — DOY ${item.doy} (${format(dd, mm, yy)})`;
+          const count = (counts[item.label] = (counts[item.label] || 0) + 1);
+          if (count > 1) {
+            const badge = document.createElement("sup");
+            badge.textContent = count;
+            btn.appendChild(badge);
+          }
+          jumpsEl.appendChild(btn);
+        });
+      }
 
       function updateMonth() {
         clampDay();
@@ -339,6 +387,10 @@ const WEEKDAY_NAMES = [
         if (trackYear !== y) {
           renderDoyTrack(y);
           trackYear = y;
+        }
+        if (jumpYear !== y) {
+          renderJumpButtons(y);
+          jumpYear = y;
         }
         updateFooter();
       }
