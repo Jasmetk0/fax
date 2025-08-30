@@ -154,29 +154,31 @@ const WEEKDAY_NAMES = [
 
       const yearCtrl = document.createElement("div");
       yearCtrl.className = "wc-year-ctrl";
-      const yearInput = document.createElement("input");
-      yearInput.type = "number";
-      yearInput.className = "wc-input";
-      yearInput.setAttribute("aria-label", "Year");
-      const yArrows = document.createElement("div");
-      yArrows.className = "wc-vert-arrows";
-      const yUp = document.createElement("button");
-      yUp.className = "wc-iconbtn";
-      yUp.dataset.act = "year-up";
-      yUp.textContent = "↑";
-      const yDown = document.createElement("button");
-      yDown.className = "wc-iconbtn";
-      yDown.dataset.act = "year-down";
-      yDown.textContent = "↓";
-      yArrows.append(yUp, yDown);
-      const yScrollBtn = document.createElement("button");
-      yScrollBtn.className = "wc-iconbtn";
-      yScrollBtn.dataset.act = "year-scroller";
-      yScrollBtn.textContent = "◎";
-      const yearScroller = document.createElement("div");
-      yearScroller.className = "wc-year-scroller";
-      yearScroller.style.display = "none";
-      yearCtrl.append(yearInput, yArrows, yScrollBtn, yearScroller);
+        const yearSel = document.createElement("select");
+        yearSel.className = "wc-select";
+        yearSel.setAttribute("aria-label", "Year");
+        const yArrows = document.createElement("div");
+        yArrows.className = "wc-vert-arrows";
+        const yUp = document.createElement("button");
+        yUp.className = "wc-iconbtn";
+        yUp.dataset.act = "year-up";
+        yUp.textContent = "↑";
+        const yDown = document.createElement("button");
+        yDown.className = "wc-iconbtn";
+        yDown.dataset.act = "year-down";
+        yDown.textContent = "↓";
+        yArrows.append(yUp, yDown);
+        yearCtrl.append(yearSel, yArrows);
+
+        function populateYearSelect(center) {
+          yearSel.innerHTML = "";
+          for (let i = center - 24; i <= center + 24; i++) {
+            const opt = document.createElement("option");
+            opt.value = i;
+            opt.textContent = i;
+            yearSel.appendChild(opt);
+          }
+        }
 
       const yearLenDiv = document.createElement("div");
       yearLenDiv.className = "wc-year-len";
@@ -268,13 +270,14 @@ const WEEKDAY_NAMES = [
         if (d > max) d = max;
       }
 
-      function updateHeader() {
-        const months = monthLengths(y);
-        monthSel.value = String(m);
-        monthPill.textContent = `${months[m - 1]} days`;
-        yearInput.value = String(y);
-        yearPill.textContent = `${yearLength(y)} days`;
-      }
+        function updateHeader() {
+          const months = monthLengths(y);
+          monthSel.value = String(m);
+          monthPill.textContent = `${months[m - 1]} days`;
+          populateYearSelect(y);
+          yearSel.value = String(y);
+          yearPill.textContent = `${yearLength(y)} days`;
+        }
 
       function updateToolbar() {
         toolbar.innerHTML = "";
@@ -480,51 +483,18 @@ const WEEKDAY_NAMES = [
         updateMonth();
       });
 
-      yearInput.addEventListener("change", () => {
-        y = parseInt(yearInput.value, 10);
-        updateMonth();
-      });
-      yUp.addEventListener("click", () => {
-        y += 1;
-        updateMonth();
-      });
-      yDown.addEventListener("click", () => {
-        y -= 1;
-        updateMonth();
-      });
-
-      function toggleYearScroller() {
-        if (yearScroller.style.display === "block") {
-          yearScroller.style.display = "none";
-          yearScroller.innerHTML = "";
-          return;
-        }
-        yearScroller.innerHTML = "";
-        for (let i = y - 24; i <= y + 24; i++) {
-          const btn = document.createElement("button");
-          btn.type = "button";
-          btn.textContent = `${i} — ${yearLength(i)} days`;
-          btn.addEventListener("click", () => {
-            y = i;
-            yearScroller.style.display = "none";
-            yearScroller.innerHTML = "";
-            updateMonth();
-          });
-          yearScroller.appendChild(btn);
-        }
-        yearScroller.style.display = "block";
-      }
-
-      yScrollBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        toggleYearScroller();
-      });
-      overlay.addEventListener("click", (e) => {
-        if (!yearCtrl.contains(e.target)) {
-          yearScroller.style.display = "none";
-          yearScroller.innerHTML = "";
-        }
-      });
+        yearSel.addEventListener("change", () => {
+          y = parseInt(yearSel.value, 10);
+          updateMonth();
+        });
+        yUp.addEventListener("click", () => {
+          y += 1;
+          updateMonth();
+        });
+        yDown.addEventListener("click", () => {
+          y -= 1;
+          updateMonth();
+        });
     }
 
     btn.addEventListener("click", open);
