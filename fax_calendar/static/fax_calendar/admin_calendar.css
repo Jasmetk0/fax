@@ -28,6 +28,17 @@
   --wc-spring-bg: color-mix(in srgb, var(--wc-spring) 12%, #ffffff);
   --wc-summer-bg: color-mix(in srgb, var(--wc-summer) 12%, #ffffff);
   --wc-autumn-bg: color-mix(in srgb, var(--wc-autumn) 12%, #ffffff);
+  
+  /* day count colors */
+  --wc-month-28: var(--wc-winter-bg);
+  --wc-month-29: var(--wc-spring-bg);
+  --wc-month-30: var(--wc-summer-bg);
+  --wc-month-31: var(--wc-autumn-bg);
+  --wc-month-48: var(--wc-autumn-bg);
+  --wc-year-428: var(--wc-winter-bg);
+  --wc-year-429: var(--wc-spring-bg);
+  --wc-year-430: var(--wc-summer-bg);
+  --wc-year-447: var(--wc-autumn-bg);
 
   --wc-shadow: 0 10px 30px rgba(2, 6, 23, 0.12);
 }
@@ -107,11 +118,12 @@
   box-shadow: 0 1px 0 rgba(2,6,23,.04);
   min-width: 100px;
 }
-.wc-select--badged option {
+.wc-badge {
   position: relative;
   padding-right: 40px;
 }
-.wc-select--badged option::after {
+
+.wc-badge::after {
   content: attr(data-days);
   position: absolute;
   top: 50%;
@@ -124,6 +136,17 @@
   padding: 0 4px;
   border-radius: 8px;
 }
+
+/* badge colors */
+.wc-badge[data-days="28"]::after { background: var(--wc-month-28); }
+.wc-badge[data-days="29"]::after { background: var(--wc-month-29); }
+.wc-badge[data-days="30"]::after { background: var(--wc-month-30); }
+.wc-badge[data-days="31"]::after { background: var(--wc-month-31); }
+.wc-badge[data-days="48"]::after { background: var(--wc-month-48); }
+.wc-badge[data-days="428"]::after { background: var(--wc-year-428); }
+.wc-badge[data-days="429"]::after { background: var(--wc-year-429); }
+.wc-badge[data-days="430"]::after { background: var(--wc-year-430); }
+.wc-badge[data-days="447"]::after { background: var(--wc-year-447); }
 .wc-input[type="number"] { -moz-appearance: textfield; }
 .wc-input::-webkit-outer-spin-button, .wc-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 
