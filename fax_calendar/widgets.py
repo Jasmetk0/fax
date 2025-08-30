@@ -33,9 +33,7 @@ class WoorldAdminDateWidget(TextInput):
 
     def render(self, name, value, attrs=None, renderer=None):
         html = super().render(name, value, attrs, renderer)
-        button = (
-            '<button type="button" class="woorld-calendar-btn">\ud83d\udcc5</button>'
-        )
+        button = '<button type="button" class="woorld-calendar-btn">&#x1F4C5;</button>'
         return mark_safe(f"{html}{button}")
 
     class Media:
