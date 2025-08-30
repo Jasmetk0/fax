@@ -323,6 +323,13 @@
 .wc-doy-track__seg.autumn { background: var(--wc-autumn); }
 .wc-doy-track__mark { position: absolute; top:-3px; bottom:-3px; width: 2px; background: var(--wc-border); opacity: .8; }
 
+.wc-jumps { display:flex; flex-wrap:wrap; gap:8px; padding-top:8px; }
+.wc-jumps .wc-btn[data-season="winter"] { background: var(--wc-winter); color:#fff; border-color: var(--wc-winter); }
+.wc-jumps .wc-btn[data-season="spring"] { background: var(--wc-spring); color:#1f2a1f; border-color: var(--wc-spring); }
+.wc-jumps .wc-btn[data-season="summer"] { background: var(--wc-summer); color:#0b1f12; border-color: var(--wc-summer); }
+.wc-jumps .wc-btn[data-season="autumn"] { background: var(--wc-autumn); color:#fff; border-color: var(--wc-autumn); }
+.wc-jumps .wc-btn[data-season]:hover { filter: saturate(1.05) brightness(1.02); }
+
 /* -------------------- Month & Sidebar -------------------- */
 .wc-body {
   display: flex;
