@@ -1,98 +1,148 @@
-(function(exports){
-  const core = window.woorldCore;
-  const TROPICAL_YEAR = 428.5646875;
+import { E, monthLengths, yearLength, toOrdinal, fromOrdinal } from "/static/fax_calendar/core.js";
 
-  function yearLength(y){
-    return 428 + core.E(y);
-  }
+export const TROPICAL_YEAR = 428.5646875;
 
-  function ordinalAtYearStart(y){
-    let n = 1;
-    for(let i=1;i<y;i++){
-      n += yearLength(i);
+// Start ordinal of year y (global 1-based ordinal of 1/1/y)
+export function ordinalAtYearStart(y) {
+  let n = 1;
+  for (let yy = 1; yy < y; yy++) n += 428 + E(yy);
+  return n;
+}
+
+export function toGlobalOrdinal(y, m, d) {
+  return ordinalAtYearStart(y) + (toOrdinal(y, m, d) - 1);
+}
+
+export function fromGlobalOrdinal(ord) {
+  let y = 1,
+    start = 1;
+  // simple walk; admin scale is fine
+  for (;;) {
+    const yl = 428 + E(y);
+    const end = start + yl - 1;
+    if (ord >= start && ord <= end) {
+      const doy = ord - start + 1;
+      const [_, m, d] = fromOrdinal(y, doy);
+      return { y, m, d, doy };
     }
-    return n;
+    start = end + 1;
+    y++;
+  }
+}
+
+// global phase offsets (rounded to whole days)
+const PHASES = {
+  spring: 0.25 * TROPICAL_YEAR,
+  summer: 0.5 * TROPICAL_YEAR,
+  autumn: 0.75 * TROPICAL_YEAR,
+  winter: 1.0 * TROPICAL_YEAR,
+};
+
+// all k such that round(phase + k*TY) ∈ [start,end]
+function anchorsInRange(start, end, phase) {
+  const kMin = Math.ceil((start - phase - 0.5) / TROPICAL_YEAR);
+  const kMax = Math.floor((end - phase + 0.5) / TROPICAL_YEAR);
+  const out = [];
+  for (let k = kMin; k <= kMax; k++) {
+    const ord = Math.round(phase + k * TROPICAL_YEAR);
+    if (ord >= start && ord <= end) out.push(ord);
+  }
+  return out;
+}
+
+// Return anchors that actually occur inside year y (0..2 winters possible)
+export function eventsForYear(y) {
+  const start = ordinalAtYearStart(y);
+  const end = start + yearLength(y) - 1;
+
+  const springs = anchorsInRange(start, end, PHASES.spring).map((ord) => ({
+    ord,
+    ...fromGlobalOrdinal(ord),
+  }));
+  const summers = anchorsInRange(start, end, PHASES.summer).map((ord) => ({
+    ord,
+    ...fromGlobalOrdinal(ord),
+  }));
+  const autumns = anchorsInRange(start, end, PHASES.autumn).map((ord) => ({
+    ord,
+    ...fromGlobalOrdinal(ord),
+  }));
+  const winters = anchorsInRange(start, end, PHASES.winter).map((ord) => ({
+    ord,
+    ...fromGlobalOrdinal(ord),
+  }));
+
+  return { springs, summers, autumns, winters };
+}
+
+// Compute season segments for season bar, using real anchors present in y.
+// Returns [{kind:"winter_i|spring|summer|autumn", startDoy, endDoy}] and an array of winter marks [{doy}]
+export function seasonSegments(y) {
+  const start = ordinalAtYearStart(y);
+  const { springs, summers, autumns, winters } = eventsForYear(y);
+  const yl = yearLength(y);
+
+  // Helper to get DOY arrays
+  const sDOY = springs.map((a) => a.doy).sort((a, b) => a - b);
+  const uDOY = summers.map((a) => a.doy).sort((a, b) => a - b);
+  const aDOY = autumns.map((a) => a.doy).sort((a, b) => a - b);
+  const wDOY = winters.map((a) => a.doy).sort((a, b) => a - b); // 0..2
+
+  const segs = [];
+  // Winter I: from 1 to day before first Spring (if any); else to before Summer; else before Autumn; else until before Winter; else to yl (no anchors at all)
+  const firstSpring = sDOY[0],
+    firstSummer = uDOY[0],
+    firstAutumn = aDOY[0],
+    firstWinter = wDOY[0];
+  let cut = yl; // default cut at end
+  if (firstSpring) cut = Math.min(cut, firstSpring - 1);
+  if (!firstSpring && firstSummer) cut = Math.min(cut, firstSummer - 1);
+  if (!firstSpring && !firstSummer && firstAutumn) cut = Math.min(cut, firstAutumn - 1);
+  if (!firstSpring && !firstSummer && !firstAutumn && firstWinter)
+    cut = Math.min(cut, firstWinter - 1);
+  segs.push({ kind: "winter_i", startDoy: 1, endDoy: Math.max(1, cut) });
+
+  // Spring segment if Spring and Summer exist (use first occurrences)
+  if (firstSpring && firstSummer)
+    segs.push({ kind: "spring", startDoy: firstSpring, endDoy: firstSummer - 1 });
+  // Summer segment if Summer and Autumn exist
+  if (firstSummer && firstAutumn)
+    segs.push({ kind: "summer", startDoy: firstSummer, endDoy: firstAutumn - 1 });
+  // Autumn segment: from Autumn to day before first Winter if exists, else to yl
+  if (firstAutumn) {
+    const endA = firstWinter ? firstWinter - 1 : yl;
+    segs.push({ kind: "autumn", startDoy: firstAutumn, endDoy: endA });
   }
 
-  function toOrdinal(y,m,d){
-    const months = core.monthLengths(y);
-    let n = 0;
-    for(let i=1;i<m;i++) n += months[i-1];
-    return n + d;
-  }
+  const winterMarks = wDOY.map((d) => ({ doy: d }));
+  return { segs, winterMarks };
+}
 
-  function fromOrdinal(y,doy){
-    const months = core.monthLengths(y);
-    let m = 1;
-    while(doy>months[m-1]){
-      doy -= months[m-1];
-      m += 1;
+// Which season a given DOY belongs to, using segments computed above
+export function seasonOf(y, doy) {
+  const { segs, winterMarks } = seasonSegments(y);
+  if (winterMarks.some((w) => w.doy === doy)) return "Zima II";
+  for (const s of segs) {
+    if (doy >= s.startDoy && doy <= s.endDoy) {
+      if (s.kind === "winter_i") return "Zima I";
+      if (s.kind === "spring") return "Jaro";
+      if (s.kind === "summer") return "Léto";
+      if (s.kind === "autumn") return "Podzim";
     }
-    return [y,m,doy];
   }
+  // fallback
+  return "Zima I";
+}
 
-  function toGlobalOrdinal(y,m,d){
-    return ordinalAtYearStart(y) + toOrdinal(y,m,d) - 1;
-  }
+if (typeof window !== "undefined") {
+  window.woorldAstro = {
+    TROPICAL_YEAR,
+    ordinalAtYearStart,
+    toGlobalOrdinal,
+    fromGlobalOrdinal,
+    eventsForYear,
+    seasonSegments,
+    seasonOf,
+  };
+}
 
-  function fromGlobalOrdinal(ord){
-    let y = 1;
-    let start = 1;
-    let len = yearLength(y);
-    while(ord>start+len-1){
-      start += len;
-      y += 1;
-      len = yearLength(y);
-    }
-    const doy = ord - start + 1;
-    return fromOrdinal(y,doy);
-  }
-
-  function eventsForYear(y){
-    const start = ordinalAtYearStart(y);
-    const end = start + yearLength(y) - 1;
-    const phases = {
-      spring: 0.25*TROPICAL_YEAR,
-      summer: 0.5*TROPICAL_YEAR,
-      autumn: 0.75*TROPICAL_YEAR,
-      winter: 1.0*TROPICAL_YEAR
-    };
-    const out = {springs:[], summers:[], autumns:[], winters:[]};
-    for(const [name, phase] of Object.entries(phases)){
-      const kStart = Math.floor((start-phase)/TROPICAL_YEAR)-1;
-      const kEnd = Math.ceil((end-phase)/TROPICAL_YEAR)+1;
-      for(let k=kStart;k<=kEnd;k++){
-        const ord = Math.round(phase + k*TROPICAL_YEAR);
-        if(ord>=start && ord<=end){
-          const [yy,mm,dd] = fromGlobalOrdinal(ord);
-          out[name+"s"].push({ord:ord,y:yy,m:mm,d:dd});
-        }
-      }
-    }
-    return out;
-  }
-
-  function seasonOf(y,doy){
-    const ev = eventsForYear(y);
-    const spring = ev.springs[0] ? toOrdinal(y,ev.springs[0].m, ev.springs[0].d) : null;
-    const summer = ev.summers[0] ? toOrdinal(y,ev.summers[0].m, ev.summers[0].d) : null;
-    const autumn = ev.autumns[0] ? toOrdinal(y,ev.autumns[0].m, ev.autumns[0].d) : null;
-    const winters = ev.winters.map(w=>toOrdinal(y,w.m,w.d));
-    if(winters.includes(doy)) return 'Winter II';
-    if(spring && doy < spring) return 'Winter I';
-    if(spring && (!summer || doy < summer) && doy>=spring) return 'Spring';
-    if(summer && (!autumn || doy < autumn) && doy>=summer) return 'Summer';
-    if(autumn && doy>=autumn && (!winters[0] || doy < winters[0])) return 'Autumn';
-    return 'Winter I';
-  }
-
-  exports.TROPICAL_YEAR = TROPICAL_YEAR;
-  exports.yearLength = yearLength;
-  exports.ordinalAtYearStart = ordinalAtYearStart;
-  exports.toOrdinal = toOrdinal;
-  exports.fromOrdinal = fromOrdinal;
-  exports.toGlobalOrdinal = toGlobalOrdinal;
-  exports.fromGlobalOrdinal = fromGlobalOrdinal;
-  exports.eventsForYear = eventsForYear;
-  exports.seasonOf = seasonOf;
-})(window.woorldAstro = window.woorldAstro || {});

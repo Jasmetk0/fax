@@ -5,10 +5,10 @@
     {{ block.super }}
     <link rel="stylesheet" href="{% static 'fax_calendar/widget.css' %}">
     <link rel="stylesheet" href="{% static 'fax_calendar/admin_calendar.css' %}">
-    <script src="{% static 'fax_calendar/core.js' %}" defer></script>
-    <script src="{% static 'fax_calendar/astro.js' %}" defer></script>
+    <script type="module" src="{% static 'fax_calendar/core.js' %}"></script>
+    <script type="module" src="{% static 'fax_calendar/astro.js' %}"></script>
     <script src="{% static 'fax_calendar/widget.js' %}" defer></script>
-    <script src="{% static 'fax_calendar/admin_calendar.js' %}" defer></script>
+    <script type="module" src="{% static 'fax_calendar/admin_calendar.js' %}"></script>
     <script>window.WOORLD_TODAY={{ WOORLD_TODAY|default:"null"|safe }};</script>
     <script>
       window.addEventListener('DOMContentLoaded', () => {

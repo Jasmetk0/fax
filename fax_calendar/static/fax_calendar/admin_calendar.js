@@ -1,16 +1,25 @@
-(function (exports) {
-  const core = window.woorldCore;
-  const astro = window.woorldAstro;
+import {
+  monthLengths,
+  yearLength,
+  toOrdinal,
+  fromOrdinal,
+  weekday,
+} from "/static/fax_calendar/core.js";
+import {
+  eventsForYear,
+  seasonSegments,
+  seasonOf,
+} from "/static/fax_calendar/astro.js";
 
-  const WEEKDAY_NAMES = [
-    "Monday",
-    "Tuesday",
-    "Wednesday",
-    "Thursday",
-    "Friday",
-    "Saturday",
-    "Sunday",
-  ];
+const WEEKDAY_NAMES = [
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+  "Sunday",
+];
 
   function format(day, month, year) {
     return (
@@ -175,8 +184,11 @@
       // DOY SCRUBBER
       const scrubWrap = document.createElement("div");
       scrubWrap.className = "wc-doy-scrubber";
-      const scrubFill = document.createElement("div");
-      scrubWrap.appendChild(scrubFill);
+      const scrubRange = document.createElement("input");
+      scrubRange.type = "range";
+      scrubRange.min = "1";
+      scrubRange.className = "wc-doy-range";
+      scrubWrap.appendChild(scrubRange);
       card.appendChild(scrubWrap);
 
       // TOOLBAR
@@ -185,7 +197,7 @@
       const firstBtn = buildBtn("1. den", () => choose(y, 1, 1));
       firstBtn.dataset.act = "first-day";
       const lastBtn = buildBtn("Poslední den", () => {
-        const [yy, mm, dd] = astro.fromOrdinal(y, astro.yearLength(y));
+        const [yy, mm, dd] = fromOrdinal(y, yearLength(y));
         choose(yy, mm, dd);
       });
       lastBtn.dataset.act = "last-day";
@@ -246,22 +258,22 @@
       card.appendChild(footer);
 
       function clampDay() {
-        const months = core.monthLengths(y);
+        const months = monthLengths(y);
         const max = months[m - 1];
         if (d > max) d = max;
       }
 
       function updateHeader() {
-        const months = core.monthLengths(y);
+        const months = monthLengths(y);
         monthSel.value = String(m);
         monthPill.textContent = `${months[m - 1]} days`;
         yearInput.value = String(y);
-        yearPill.textContent = `${astro.yearLength(y)} days`;
+        yearPill.textContent = `${yearLength(y)} days`;
       }
 
       function updateAnchors() {
         anchorRow.innerHTML = "";
-        const events = astro.eventsForYear(y);
+        const events = eventsForYear(y);
         const cfg = [
           ["Winter", events.winters, "winter"],
           ["Spring", events.springs, "spring"],
@@ -290,52 +302,24 @@
 
       function updateSeasonBar() {
         seasonbar.innerHTML = "";
-        const yearDays = astro.yearLength(y);
-        const events = astro.eventsForYear(y);
-        const points = {
-          spring: events.springs[0]
-            ? astro.toOrdinal(y, events.springs[0].m, events.springs[0].d)
-            : null,
-          summer: events.summers[0]
-            ? astro.toOrdinal(y, events.summers[0].m, events.summers[0].d)
-            : null,
-          autumn: events.autumns[0]
-            ? astro.toOrdinal(y, events.autumns[0].m, events.autumns[0].d)
-            : null,
-          winter: events.winters[0]
-            ? astro.toOrdinal(y, events.winters[0].m, events.winters[0].d)
-            : null,
+        const yl = yearLength(y);
+        const { segs, winterMarks } = seasonSegments(y);
+        const clsMap = {
+          winter_i: "winter",
+          spring: "spring",
+          summer: "summer",
+          autumn: "autumn",
         };
-        const segs = [];
-        let start = 1;
-        if (points.spring) {
-          segs.push({ name: "winter", start, end: points.spring - 1 });
-          start = points.spring;
-        }
-        if (points.summer) {
-          segs.push({ name: "spring", start, end: points.summer - 1 });
-          start = points.summer;
-        }
-        if (points.autumn) {
-          segs.push({ name: "summer", start, end: points.autumn - 1 });
-          start = points.autumn;
-        }
-        if (points.winter) {
-          segs.push({ name: "autumn", start, end: points.winter - 1 });
-        } else {
-          segs.push({ name: "autumn", start, end: yearDays });
-        }
         segs.forEach((seg) => {
           const div = document.createElement("div");
-          div.className = `wc-seasonbar__seg ${seg.name}`;
-          div.style.width = `${((seg.end - seg.start + 1) / yearDays) * 100}%`;
+          div.className = `wc-seasonbar__seg ${clsMap[seg.kind]}`;
+          div.style.width = `${((seg.endDoy - seg.startDoy + 1) / yl) * 100}%`;
           seasonbar.appendChild(div);
         });
-        events.winters.forEach((w) => {
+        winterMarks.forEach((w) => {
           const mark = document.createElement("div");
           mark.className = "wc-seasonbar__mark";
-          const doy = astro.toOrdinal(y, w.m, w.d);
-          mark.style.left = `${((doy - 1) / yearDays) * 100}%`;
+          mark.style.left = `${((w.doy - 0.5) / yl) * 100}%`;
           seasonbar.appendChild(mark);
         });
 
@@ -355,15 +339,14 @@
           sp.textContent = label;
           legend.appendChild(sp);
         });
-        if (events.winters.length === 2) {
+        if (winterMarks.length === 2) {
           const sp = document.createElement("span");
           sp.dataset.season = "winter2";
           sp.textContent = "Zima II (den)";
           legend.appendChild(sp);
         }
 
-        yearLabel.innerHTML =
-          `Rok <span class="js-year">${y}</span> • <span class="js-yearlen">${yearDays}</span> dní`;
+        yearLabel.innerHTML = `Rok <span class="js-year">${y}</span> • <span class="js-yearlen">${yl}</span> dní`;
       }
 
       function updateMonth() {
@@ -372,18 +355,24 @@
         updateAnchors();
         updateSeasonBar();
         grid.innerHTML = "";
-        const months = core.monthLengths(y);
-        const offset = core.weekday(y, m, 1);
+        const months = monthLengths(y);
+        const offset = weekday(y, m, 1);
         for (let i = 0; i < offset; i++) grid.appendChild(document.createElement("div"));
         for (let dd = 1; dd <= months[m - 1]; dd++) {
           const cell = document.createElement("div");
           cell.className = "wc-day";
           cell.textContent = dd;
-          const doy = astro.toOrdinal(y, m, dd);
-          const seasonFull = astro.seasonOf(y, doy);
-          const season = seasonFull.split(" ")[0].toLowerCase();
-          cell.classList.add(`season-${season}`);
-          if (seasonFull === "Winter II") cell.classList.add("winter-ii");
+          const doy = toOrdinal(y, m, dd);
+          const seasonFull = seasonOf(y, doy);
+          const seasonMap = {
+            "Zima I": "winter",
+            "Zima II": "winter",
+            Jaro: "spring",
+            "Léto": "summer",
+            Podzim: "autumn",
+          };
+          const seasonCls = seasonMap[seasonFull] || "winter";
+          cell.classList.add(`season-${seasonCls}`);
           const w = (offset + dd - 1) % 7;
           if (w === 5 || w === 6) cell.classList.add("is-weekend");
           if (
@@ -399,24 +388,32 @@
           grid.appendChild(cell);
         }
         monthSection.querySelector(".js-month").textContent = m;
-        monthSection.querySelector(".js-monthlen").textContent = core.monthLengths(y)[m - 1];
+        monthSection.querySelector(".js-monthlen").textContent = monthLengths(y)[m - 1];
         updateFooter();
       }
 
       function updateFooter() {
-        const doy = astro.toOrdinal(y, m, d);
-        const w = core.weekday(y, m, d);
-        const season = astro.seasonOf(y, doy);
+        const doy = toOrdinal(y, m, d);
+        const w = weekday(y, m, d);
+        const season = seasonOf(y, doy);
         footer.querySelector(".js-date").textContent = format(d, m, y);
         footer.querySelector(".js-weekday").textContent = WEEKDAY_NAMES[w];
         footer.querySelector(".js-season").textContent = season;
         footer.querySelector(".js-doy").textContent = doy;
-        footer.querySelector(".js-yearlen2").textContent = astro.yearLength(y);
-        const perc = (doy / astro.yearLength(y)) * 100;
-        scrubFill.style.width = `${perc}%`;
+        footer.querySelector(".js-yearlen2").textContent = yearLength(y);
+        scrubRange.max = yearLength(y);
+        scrubRange.value = doy;
       }
 
       updateMonth();
+
+      scrubRange.addEventListener("input", () => {
+        const val = parseInt(scrubRange.value, 10);
+        const [_, mm, dd] = fromOrdinal(y, val);
+        m = mm;
+        d = dd;
+        updateMonth();
+      });
 
       // EVENTS
       monthSel.addEventListener("change", () => {
@@ -463,7 +460,7 @@
         for (let i = y - 24; i <= y + 24; i++) {
           const btn = document.createElement("button");
           btn.type = "button";
-          btn.textContent = `${i} — ${astro.yearLength(i)} days`;
+          btn.textContent = `${i} — ${yearLength(i)} days`;
           btn.addEventListener("click", () => {
             y = i;
             yearScroller.style.display = "none";
@@ -496,6 +493,5 @@
       .forEach((el) => attachWoorldCalendar(el));
   }
 
-  exports.attachWoorldCalendar = attachWoorldCalendar;
-  exports.enhanceAllWoorldDateInputs = enhanceAllWoorldDateInputs;
-})(window);
+  window.attachWoorldCalendar = attachWoorldCalendar;
+  window.enhanceAllWoorldDateInputs = enhanceAllWoorldDateInputs;
