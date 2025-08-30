@@ -125,7 +125,6 @@ const WEEKDAY_NAMES = [
       const themeWrap = document.createElement("div");
       themeWrap.className = "wc-theme-toggle";
       themeWrap.appendChild(createThemeToggle(overlay));
-      header.appendChild(themeWrap);
 
       const monthCtrl = document.createElement("div");
       monthCtrl.className = "wc-month-ctrl";
@@ -185,7 +184,7 @@ const WEEKDAY_NAMES = [
       yearPill.className = "wc-meta__pill wc-year-days";
       yearLenDiv.appendChild(yearPill);
 
-      header.append(monthCtrl, yearCtrl, yearLenDiv);
+      header.append(monthCtrl, yearCtrl, yearLenDiv, themeWrap);
       card.appendChild(header);
 
       // DOY SCRUBBER
@@ -265,10 +264,10 @@ const WEEKDAY_NAMES = [
       footerInfo.style.display = "flex";
       footerInfo.style.gap = "12px";
       footerInfo.innerHTML =
-        '<div><strong>Datum:</strong> <span class="js-date"></span></div>' +
+        '<div><strong>Date:</strong> <span class="js-date"></span></div>' +
         '<div><strong>Weekday:</strong> <span class="js-weekday"></span></div>' +
-        '<div><strong>Sezóna:</strong> <span class="js-season"></span></div>' +
-        '<div><strong>Den v roce:</strong> <span class="js-doy"></span> / <span class="js-yearlen2"></span></div>';
+        '<div><strong>Season:</strong> <span class="js-season"></span></div>' +
+        '<div><strong>Day in year:</strong> <span class="js-doy"></span> / <span class="js-yearlen2"></span></div>';
       const confirmBtn = buildBtn("Confirm", () => choose(y, m, d), "wc-btn--primary");
       confirmBtn.dataset.act = "confirm";
       footer.append(footerInfo, confirmBtn);
