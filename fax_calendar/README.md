@@ -2,7 +2,7 @@
 
 Tato aplikace poskytuje widget a pole pro práci s Woorld kalendářem
 s 15 měsíci střídajícími se v délce 29/28 dnů. Datum se zadává ve formátu
-`DD/MM/YYYY` a v databázi se ukládá jako řetězec `YYYY-MM-DDw`.
+`DD-MM-YYYY` a v databázi se ukládá jako řetězec `YYYY-MM-DD`.
 
 Použití mimo admin:
 

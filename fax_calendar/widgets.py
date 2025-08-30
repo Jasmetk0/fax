@@ -4,12 +4,12 @@ from django.forms.widgets import TextInput
 
 
 class WoorldDateWidget(TextInput):
-    """Simple text input widget for DD/MM/YYYY Woorld dates."""
+    """Simple text input widget for ``DD-MM-YYYY`` Woorld dates."""
 
     input_type = "text"
 
     def __init__(self, attrs=None):
-        attrs = {"placeholder": "DD/MM/YYYY", **(attrs or {})}
+        attrs = {"placeholder": "DD-MM-YYYY", **(attrs or {})}
         css = attrs.get("class", "")
         attrs["class"] = f"{css} woorld-date-input".strip()
         # marker for JS datepicker hookup
@@ -18,4 +18,4 @@ class WoorldDateWidget(TextInput):
 
     class Media:
         css = {"all": ["fax_calendar/woorld.css"]}
-        js = ["fax_calendar/woorld.js"]
+        js = ["fax_calendar/core.js", "fax_calendar/woorld.js"]
