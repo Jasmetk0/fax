@@ -2,6 +2,8 @@ from django.contrib import admin
 from django.urls import include, path
 from django.views.generic import TemplateView
 
+from fax_calendar import views as calendar_views
+
 from search import views as search_views
 from wiki.urls import api_urlpatterns as wiki_api
 
@@ -17,6 +19,11 @@ urlpatterns = [
     path("api/mma/", include("mma.api.urls")),
     path("msasquashtour/", include("msa.urls")),
     path("woorld/", include("fax_calendar.urls")),
+    path(
+        "api/fax_calendar/year/<int:y>/meta",
+        calendar_views.year_meta,
+        name="fax-calendar-year-meta",
+    ),
     path("search/suggest", search_views.suggest, name="search-suggest"),
     path("search", search_views.search, name="search"),
     path(

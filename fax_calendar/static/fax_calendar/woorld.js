@@ -1,19 +1,31 @@
 (function () {
-  function daysInMonth(month) {
-    return month % 2 === 1 ? 29 : 28;
-  }
+  var core = window.woorldCore;
+
   function pad(num) {
     return num < 10 ? "0" + num : String(num);
   }
-  function validDate(val) {
-    var m = val.match(/^(\d{1,2})\/(\d{1,2})\/(\d{1,4})$/);
-    if (!m) return false;
+
+  function validate(val) {
+    var m = val.match(/^(\d{1,2})[-.](\d{1,2})[-.](\d{1,4})$/);
+    if (!m) return "Neplatné Woorld datum";
     var d = parseInt(m[1], 10);
     var mo = parseInt(m[2], 10);
-    var max = daysInMonth(mo);
-    return mo >= 1 && mo <= 15 && d >= 1 && d <= max;
+    var y = parseInt(m[3], 10);
+    if (mo < 1 || mo > 15) return "Měsíc musí být 1–15";
+    var ml = core.monthLengths(y);
+    var max = ml[mo - 1];
+    if (d < 1 || d > max) {
+      return "Month " + mo + " has " + max + " days in year " + y;
+    }
+    return "";
   }
+
+  function daysInMonth(y, m) {
+    return core.monthLengths(y)[m - 1];
+  }
+
   function buildPicker(input) {
+    var currentYear = parseInt(input.dataset.year || "1", 10);
     var picker = document.createElement("div");
     picker.className = "woorld-picker";
     var nav = document.createElement("div");
@@ -35,6 +47,7 @@
     yInp.type = "number";
     yInp.min = "1";
     yInp.className = "wp-year";
+    yInp.value = currentYear;
     nav.appendChild(prev);
     nav.appendChild(mSel);
     nav.appendChild(yInp);
@@ -46,22 +59,26 @@
     input.parentNode.classList.add("woorld-wrapper");
     input.parentNode.insertBefore(picker, input.nextSibling);
     picker.style.display = "block";
+
     function renderDays() {
       days.innerHTML = "";
-      var max = daysInMonth(parseInt(mSel.value, 10));
+      var y = parseInt(yInp.value || currentYear, 10);
+      var max = daysInMonth(y, parseInt(mSel.value, 10));
       for (var d = 1; d <= max; d++) {
         (function (day) {
           var cell = document.createElement("div");
           cell.className = "wp-day";
           cell.textContent = pad(day);
           cell.addEventListener("click", function () {
-            input.value = pad(day) + "/" + pad(parseInt(mSel.value, 10)) + "/" + yInp.value;
+            input.value =
+              pad(day) + "-" + pad(parseInt(mSel.value, 10)) + "-" + yInp.value;
             input.dispatchEvent(new Event("change"));
           });
           days.appendChild(cell);
         })(d);
       }
     }
+
     prev.addEventListener("click", function () {
       var m = parseInt(mSel.value, 10) - 1;
       if (m < 1) m = 15;
@@ -75,8 +92,9 @@
       renderDays();
     });
     mSel.addEventListener("change", renderDays);
+    yInp.addEventListener("change", renderDays);
     input.addEventListener("focus", function () {
-      var m = input.value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{1,4})$/);
+      var m = input.value.match(/^(\d{1,2})[-.](\d{1,2})[-.](\d{1,4})$/);
       if (m) {
         mSel.value = parseInt(m[2], 10);
         yInp.value = parseInt(m[3], 10);
@@ -85,12 +103,14 @@
     });
     renderDays();
   }
+
   document.addEventListener("DOMContentLoaded", function () {
     var inputs = document.querySelectorAll("[data-woorld-datepicker]");
     inputs.forEach(function (inp) {
       inp.addEventListener("change", function () {
-        if (!validDate(inp.value)) {
-          inp.setCustomValidity("Neplatné Woorld datum");
+        var err = validate(inp.value);
+        if (err) {
+          inp.setCustomValidity(err);
         } else {
           inp.setCustomValidity("");
         }
@@ -102,10 +122,13 @@
       form.addEventListener("submit", function (e) {
         e.preventDefault();
         var input = form.querySelector("#woorld-date-input");
-        if (input && !validDate(input.value)) {
-          input.setCustomValidity("Neplatné Woorld datum");
-          input.reportValidity();
-          return;
+        if (input) {
+          var err = validate(input.value);
+          if (err) {
+            input.setCustomValidity(err);
+            input.reportValidity();
+            return;
+          }
         }
         var data = new FormData(form);
         var endpoint = form.dataset.endpoint || form.action;
