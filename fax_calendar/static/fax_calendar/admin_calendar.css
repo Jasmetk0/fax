@@ -107,6 +107,23 @@
   box-shadow: 0 1px 0 rgba(2,6,23,.04);
   min-width: 100px;
 }
+.wc-select--badged option {
+  position: relative;
+  padding-right: 40px;
+}
+.wc-select--badged option::after {
+  content: attr(data-days);
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  background: var(--wc-elev);
+  color: var(--wc-text-dim);
+  font-size: 11px;
+  line-height: 1;
+  padding: 0 4px;
+  border-radius: 8px;
+}
 .wc-input[type="number"] { -moz-appearance: textfield; }
 .wc-input::-webkit-outer-spin-button, .wc-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 
