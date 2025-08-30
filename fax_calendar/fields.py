@@ -4,8 +4,8 @@ from django import forms
 from django.db import models
 from .widgets import WoorldDateWidget
 from .utils import (
-    parse_woorld_ddmmyyyy,
-    format_woorld_ddmmyyyy,
+    parse_woorld_date,
+    format_woorld_date,
     to_storage,
     from_storage,
 )
@@ -13,26 +13,26 @@ from .validators import validate_woorld_date_parts
 
 
 class WoorldDateFormField(forms.CharField):
-    """Form field handling DD/MM/YYYY input and storage formatting."""
+    """Form field handling ``DD-MM-YYYY`` input and storage formatting."""
 
     widget = WoorldDateWidget
 
     def to_python(self, value):
         if not value:
             return ""
-        year, month, day = parse_woorld_ddmmyyyy(value)
+        year, month, day = parse_woorld_date(value)
         validate_woorld_date_parts(year, month, day)
         return to_storage(year, month, day)
 
     def prepare_value(self, value):
-        if isinstance(value, str) and value.endswith("w"):
+        if isinstance(value, str):
             year, month, day = from_storage(value)
-            return format_woorld_ddmmyyyy(year, month, day)
+            return format_woorld_date(year, month, day)
         return super().prepare_value(value)
 
 
 class WoorldDateField(models.CharField):
-    """Model field storing Woorld date as YYYY-MM-DDw string."""
+    """Model field storing Woorld date as ``YYYY-MM-DD`` string."""
 
     description = "Woorld calendar date"
 

@@ -1,15 +1,16 @@
 """Form widgets for Woorld calendar."""
 
 from django.forms.widgets import TextInput
+from django.utils.safestring import mark_safe
 
 
 class WoorldDateWidget(TextInput):
-    """Simple text input widget for DD/MM/YYYY Woorld dates."""
+    """Simple text input widget for ``DD-MM-YYYY`` Woorld dates."""
 
     input_type = "text"
 
     def __init__(self, attrs=None):
-        attrs = {"placeholder": "DD/MM/YYYY", **(attrs or {})}
+        attrs = {"placeholder": "DD-MM-YYYY", **(attrs or {})}
         css = attrs.get("class", "")
         attrs["class"] = f"{css} woorld-date-input".strip()
         # marker for JS datepicker hookup
@@ -18,4 +19,25 @@ class WoorldDateWidget(TextInput):
 
     class Media:
         css = {"all": ["fax_calendar/woorld.css"]}
-        js = ["fax_calendar/woorld.js"]
+        js = ["fax_calendar/core.js", "fax_calendar/woorld.js"]
+
+
+class WoorldAdminDateWidget(TextInput):
+    """Admin text input enhanced by Woorld calendar popup."""
+
+    input_type = "text"
+
+    def __init__(self, attrs=None):
+        attrs = {"placeholder": "DD-MM-YYYY", "data-woorld-date": "1", **(attrs or {})}
+        super().__init__(attrs)
+
+    def render(self, name, value, attrs=None, renderer=None):
+        html = super().render(name, value, attrs, renderer)
+        button = (
+            '<button type="button" class="woorld-calendar-btn">\ud83d\udcc5</button>'
+        )
+        return mark_safe(f"{html}{button}")
+
+    class Media:
+        css = {"all": ["fax_calendar/admin_calendar.css"]}
+        js = ["fax_calendar/core.js", "fax_calendar/admin_calendar.js"]
