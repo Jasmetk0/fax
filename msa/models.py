@@ -285,6 +285,7 @@ class BracketPolicy(AuditModel):
 
 class SeedingPolicy(AuditModel):
     name = models.CharField(max_length=100)
+    config = models.JSONField(default=dict)
 
     def __str__(self) -> str:  # pragma: no cover - trivial
         return self.name

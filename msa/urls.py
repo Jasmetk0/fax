@@ -130,6 +130,21 @@ urlpatterns = [
         views.api_event_structure,
         name="api_event_structure",
     ),
+    path(
+        "api/events/<int:pk>/seeding/preview/",
+        views.api_event_seeding_preview,
+        name="api_event_seeding_preview",
+    ),
+    path(
+        "api/events/<int:pk>/seeding/apply/",
+        views.api_event_seeding_apply,
+        name="api_event_seeding_apply",
+    ),
+    path(
+        "api/matches/<int:pk>/result/",
+        views.api_match_result,
+        name="api_match_result",
+    ),
     path("api/h2h/", views.api_h2h, name="api_h2h"),
     path("api/live/", views.api_live, name="api_live"),
 ]

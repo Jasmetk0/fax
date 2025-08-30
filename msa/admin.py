@@ -2,6 +2,8 @@ from urllib.parse import urlparse
 
 from django.contrib import admin
 from django.utils.html import format_html
+from django.http import HttpResponse
+import json
 
 from .models import (
     AdvancementEdge,
@@ -32,6 +34,7 @@ from .models import (
 )
 
 from .services.draw_engine import expand_template
+from .services.seeding_service import preview_seeding, apply_seeding
 
 
 @admin.register(Player)
@@ -271,10 +274,29 @@ def expand_from_template(modeladmin, request, queryset):
         expand_template(event.pk)
 
 
+@admin.action(description="Seeding preview (JSON)")
+def seeding_preview_action(modeladmin, request, queryset):
+    if queryset.count() != 1:
+        modeladmin.message_user(request, "Select exactly one event", level="error")
+        return
+    event = queryset.first()
+    data = preview_seeding(event.pk)
+    return HttpResponse(json.dumps(data), content_type="application/json")
+
+
+@admin.action(description="Seeding apply")
+def seeding_apply_action(modeladmin, request, queryset):
+    for event in queryset:
+        res = apply_seeding(event.pk)
+        modeladmin.message_user(
+            request, f"Assigned {res.get('assigned', 0)} players", level="info"
+        )
+
+
 @admin.register(EventEdition)
 class EventEditionAdmin(admin.ModelAdmin):
     list_display = ("name", "brand", "season")
-    actions = [expand_from_template]
+    actions = [expand_from_template, seeding_preview_action, seeding_apply_action]
     autocomplete_fields = ("brand", "season", "draw_template", "uses_snapshot")
     search_fields = ("name", "brand__name", "season__name")
     readonly_fields = ("created_at", "updated_at", "created_by", "updated_by")
