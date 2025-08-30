@@ -27,6 +27,36 @@
     return out;
   }
 
+  function yearLength(y) {
+    return 428 + E(y);
+  }
+
+  function toOrdinal(y, m, d) {
+    const months = monthLengths(y);
+    let n = d;
+    for (let i = 1; i < m; i++) n += months[i - 1];
+    return n;
+  }
+
+  function fromOrdinal(y, doy) {
+    const months = monthLengths(y);
+    let m = 1;
+    while (doy > months[m - 1]) {
+      doy -= months[m - 1];
+      m += 1;
+    }
+    return [y, m, doy];
+  }
+
+  function weekday(y, m, d) {
+    let total = 0;
+    for (let year = 1; year < y; year++) {
+      total += yearLength(year);
+    }
+    total += toOrdinal(y, m, d) - 1;
+    return total % 7;
+  }
+
   function anchors(y) {
     const e = E(y);
     return {
@@ -42,5 +72,9 @@
   exports.leapBase = leapBase;
   exports.E = E;
   exports.monthLengths = monthLengths;
+  exports.yearLength = yearLength;
+  exports.toOrdinal = toOrdinal;
+  exports.fromOrdinal = fromOrdinal;
+  exports.weekday = weekday;
   exports.anchors = anchors;
 })(window.woorldCore = window.woorldCore || {});

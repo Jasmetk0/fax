@@ -22,25 +22,6 @@
     );
   }
 
-  function startWeekdays(year, months) {
-    let w = 0;
-    for (let y = 1; y < year; y++) {
-      w = (w + astro.yearLength(y)) % 7;
-    }
-    const out = [];
-    for (let i = 0; i < months.length; i++) {
-      out.push(w);
-      w = (w + months[i]) % 7;
-    }
-    return out;
-  }
-
-  function toDoy(month, day, months) {
-    let n = day;
-    for (let i = 1; i < month; i++) n += months[i - 1];
-    return n;
-  }
-
   function buildBtn(label, handler, cls = "") {
     const btn = document.createElement("button");
     btn.type = "button";
@@ -93,10 +74,14 @@
       overlay.appendChild(card);
       document.body.appendChild(overlay);
 
-      const yearMatch = input.value.match(/\d{1,2}[-.]\d{1,2}[-.](\d{1,4})/);
-      let year = yearMatch ? parseInt(yearMatch[1], 10) : 1;
-      if (!yearMatch && Array.isArray(window.WOORLD_TODAY)) {
-        year = window.WOORLD_TODAY[0];
+      const match = input.value.match(/(\d{2})[-.](\d{2})[-.](\d{1,4})/);
+      let y = match ? parseInt(match[3], 10) : 2020;
+      let m = match ? parseInt(match[2], 10) : 1;
+      let d = match ? parseInt(match[1], 10) : 1;
+      if (!match && Array.isArray(window.WOORLD_TODAY)) {
+        y = window.WOORLD_TODAY[0];
+        m = window.WOORLD_TODAY[1];
+        d = window.WOORLD_TODAY[2];
       }
 
       function close() {
@@ -113,57 +98,169 @@
         }
       });
 
-      function build(y) {
-        card.innerHTML = "";
+      function choose(yy, mm, dd) {
+        input.value = format(dd, mm, yy);
+        close();
+      }
+
+      // HEADER
+      const header = document.createElement("div");
+      header.className = "wc-header";
+      const themeWrap = document.createElement("div");
+      themeWrap.className = "wc-theme-toggle";
+      themeWrap.appendChild(createThemeToggle(overlay));
+      header.appendChild(themeWrap);
+
+      const monthCtrl = document.createElement("div");
+      monthCtrl.className = "wc-month-ctrl";
+      const monthSel = document.createElement("select");
+      monthSel.className = "wc-select";
+      monthSel.setAttribute("aria-label", "Month");
+      for (let i = 1; i <= 15; i++) {
+        const opt = document.createElement("option");
+        opt.value = i;
+        opt.textContent = `Měsíc ${i}`;
+        monthSel.appendChild(opt);
+      }
+      const mArrows = document.createElement("div");
+      mArrows.className = "wc-vert-arrows";
+      const mUp = document.createElement("button");
+      mUp.className = "wc-iconbtn";
+      mUp.dataset.act = "month-up";
+      mUp.textContent = "↑";
+      const mDown = document.createElement("button");
+      mDown.className = "wc-iconbtn";
+      mDown.dataset.act = "month-down";
+      mDown.textContent = "↓";
+      mArrows.append(mUp, mDown);
+      const monthPill = document.createElement("span");
+      monthPill.className = "wc-meta__pill wc-month-len";
+      monthCtrl.append(monthSel, mArrows, monthPill);
+
+      const yearCtrl = document.createElement("div");
+      yearCtrl.className = "wc-year-ctrl";
+      const yearInput = document.createElement("input");
+      yearInput.type = "number";
+      yearInput.className = "wc-input";
+      yearInput.setAttribute("aria-label", "Year");
+      const yArrows = document.createElement("div");
+      yArrows.className = "wc-vert-arrows";
+      const yUp = document.createElement("button");
+      yUp.className = "wc-iconbtn";
+      yUp.dataset.act = "year-up";
+      yUp.textContent = "↑";
+      const yDown = document.createElement("button");
+      yDown.className = "wc-iconbtn";
+      yDown.dataset.act = "year-down";
+      yDown.textContent = "↓";
+      yArrows.append(yUp, yDown);
+      const yScrollBtn = document.createElement("button");
+      yScrollBtn.className = "wc-iconbtn";
+      yScrollBtn.dataset.act = "year-scroller";
+      yScrollBtn.textContent = "◎";
+      const yearScroller = document.createElement("div");
+      yearScroller.className = "wc-year-scroller";
+      yearScroller.style.display = "none";
+      yearCtrl.append(yearInput, yArrows, yScrollBtn, yearScroller);
+
+      const yearLenDiv = document.createElement("div");
+      yearLenDiv.className = "wc-year-len";
+      const yearPill = document.createElement("span");
+      yearPill.className = "wc-meta__pill wc-year-days";
+      yearLenDiv.appendChild(yearPill);
+
+      header.append(monthCtrl, yearCtrl, yearLenDiv);
+      card.appendChild(header);
+
+      // DOY SCRUBBER
+      const scrubWrap = document.createElement("div");
+      scrubWrap.className = "wc-doy-scrubber";
+      const scrubFill = document.createElement("div");
+      scrubWrap.appendChild(scrubFill);
+      card.appendChild(scrubWrap);
+
+      // TOOLBAR
+      const toolbar = document.createElement("div");
+      toolbar.className = "wc-toolbar";
+      const firstBtn = buildBtn("1. den", () => choose(y, 1, 1));
+      firstBtn.dataset.act = "first-day";
+      const lastBtn = buildBtn("Poslední den", () => {
+        const [yy, mm, dd] = astro.fromOrdinal(y, astro.yearLength(y));
+        choose(yy, mm, dd);
+      });
+      lastBtn.dataset.act = "last-day";
+      const resetBtn = buildBtn("Reset", () => choose(2020, 1, 1), "wc-btn--ghost");
+      resetBtn.dataset.act = "reset";
+      toolbar.append(firstBtn, lastBtn, resetBtn);
+      card.appendChild(toolbar);
+
+      // ANCHORS
+      const anchorRow = document.createElement("div");
+      anchorRow.className = "wc-anchors";
+      card.appendChild(anchorRow);
+
+      // SEASON BAR
+      const seasonbar = document.createElement("div");
+      seasonbar.className = "wc-seasonbar";
+      const legend = document.createElement("div");
+      legend.className = "wc-season-legend";
+      const yearLabel = document.createElement("div");
+      yearLabel.className = "wc-yearlabel";
+      seasonbar.appendChild(legend);
+      seasonbar.appendChild(yearLabel);
+      card.appendChild(seasonbar);
+
+      // MONTH SECTION
+      const monthSection = document.createElement("section");
+      monthSection.className = "wc-month";
+      const monthHead = document.createElement("div");
+      monthHead.className = "wc-month__head";
+      const monthTitle = document.createElement("h3");
+      monthTitle.innerHTML = "Měsíc <span class=\"js-month\"></span>";
+      const monthDays = document.createElement("div");
+      monthDays.className = "wc-month__days";
+      monthDays.innerHTML = '<span class="js-monthlen"></span> day';
+      monthHead.append(monthTitle, monthDays);
+      monthSection.appendChild(monthHead);
+      const wHead = document.createElement("div");
+      wHead.className = "wc-weekdays";
+      ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].forEach((nm) => {
+        const sp = document.createElement("span");
+        sp.textContent = nm;
+        wHead.appendChild(sp);
+      });
+      monthSection.appendChild(wHead);
+      const grid = document.createElement("div");
+      grid.className = "wc-grid";
+      monthSection.appendChild(grid);
+      card.appendChild(monthSection);
+
+      // FOOTER
+      const footer = document.createElement("div");
+      footer.className = "wc-footer";
+      footer.innerHTML =
+        '<div><strong>Datum:</strong> <span class="js-date"></span></div>' +
+        '<div><strong>Weekday:</strong> <span class="js-weekday"></span></div>' +
+        '<div><strong>Sezóna:</strong> <span class="js-season"></span></div>' +
+        '<div><strong>Den v roce:</strong> <span class="js-doy"></span> / <span class="js-yearlen2"></span></div>';
+      card.appendChild(footer);
+
+      function clampDay() {
         const months = core.monthLengths(y);
-        const starts = startWeekdays(y, months);
-        const yearDays = astro.yearLength(y);
+        const max = months[m - 1];
+        if (d > max) d = max;
+      }
 
-        const header = document.createElement("div");
-        header.className = "wc-header";
-        const prev = document.createElement("button");
-        prev.type = "button";
-        prev.className = "wc-iconbtn";
-        prev.textContent = "‹";
-        const next = document.createElement("button");
-        next.type = "button";
-        next.className = "wc-iconbtn";
-        next.textContent = "›";
-        const yearInput = document.createElement("input");
-        yearInput.type = "number";
-        yearInput.className = "wc-input";
-        yearInput.value = y;
-        const meta = document.createElement("div");
-        meta.className = "wc-meta";
-        const pill = document.createElement("span");
-        pill.className = "wc-meta__pill";
-        pill.textContent = `${yearDays} days`;
-        meta.appendChild(pill);
-        const themeToggle = createThemeToggle(overlay);
-        header.append(prev, yearInput, next, meta, themeToggle);
-        card.appendChild(header);
+      function updateHeader() {
+        const months = core.monthLengths(y);
+        monthSel.value = String(m);
+        monthPill.textContent = `${months[m - 1]} days`;
+        yearInput.value = String(y);
+        yearPill.textContent = `${astro.yearLength(y)} days`;
+      }
 
-        const toolbar = document.createElement("div");
-        toolbar.className = "wc-toolbar";
-        function choose(yy, mm, dd) {
-          input.value = format(dd, mm, yy);
-          close();
-        }
-        const firstBtn = buildBtn("1st day", () => choose(y, 1, 1));
-        const lastOrd = yearDays;
-        const [yL, mL, dL] = astro.fromOrdinal(y, lastOrd);
-        const lastBtn = buildBtn("Last day", () => choose(yL, mL, dL));
-        const resetBtn = buildBtn("Reset", () => choose(2020, 1, 1));
-        toolbar.append(firstBtn, lastBtn, resetBtn);
-        card.appendChild(toolbar);
-
-        const anchorRow = document.createElement("div");
-        anchorRow.className = "wc-anchors";
-        anchorRow.style.flexDirection = "column";
-        const anchorBtns = document.createElement("div");
-        anchorBtns.style.display = "flex";
-        anchorBtns.style.gap = "8px";
-        anchorRow.appendChild(anchorBtns);
+      function updateAnchors() {
+        anchorRow.innerHTML = "";
         const events = astro.eventsForYear(y);
         const cfg = [
           ["Winter", events.winters, "winter"],
@@ -172,136 +269,222 @@
           ["Autumn", events.autumns, "autumn"],
         ];
         cfg.forEach(([label, arr, season]) => {
-          const btn = buildBtn(label, () => arr.length && choose(arr[0].y, arr[0].m, arr[0].d));
+          const btn = buildBtn(label, () => {
+            if (arr.length) choose(arr[0].y, arr[0].m, arr[0].d);
+          });
           btn.dataset.season = season;
           if (!arr.length) {
             btn.disabled = true;
             btn.title = "Anchor not present in this year";
           }
-          anchorBtns.appendChild(btn);
+          anchorRow.appendChild(btn);
           if (label === "Winter" && arr.length > 1) {
-            const btn2 = buildBtn("Winter II", () => choose(arr[1].y, arr[1].m, arr[1].d));
-            btn2.dataset.season = season;
-            anchorBtns.appendChild(btn2);
+            const btn2 = buildBtn("Winter II", () => {
+              choose(arr[1].y, arr[1].m, arr[1].d);
+            });
+            btn2.dataset.season = "winter2";
+            anchorRow.appendChild(btn2);
           }
         });
+      }
 
-        const seasonbar = document.createElement("div");
-        seasonbar.className = "wc-seasonbar";
-        const segments = [];
-        let last = astro.seasonOf(y, 1);
+      function updateSeasonBar() {
+        seasonbar.innerHTML = "";
+        const yearDays = astro.yearLength(y);
+        const events = astro.eventsForYear(y);
+        const points = {
+          spring: events.springs[0]
+            ? astro.toOrdinal(y, events.springs[0].m, events.springs[0].d)
+            : null,
+          summer: events.summers[0]
+            ? astro.toOrdinal(y, events.summers[0].m, events.summers[0].d)
+            : null,
+          autumn: events.autumns[0]
+            ? astro.toOrdinal(y, events.autumns[0].m, events.autumns[0].d)
+            : null,
+          winter: events.winters[0]
+            ? astro.toOrdinal(y, events.winters[0].m, events.winters[0].d)
+            : null,
+        };
+        const segs = [];
         let start = 1;
-        for (let d = 2; d <= yearDays; d++) {
-          const s = astro.seasonOf(y, d);
-          if (s !== last) {
-            segments.push({ name: last, start, end: d - 1 });
-            start = d;
-            last = s;
-          }
+        if (points.spring) {
+          segs.push({ name: "winter", start, end: points.spring - 1 });
+          start = points.spring;
         }
-        segments.push({ name: last, start, end: yearDays });
-        segments.forEach((seg) => {
+        if (points.summer) {
+          segs.push({ name: "spring", start, end: points.summer - 1 });
+          start = points.summer;
+        }
+        if (points.autumn) {
+          segs.push({ name: "summer", start, end: points.autumn - 1 });
+          start = points.autumn;
+        }
+        if (points.winter) {
+          segs.push({ name: "autumn", start, end: points.winter - 1 });
+        } else {
+          segs.push({ name: "autumn", start, end: yearDays });
+        }
+        segs.forEach((seg) => {
           const div = document.createElement("div");
-          div.className = `wc-seasonbar__seg ${seg.name
-            .toLowerCase()
-            .replace(/\s+/g, "")}`;
+          div.className = `wc-seasonbar__seg ${seg.name}`;
           div.style.width = `${((seg.end - seg.start + 1) / yearDays) * 100}%`;
           seasonbar.appendChild(div);
         });
         events.winters.forEach((w) => {
           const mark = document.createElement("div");
           mark.className = "wc-seasonbar__mark";
-          const doy = toDoy(w.m, w.d, months);
+          const doy = astro.toOrdinal(y, w.m, w.d);
           mark.style.left = `${((doy - 1) / yearDays) * 100}%`;
           seasonbar.appendChild(mark);
         });
-        anchorRow.appendChild(seasonbar);
-        card.appendChild(anchorRow);
 
-        const monthsDiv = document.createElement("div");
-        monthsDiv.className = "wc-months";
-        card.appendChild(monthsDiv);
+        seasonbar.appendChild(legend);
+        seasonbar.appendChild(yearLabel);
 
-        const footer = document.createElement("div");
-        footer.className = "wc-footer";
-        card.appendChild(footer);
-
-        function updateFooter(d, m) {
-          const doy = toDoy(m, d, months);
-          const w = (starts[m - 1] + d - 1) % 7;
-          const season = astro.seasonOf(y, doy);
-          footer.innerHTML =
-            `<strong>Date</strong> ${format(d, m, y)} ` +
-            `<strong>Weekday</strong> ${WEEKDAY_NAMES[w]} ` +
-            `<strong>Season</strong> ${season} ` +
-            `<strong>Day-of-Year</strong> ${doy} / ${yearDays}`;
+        legend.innerHTML = "";
+        const legItems = [
+          ["Zima", "winter"],
+          ["Jaro", "spring"],
+          ["Léto", "summer"],
+          ["Podzim", "autumn"],
+        ];
+        legItems.forEach(([label, cls]) => {
+          const sp = document.createElement("span");
+          sp.dataset.season = cls;
+          sp.textContent = label;
+          legend.appendChild(sp);
+        });
+        if (events.winters.length === 2) {
+          const sp = document.createElement("span");
+          sp.dataset.season = "winter2";
+          sp.textContent = "Zima II (den)";
+          legend.appendChild(sp);
         }
 
-        const selectedMatch = input.value.match(/(\d{2})[-.](\d{2})[-.](\d{1,4})/);
-        const selected = selectedMatch
-          ? {
-              y: parseInt(selectedMatch[3], 10),
-              m: parseInt(selectedMatch[2], 10),
-              d: parseInt(selectedMatch[1], 10),
-            }
-          : null;
-
-        for (let m = 1; m <= 15; m++) {
-          const monthEl = document.createElement("div");
-          monthEl.className = "wc-month";
-          const head = document.createElement("div");
-          head.className = "wc-month__head";
-          head.innerHTML = `Month ${m} <span class="wc-month__days">${months[m - 1]} day</span>`;
-          monthEl.appendChild(head);
-          const wHead = document.createElement("div");
-          wHead.className = "wc-weekdays";
-          ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].forEach((nm) => {
-            const sp = document.createElement("span");
-            sp.textContent = nm;
-            wHead.appendChild(sp);
-          });
-          monthEl.appendChild(wHead);
-          const grid = document.createElement("div");
-          grid.className = "wc-grid";
-          for (let i = 0; i < starts[m - 1]; i++) grid.appendChild(document.createElement("div"));
-          for (let d = 1; d <= months[m - 1]; d++) {
-            const dayEl = document.createElement("div");
-            dayEl.className = "wc-day";
-            dayEl.textContent = d;
-            const doy = toDoy(m, d, months);
-            const season = astro.seasonOf(y, doy).toLowerCase().replace(/\s+/g, "");
-            dayEl.classList.add(`season-${season}`);
-            if (season === "winterii") dayEl.classList.add("winter-ii");
-            const w = (starts[m - 1] + d - 1) % 7;
-            if (w === 5 || w === 6) dayEl.classList.add("is-weekend");
-            if (
-              Array.isArray(window.WOORLD_TODAY) &&
-              window.WOORLD_TODAY[0] === y &&
-              window.WOORLD_TODAY[1] === m &&
-              window.WOORLD_TODAY[2] === d
-            ) {
-              dayEl.classList.add("is-today");
-            }
-            if (selected && selected.y === y && selected.m === m && selected.d === d) {
-              dayEl.classList.add("is-selected");
-            }
-            dayEl.addEventListener("click", () => {
-              choose(y, m, d);
-            });
-            grid.appendChild(dayEl);
-          }
-          monthEl.appendChild(grid);
-          monthsDiv.appendChild(monthEl);
-        }
-
-        updateFooter(selected ? selected.d : 1, selected ? selected.m : 1);
-
-        prev.addEventListener("click", () => build(y - 1));
-        next.addEventListener("click", () => build(y + 1));
-        yearInput.addEventListener("change", () => build(parseInt(yearInput.value, 10)));
+        yearLabel.innerHTML =
+          `Rok <span class="js-year">${y}</span> • <span class="js-yearlen">${yearDays}</span> dní`;
       }
 
-      build(year);
+      function updateMonth() {
+        clampDay();
+        updateHeader();
+        updateAnchors();
+        updateSeasonBar();
+        grid.innerHTML = "";
+        const months = core.monthLengths(y);
+        const offset = core.weekday(y, m, 1);
+        for (let i = 0; i < offset; i++) grid.appendChild(document.createElement("div"));
+        for (let dd = 1; dd <= months[m - 1]; dd++) {
+          const cell = document.createElement("div");
+          cell.className = "wc-day";
+          cell.textContent = dd;
+          const doy = astro.toOrdinal(y, m, dd);
+          const seasonFull = astro.seasonOf(y, doy);
+          const season = seasonFull.split(" ")[0].toLowerCase();
+          cell.classList.add(`season-${season}`);
+          if (seasonFull === "Winter II") cell.classList.add("winter-ii");
+          const w = (offset + dd - 1) % 7;
+          if (w === 5 || w === 6) cell.classList.add("is-weekend");
+          if (
+            Array.isArray(window.WOORLD_TODAY) &&
+            window.WOORLD_TODAY[0] === y &&
+            window.WOORLD_TODAY[1] === m &&
+            window.WOORLD_TODAY[2] === dd
+          ) {
+            cell.classList.add("is-today");
+          }
+          if (dd === d) cell.classList.add("is-selected");
+          cell.addEventListener("click", () => choose(y, m, dd));
+          grid.appendChild(cell);
+        }
+        monthSection.querySelector(".js-month").textContent = m;
+        monthSection.querySelector(".js-monthlen").textContent = core.monthLengths(y)[m - 1];
+        updateFooter();
+      }
+
+      function updateFooter() {
+        const doy = astro.toOrdinal(y, m, d);
+        const w = core.weekday(y, m, d);
+        const season = astro.seasonOf(y, doy);
+        footer.querySelector(".js-date").textContent = format(d, m, y);
+        footer.querySelector(".js-weekday").textContent = WEEKDAY_NAMES[w];
+        footer.querySelector(".js-season").textContent = season;
+        footer.querySelector(".js-doy").textContent = doy;
+        footer.querySelector(".js-yearlen2").textContent = astro.yearLength(y);
+        const perc = (doy / astro.yearLength(y)) * 100;
+        scrubFill.style.width = `${perc}%`;
+      }
+
+      updateMonth();
+
+      // EVENTS
+      monthSel.addEventListener("change", () => {
+        m = parseInt(monthSel.value, 10);
+        updateMonth();
+      });
+      mUp.addEventListener("click", () => {
+        m += 1;
+        if (m > 15) {
+          m = 1;
+          y += 1;
+        }
+        updateMonth();
+      });
+      mDown.addEventListener("click", () => {
+        m -= 1;
+        if (m < 1) {
+          m = 15;
+          y -= 1;
+        }
+        updateMonth();
+      });
+
+      yearInput.addEventListener("change", () => {
+        y = parseInt(yearInput.value, 10);
+        updateMonth();
+      });
+      yUp.addEventListener("click", () => {
+        y += 1;
+        updateMonth();
+      });
+      yDown.addEventListener("click", () => {
+        y -= 1;
+        updateMonth();
+      });
+
+      function toggleYearScroller() {
+        if (yearScroller.style.display === "block") {
+          yearScroller.style.display = "none";
+          yearScroller.innerHTML = "";
+          return;
+        }
+        yearScroller.innerHTML = "";
+        for (let i = y - 24; i <= y + 24; i++) {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.textContent = `${i} — ${astro.yearLength(i)} days`;
+          btn.addEventListener("click", () => {
+            y = i;
+            yearScroller.style.display = "none";
+            yearScroller.innerHTML = "";
+            updateMonth();
+          });
+          yearScroller.appendChild(btn);
+        }
+        yearScroller.style.display = "block";
+      }
+
+      yScrollBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        toggleYearScroller();
+      });
+      overlay.addEventListener("click", (e) => {
+        if (!yearCtrl.contains(e.target)) {
+          yearScroller.style.display = "none";
+          yearScroller.innerHTML = "";
+        }
+      });
     }
 
     btn.addEventListener("click", open);
@@ -316,4 +499,3 @@
   exports.attachWoorldCalendar = attachWoorldCalendar;
   exports.enhanceAllWoorldDateInputs = enhanceAllWoorldDateInputs;
 })(window);
-
