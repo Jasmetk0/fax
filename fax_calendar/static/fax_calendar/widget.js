@@ -1,24 +1,25 @@
 (function () {
-  function daysInMonth(month) {
-    return month % 2 === 1 ? 29 : 28;
-  }
-  function validDate(val) {
-    var m = val.match(/^(\d{1,2})\/(\d{1,2})\/(\d{1,4})$/);
-    if (!m) return false;
+  var core = window.woorldCore;
+
+  function validate(val) {
+    var m = val.match(/^(\d{1,2})[-.](\d{1,2})[-.](\d{1,4})$/);
+    if (!m) return "Neplatné Woorld datum";
     var d = parseInt(m[1], 10);
     var mo = parseInt(m[2], 10);
-    if (mo < 1 || mo > 15) return false;
-    var max = daysInMonth(mo);
-    return d >= 1 && d <= max;
+    var y = parseInt(m[3], 10);
+    if (mo < 1 || mo > 15) return "Měsíc musí být 1–15";
+    var ml = core.monthLengths(y);
+    var max = ml[mo - 1];
+    if (d < 1 || d > max) return "Month " + mo + " has " + max + " days in year " + y;
+    return "";
   }
+
   document.addEventListener("change", function (e) {
     var input = e.target.closest(".woorld-date-input");
     if (input) {
-      if (!validDate(input.value)) {
-        input.setCustomValidity("Neplatné Woorld datum");
-      } else {
-        input.setCustomValidity("");
-      }
+      var err = validate(input.value);
+      if (err) input.setCustomValidity(err);
+      else input.setCustomValidity("");
     }
   });
 

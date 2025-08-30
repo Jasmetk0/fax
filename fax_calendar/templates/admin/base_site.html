@@ -4,6 +4,7 @@
 {% block extrahead %}
     {{ block.super }}
     <link rel="stylesheet" href="{% static 'fax_calendar/widget.css' %}">
+    <script src="{% static 'fax_calendar/core.js' %}"></script>
     <script src="{% static 'fax_calendar/widget.js' %}"></script>
 {% endblock %}
 
@@ -12,6 +13,6 @@
     <form id="woorld-date-form" action="{% url 'fax_calendar:set_woorld_date' %}" method="post">
         {% csrf_token %}
         <label for="woorld-date-input">Aktuální datum Woorldu:</label>
-        <input id="woorld-date-input" type="text" name="date" value="{{ WOORLD_CURRENT_DATE }}" placeholder="DD/MM/YYYY" class="woorld-date-input">
+        <input id="woorld-date-input" type="text" name="date" value="{{ WOORLD_CURRENT_DATE }}" placeholder="DD-MM-YYYY" class="woorld-date-input" data-year="{{ WOORLD_CALENDAR_META.year }}" data-month-lengths='{{ WOORLD_CALENDAR_MONTH_LENGTHS_JSON|safe }}' data-anchors='{{ WOORLD_CALENDAR_ANCHORS_JSON|safe }}'>
     </form>
 {% endblock %}
