@@ -124,6 +124,63 @@
   padding: 0 4px;
   border-radius: 8px;
 }
+
+/* custom badged select */
+.wc-badged-select {
+  position: relative;
+  display: inline-block;
+}
+.wc-badged-select__button {
+  height: 32px;
+  line-height: 32px;
+  padding: 0 8px;
+  font: 600 14px/1 var(--wc-font);
+  background: var(--wc-card);
+  color: var(--wc-text);
+  border: 1px solid color-mix(in srgb, var(--wc-border) 70%, transparent);
+  border-radius: 12px;
+  box-shadow: 0 1px 0 rgba(2,6,23,.04);
+  min-width: 100px;
+  cursor: pointer;
+}
+.wc-badged-select__list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 100;
+  background: var(--wc-card);
+  color: var(--wc-text);
+  border: 1px solid var(--wc-border);
+  border-radius: 12px;
+  margin-top: 4px;
+  padding: 4px 0;
+  list-style: none;
+  max-height: 200px;
+  overflow-y: auto;
+  min-width: 100%;
+}
+.wc-badged-select__list[hidden] {
+  display: none;
+}
+.wc-badged-option {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+.wc-badged-option span {
+  background: var(--wc-elev);
+  color: var(--wc-text-dim);
+  font-size: 11px;
+  line-height: 1;
+  padding: 0 4px;
+  border-radius: 8px;
+  margin-left: 8px;
+}
+.wc-badged-option.is-active {
+  background: var(--wc-elev);
+}
 .wc-input[type="number"] { -moz-appearance: textfield; }
 .wc-input::-webkit-outer-spin-button, .wc-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 
