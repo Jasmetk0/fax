@@ -204,9 +204,11 @@ const WEEKDAY_NAMES = [
       scrubWrap.className = "wc-doy-scrubber";
       const scrubRange = document.createElement("input");
       scrubRange.type = "range";
-      scrubRange.min = "1";
       scrubRange.className = "wc-doy-range";
       scrubWrap.appendChild(scrubRange);
+      const scrubTrack = document.createElement("div");
+      scrubTrack.className = "wc-doy-track";
+      scrubWrap.appendChild(scrubTrack);
       card.appendChild(scrubWrap);
 
       // TOOLBAR
@@ -221,8 +223,7 @@ const WEEKDAY_NAMES = [
       legend.className = "wc-season-legend";
       const yearLabel = document.createElement("div");
       yearLabel.className = "wc-yearlabel";
-      seasonbar.appendChild(legend);
-      seasonbar.appendChild(yearLabel);
+      seasonbar.append(legend, yearLabel);
       card.appendChild(seasonbar);
 
       // MONTH SECTION
@@ -406,6 +407,34 @@ const WEEKDAY_NAMES = [
         yearLabel.innerHTML = `Rok <span class="js-year">${y}</span> • <span class="js-yearlen">${yl}</span> dní`;
       }
 
+      function renderDoyTrack(yy) {
+        const yl = yearLength(yy);
+        scrubRange.min = "1";
+        scrubRange.max = String(yl);
+        scrubRange.step = "1";
+        scrubTrack.innerHTML = "";
+        const { segs } = seasonSegments(yy);
+        segs.forEach((seg) => {
+          const div = document.createElement("div");
+          div.className = `wc-doy-track__seg ${seg.kind}`;
+          const len = seg.endDoy - seg.startDoy + 1;
+          div.style.setProperty("--l", `${((seg.startDoy - 1) / yl) * 100}%`);
+          div.style.setProperty("--w", `${(len / yl) * 100}%`);
+          scrubTrack.appendChild(div);
+        });
+        const months = monthLengths(yy);
+        let cum = 0;
+        for (let i = 0; i < months.length - 1; i++) {
+          cum += months[i];
+          const mark = document.createElement("div");
+          mark.className = "wc-doy-track__mark";
+          mark.style.left = `${(cum / yl) * 100}%`;
+          scrubTrack.appendChild(mark);
+        }
+      }
+
+      let trackYear = null;
+
       function updateMonth() {
         clampDay();
         updateHeader();
@@ -445,6 +474,10 @@ const WEEKDAY_NAMES = [
         }
         monthSection.querySelector(".js-month").textContent = m;
         monthSection.querySelector(".js-monthlen").textContent = monthLengths(y)[m - 1];
+        if (trackYear !== y) {
+          renderDoyTrack(y);
+          trackYear = y;
+        }
         updateFooter();
       }
 
@@ -457,18 +490,25 @@ const WEEKDAY_NAMES = [
         footer.querySelector(".js-season").textContent = season;
         footer.querySelector(".js-doy").textContent = doy;
         footer.querySelector(".js-yearlen2").textContent = yearLength(y);
-        scrubRange.max = yearLength(y);
         scrubRange.value = doy;
       }
 
       updateMonth();
 
       scrubRange.addEventListener("input", () => {
-        const val = parseInt(scrubRange.value, 10);
-        const [_, mm, dd] = fromOrdinal(y, val);
-        m = mm;
-        d = dd;
-        updateMonth();
+        const doy = Number(scrubRange.value);
+        const [yy, mm, dd] = fromOrdinal(y, doy);
+        selectDate(yy, mm, dd);
+      });
+
+      scrubTrack.addEventListener("click", (e) => {
+        const rect = scrubTrack.getBoundingClientRect();
+        const p = (e.clientX - rect.left) / rect.width;
+        const yl = yearLength(y);
+        const doy = Math.min(yl, Math.max(1, Math.round(p * yl)));
+        scrubRange.value = String(doy);
+        const [yy, mm, dd] = fromOrdinal(y, doy);
+        selectDate(yy, mm, dd);
       });
 
       // EVENTS
@@ -501,10 +541,12 @@ const WEEKDAY_NAMES = [
           y = Math.min(2100, y + 1);
           updateMonth();
         });
-        yDown.addEventListener("click", () => {
-          y = Math.max(1, y - 1);
-          updateMonth();
-        });
+      yDown.addEventListener("click", () => {
+        y = Math.max(1, y - 1);
+        updateMonth();
+      });
+
+      window.addEventListener("resize", () => renderDoyTrack(y));
     }
 
     btn.addEventListener("click", open);
