@@ -128,18 +128,19 @@ const WEEKDAY_NAMES = [
 
       const monthCtrl = document.createElement("div");
       monthCtrl.className = "wc-month-ctrl";
-      const monthSel = new window.BadgedSelect({ ariaLabel: "Month" });
+      const monthSel = document.createElement("select");
+      monthSel.className = "wc-select wc-select--badged";
+      monthSel.setAttribute("aria-label", "Month");
 
       function populateMonthSelect(year) {
-        const opts = [];
+        monthSel.innerHTML = "";
         monthLengths(year).forEach((days, idx) => {
-          opts.push({
-            value: String(idx + 1),
-            label: `Měsíc ${idx + 1}`,
-            days,
-          });
+          const opt = document.createElement("option");
+          opt.value = idx + 1;
+          opt.textContent = `Měsíc ${idx + 1}`;
+          opt.dataset.days = days;
+          monthSel.appendChild(opt);
         });
-        monthSel.setOptions(opts);
       }
       const mArrows = document.createElement("div");
       mArrows.className = "wc-vert-arrows";
@@ -154,11 +155,13 @@ const WEEKDAY_NAMES = [
       mArrows.append(mUp, mDown);
       const monthPill = document.createElement("span");
       monthPill.className = "wc-meta__pill wc-month-len";
-      monthCtrl.append(monthSel.el, mArrows, monthPill);
+      monthCtrl.append(monthSel, mArrows, monthPill);
 
       const yearCtrl = document.createElement("div");
       yearCtrl.className = "wc-year-ctrl";
-        const yearSel = new window.BadgedSelect({ ariaLabel: "Year" });
+        const yearSel = document.createElement("select");
+        yearSel.className = "wc-select wc-select--badged";
+        yearSel.setAttribute("aria-label", "Year");
         const yArrows = document.createElement("div");
         yArrows.className = "wc-vert-arrows";
         const yUp = document.createElement("button");
@@ -170,18 +173,17 @@ const WEEKDAY_NAMES = [
         yDown.dataset.act = "year-down";
         yDown.textContent = "↓";
         yArrows.append(yUp, yDown);
-        yearCtrl.append(yearSel.el, yArrows);
+        yearCtrl.append(yearSel, yArrows);
 
         function populateYearSelect(center) {
-          const opts = [];
+          yearSel.innerHTML = "";
           for (let i = center - 24; i <= center + 24; i++) {
-            opts.push({
-              value: String(i),
-              label: i,
-              days: yearLength(i),
-            });
+            const opt = document.createElement("option");
+            opt.value = i;
+            opt.textContent = i;
+            opt.dataset.days = yearLength(i);
+            yearSel.appendChild(opt);
           }
-          yearSel.setOptions(opts);
         }
 
       const yearLenDiv = document.createElement("div");
@@ -467,10 +469,10 @@ const WEEKDAY_NAMES = [
       });
 
       // EVENTS
-      monthSel.onchange = () => {
+      monthSel.addEventListener("change", () => {
         m = parseInt(monthSel.value, 10);
         updateMonth();
-      };
+      });
       mUp.addEventListener("click", () => {
         m += 1;
         if (m > 15) {
@@ -488,10 +490,10 @@ const WEEKDAY_NAMES = [
         updateMonth();
       });
 
-        yearSel.onchange = () => {
+        yearSel.addEventListener("change", () => {
           y = parseInt(yearSel.value, 10);
           updateMonth();
-        };
+        });
         yUp.addEventListener("click", () => {
           y += 1;
           updateMonth();
