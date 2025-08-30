@@ -27,11 +27,37 @@
   box-shadow: 0 2px 8px rgba(0,0,0,0.3);
 }
 
+.woorld-calendar.wc-dark {
+  background: #222;
+  color: #eee;
+}
+
 .woorld-calendar .wc-header {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.woorld-calendar .wc-season-bar {
+  display: flex;
+  height: 8px;
+  margin-bottom: 0.5rem;
+  overflow: hidden;
+}
+
+.wc-season-segment { height:100%; }
+.season-winteri { background: var(--season-winter, #b3d9ff); }
+.season-winterii { background: var(--season-winter, #b3d9ff); }
+.season-spring { background: var(--season-spring, #e6f9b5); }
+.season-summer { background: var(--season-summer, #b5f5b5); }
+.season-autumn { background: var(--season-autumn, #f5c6a5); }
+
+.wc-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
   margin-bottom: 0.5rem;
 }
 
@@ -64,10 +90,15 @@
   cursor: pointer;
 }
 
-.woorld-calendar .wc-anchor {
-  background: #ffc;
-}
+.season-winteri { background:#f0f8ff; }
+.season-winterii { background:#e0f0ff; }
+.season-spring { background:#f8ffe6; }
+.season-summer { background:#e6ffe6; }
+.season-autumn { background:#ffe6d9; }
 
-.woorld-calendar .wc-today {
+.woorld-calendar td.wc-weekend { filter: brightness(0.9); }
+
+.woorld-calendar .wc-info {
   margin-top: 0.5rem;
+  font-size: 0.8rem;
 }

@@ -1,8 +1,19 @@
 (function (exports) {
   const core = window.woorldCore;
+  const astro = window.woorldAstro;
+
+  const WEEKDAY_NAMES = [
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+    "Sunday",
+  ];
 
   function yearLength(y) {
-    return core.monthLengths(y).reduce((a, b) => a + b, 0);
+    return astro.yearLength(y);
   }
 
   function startWeekdays(year, months) {
@@ -48,12 +59,14 @@
     function build(year) {
       overlay.innerHTML = "";
       const months = core.monthLengths(year);
-      const anchors = core.anchors(year);
       const starts = startWeekdays(year, months);
       let dayOfYear = 1;
 
       const panel = document.createElement("div");
       panel.className = "woorld-calendar";
+      if (localStorage.getItem("wc-theme") === "dark") {
+        panel.classList.add("wc-dark");
+      }
 
       const header = document.createElement("div");
       header.className = "wc-header";
@@ -66,12 +79,114 @@
       const yearInput = document.createElement("input");
       yearInput.type = "number";
       yearInput.value = year;
-      header.append(prev, yearInput, next);
+      const yearDays = document.createElement("span");
+      yearDays.className = "wc-year-days";
+      yearDays.textContent = `${yearLength(year)} days`;
+      const themeBtn = document.createElement("button");
+      themeBtn.type = "button";
+      themeBtn.textContent = "☼";
+      themeBtn.addEventListener("click", () => {
+        panel.classList.toggle("wc-dark");
+        const mode = panel.classList.contains("wc-dark") ? "dark" : "light";
+        localStorage.setItem("wc-theme", mode);
+      });
+      header.append(prev, yearInput, next, yearDays, themeBtn);
       panel.appendChild(header);
+
+      // Season bar
+      const bar = document.createElement("div");
+      bar.className = "wc-season-bar";
+      const segments = [];
+      let last = astro.seasonOf(year, 1);
+      let startD = 1;
+      for (let d = 2; d <= yearLength(year); d++) {
+        const s = astro.seasonOf(year, d);
+        if (s !== last) {
+          segments.push({ name: last, start: startD, end: d - 1 });
+          startD = d;
+          last = s;
+        }
+      }
+      segments.push({ name: last, start: startD, end: yearLength(year) });
+      segments.forEach((seg) => {
+        const div = document.createElement("div");
+        div.className = `wc-season-segment season-${seg.name
+          .toLowerCase()
+          .replace(/\s+/g, "")}`;
+        const width = ((seg.end - seg.start + 1) / yearLength(year)) * 100;
+        div.style.width = `${width}%`;
+        div.title = `${seg.name} ${seg.start}-${seg.end}`;
+        bar.appendChild(div);
+      });
+      panel.appendChild(bar);
+
+      // Action buttons
+      const actions = document.createElement("div");
+      actions.className = "wc-actions";
+      function choose(y, m, d) {
+        input.value = format(d, m, y);
+        overlay.classList.remove("active");
+      }
+      const firstBtn = document.createElement("button");
+      firstBtn.type = "button";
+      firstBtn.textContent = "1st day";
+      firstBtn.addEventListener("click", () => choose(year, 1, 1));
+      const lastOrd = yearLength(year);
+      const [yL, mL, dL] = astro.fromOrdinal(year, lastOrd);
+      const lastBtn = document.createElement("button");
+      lastBtn.type = "button";
+      lastBtn.textContent = "Last day";
+      lastBtn.addEventListener("click", () => choose(yL, mL, dL));
+      const resetBtn = document.createElement("button");
+      resetBtn.type = "button";
+      resetBtn.textContent = "Reset";
+      resetBtn.addEventListener("click", () => choose(2020, 1, 1));
+      actions.append(firstBtn, lastBtn, resetBtn);
+
+      const events = astro.eventsForYear(year);
+      function anchorBtn(name, arr) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.textContent = name;
+        if (arr.length) {
+          const e = arr[0];
+          btn.addEventListener("click", () => choose(e.y, e.m, e.d));
+        } else {
+          btn.disabled = true;
+          btn.title = "Anchor not present in this year";
+        }
+        actions.appendChild(btn);
+      }
+      anchorBtn("Winter", events.winters);
+      if (events.winters.length > 1) anchorBtn("Winter II", [events.winters[1]]);
+      anchorBtn("Spring", events.springs);
+      anchorBtn("Summer", events.summers);
+      anchorBtn("Autumn", events.autumns);
+
+      panel.appendChild(actions);
 
       const grid = document.createElement("div");
       grid.className = "wc-month-grid";
       panel.appendChild(grid);
+
+      const info = document.createElement("div");
+      info.className = "wc-info";
+      panel.appendChild(info);
+
+      function updateInfo(d, m) {
+        const doy = toDoy(m, d);
+        const w = (starts[m - 1] + d - 1) % 7;
+        const season = astro.seasonOf(year, doy);
+        info.textContent = `Date ${format(d, m, year)} – ${WEEKDAY_NAMES[w]}, ${season}, ${doy} / ${yearLength(
+          year
+        )}`;
+      }
+
+      function toDoy(m, d) {
+        let n = d;
+        for (let i = 1; i < m; i++) n += months[i - 1];
+        return n;
+      }
 
       for (let m = 1; m <= 15; m++) {
         const monthDiv = document.createElement("div");
@@ -79,6 +194,10 @@
         const mName = document.createElement("div");
         mName.className = "wc-month-name";
         mName.textContent = `Month ${m}`;
+        const mDays = document.createElement("span");
+        mDays.className = "wc-month-days";
+        mDays.textContent = `${months[m - 1]} day`;
+        mName.appendChild(mDays);
         monthDiv.appendChild(mName);
 
         const table = document.createElement("table");
@@ -105,15 +224,13 @@
           const td = document.createElement("td");
           td.textContent = d;
           const doy = dayOfYear + d - 1;
-          for (const [key, val] of Object.entries(anchors)) {
-            if (val === doy) {
-              td.classList.add("wc-anchor");
-              td.title = key.replace("_", " ");
-            }
-          }
+          const season = astro.seasonOf(year, doy);
+          td.classList.add(`season-${season.toLowerCase().replace(/\s+/g, "")}`);
+          const w = (starts[m - 1] + d - 1) % 7;
+          if (w === 5 || w === 6) td.classList.add("wc-weekend");
           td.addEventListener("click", () => {
-            input.value = format(d, m, year);
-            overlay.classList.remove("active");
+            choose(year, m, d);
+            updateInfo(d, m);
           });
           row.appendChild(td);
         }
@@ -123,18 +240,6 @@
         grid.appendChild(monthDiv);
         dayOfYear += months[m - 1];
       }
-
-      const todayBtn = document.createElement("button");
-      todayBtn.type = "button";
-      todayBtn.className = "wc-today";
-      todayBtn.textContent = "Today";
-      todayBtn.addEventListener("click", () => {
-        const t = window.WOORLD_TODAY || [1, 1, 1];
-        build(t[0]);
-        input.value = format(t[2], t[1], t[0]);
-        overlay.classList.remove("active");
-      });
-      panel.appendChild(todayBtn);
 
       overlay.appendChild(panel);
 

@@ -38,4 +38,8 @@ class WoorldAdminDateWidget(TextInput):
 
     class Media:
         css = {"all": ["fax_calendar/admin_calendar.css"]}
-        js = ["fax_calendar/core.js", "fax_calendar/admin_calendar.js"]
+        js = [
+            "fax_calendar/core.js",
+            "fax_calendar/astro.js",
+            "fax_calendar/admin_calendar.js",
+        ]
