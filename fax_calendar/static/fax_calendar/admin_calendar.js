@@ -129,13 +129,18 @@ const WEEKDAY_NAMES = [
       const monthCtrl = document.createElement("div");
       monthCtrl.className = "wc-month-ctrl";
       const monthSel = document.createElement("select");
-      monthSel.className = "wc-select";
+      monthSel.className = "wc-select wc-select--badged";
       monthSel.setAttribute("aria-label", "Month");
-      for (let i = 1; i <= 15; i++) {
-        const opt = document.createElement("option");
-        opt.value = i;
-        opt.textContent = `Měsíc ${i}`;
-        monthSel.appendChild(opt);
+
+      function populateMonthSelect(year) {
+        monthSel.innerHTML = "";
+        monthLengths(year).forEach((days, idx) => {
+          const opt = document.createElement("option");
+          opt.value = idx + 1;
+          opt.textContent = `Měsíc ${idx + 1}`;
+          opt.dataset.days = days;
+          monthSel.appendChild(opt);
+        });
       }
       const mArrows = document.createElement("div");
       mArrows.className = "wc-vert-arrows";
@@ -155,7 +160,7 @@ const WEEKDAY_NAMES = [
       const yearCtrl = document.createElement("div");
       yearCtrl.className = "wc-year-ctrl";
         const yearSel = document.createElement("select");
-        yearSel.className = "wc-select";
+        yearSel.className = "wc-select wc-select--badged";
         yearSel.setAttribute("aria-label", "Year");
         const yArrows = document.createElement("div");
         yArrows.className = "wc-vert-arrows";
@@ -176,6 +181,7 @@ const WEEKDAY_NAMES = [
             const opt = document.createElement("option");
             opt.value = i;
             opt.textContent = i;
+            opt.dataset.days = yearLength(i);
             yearSel.appendChild(opt);
           }
         }
@@ -271,6 +277,7 @@ const WEEKDAY_NAMES = [
       }
 
         function updateHeader() {
+          populateMonthSelect(y);
           const months = monthLengths(y);
           monthSel.value = String(m);
           monthPill.textContent = `${months[m - 1]} days`;
