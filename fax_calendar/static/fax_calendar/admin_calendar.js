@@ -5,11 +5,7 @@ import {
   fromOrdinal,
   weekday,
 } from "/static/fax_calendar/core.js";
-import {
-  eventsForYear,
-  seasonSegments,
-  seasonOf,
-} from "/static/fax_calendar/astro.js";
+import { seasonSegments, seasonOf } from "/static/fax_calendar/astro.js";
 
 const WEEKDAY_NAMES = [
   "Monday",
@@ -204,26 +200,12 @@ const WEEKDAY_NAMES = [
       scrubWrap.className = "wc-doy-scrubber";
       const scrubRange = document.createElement("input");
       scrubRange.type = "range";
-      scrubRange.min = "1";
       scrubRange.className = "wc-doy-range";
       scrubWrap.appendChild(scrubRange);
+      const scrubTrack = document.createElement("div");
+      scrubTrack.className = "wc-doy-track";
+      scrubWrap.appendChild(scrubTrack);
       card.appendChild(scrubWrap);
-
-      // TOOLBAR
-      const toolbar = document.createElement("div");
-      toolbar.className = "wc-toolbar";
-      card.appendChild(toolbar);
-
-      // SEASON BAR
-      const seasonbar = document.createElement("div");
-      seasonbar.className = "wc-seasonbar";
-      const legend = document.createElement("div");
-      legend.className = "wc-season-legend";
-      const yearLabel = document.createElement("div");
-      yearLabel.className = "wc-yearlabel";
-      seasonbar.appendChild(legend);
-      seasonbar.appendChild(yearLabel);
-      card.appendChild(seasonbar);
 
       // MONTH SECTION
       const monthSection = document.createElement("section");
@@ -289,128 +271,37 @@ const WEEKDAY_NAMES = [
           yearPill.textContent = `${yearLength(y)} days`;
         }
 
-      function updateToolbar() {
-        toolbar.innerHTML = "";
-        const events = eventsForYear(y);
-
-        const buttons = [];
-
-        buttons.push({
-          label: "1. den",
-          handler: () => selectDate(y, 1, 1),
-          doy: 1,
-          act: "first-day",
-        });
-
-        if (events.winters.length) {
-          events.winters.forEach((w) => {
-            buttons.push({
-              label: "Winter",
-              handler: () => selectDate(w.y, w.m, w.d),
-              doy: w.doy,
-              season: "winter",
-            });
-          });
-        } else {
-          buttons.push({
-            label: "Winter",
-            handler: null,
-            disabled: true,
-            season: "winter",
-            doy: Infinity,
-          });
-        }
-
-        const cfg = [
-          ["Spring", events.springs, "spring"],
-          ["Summer", events.summers, "summer"],
-          ["Autumn", events.autumns, "autumn"],
-        ];
-        cfg.forEach(([label, arr, season]) => {
-          if (arr.length) {
-            const a = arr[0];
-            buttons.push({
-              label,
-              handler: () => selectDate(a.y, a.m, a.d),
-              doy: a.doy,
-              season,
-            });
-          } else {
-            buttons.push({
-              label,
-              handler: null,
-              disabled: true,
-              season,
-              doy: Infinity,
-            });
-          }
-        });
-
-        const lastDoy = yearLength(y);
-        const [yy, mm, dd] = fromOrdinal(y, lastDoy);
-        buttons.push({
-          label: "Poslední den",
-          handler: () => selectDate(yy, mm, dd),
-          doy: lastDoy,
-          act: "last-day",
-        });
-
-        buttons.sort((a, b) => a.doy - b.doy);
-
-        buttons.forEach((b) => {
-          const btn = buildBtn(b.label, b.handler, b.cls || "");
-          if (b.disabled) btn.disabled = true;
-          if (b.act) btn.dataset.act = b.act;
-          if (b.season) btn.dataset.season = b.season;
-          if (Number.isFinite(b.doy)) btn.title = `Day ${b.doy}`;
-          else if (b.disabled) btn.title = "Anchor not present in this year";
-          toolbar.appendChild(btn);
-        });
-      }
-
-      function updateSeasonBar() {
-        seasonbar.innerHTML = "";
-        const yl = yearLength(y);
-        const { segs, marks } = seasonSegments(y);
+      function renderDoyTrack(yy) {
+        const yl = yearLength(yy);
+        scrubRange.min = "1";
+        scrubRange.max = String(yl);
+        scrubRange.step = "1";
+        scrubTrack.innerHTML = "";
+        const { segs } = seasonSegments(yy);
         segs.forEach((seg) => {
           const div = document.createElement("div");
-          div.className = `wc-seasonbar__seg ${seg.kind}`;
+          div.className = `wc-doy-track__seg ${seg.kind}`;
           const len = seg.endDoy - seg.startDoy + 1;
-          div.style.width = `${(len / yl) * 100}%`;
-          seasonbar.appendChild(div);
+          div.style.setProperty("--l", `${((seg.startDoy - 1) / yl) * 100}%`);
+          div.style.setProperty("--w", `${(len / yl) * 100}%`);
+          scrubTrack.appendChild(div);
         });
-        marks.forEach((m) => {
+        const months = monthLengths(yy);
+        let cum = 0;
+        for (let i = 0; i < months.length - 1; i++) {
+          cum += months[i];
           const mark = document.createElement("div");
-          mark.className = "wc-seasonbar__mark";
-          mark.style.left = `${((m.doy - 0.5) / yl) * 100}%`;
-          seasonbar.appendChild(mark);
-        });
-
-        seasonbar.appendChild(legend);
-        seasonbar.appendChild(yearLabel);
-
-        legend.innerHTML = "";
-        const legItems = [
-          ["Zima", "winter"],
-          ["Jaro", "spring"],
-          ["Léto", "summer"],
-          ["Podzim", "autumn"],
-        ];
-        legItems.forEach(([label, cls]) => {
-          const sp = document.createElement("span");
-          sp.dataset.season = cls;
-          sp.textContent = label;
-          legend.appendChild(sp);
-        });
-
-        yearLabel.innerHTML = `Rok <span class="js-year">${y}</span> • <span class="js-yearlen">${yl}</span> dní`;
+          mark.className = "wc-doy-track__mark";
+          mark.style.left = `${(cum / yl) * 100}%`;
+          scrubTrack.appendChild(mark);
+        }
       }
+
+      let trackYear = null;
 
       function updateMonth() {
         clampDay();
         updateHeader();
-        updateToolbar();
-        updateSeasonBar();
         grid.innerHTML = "";
         const months = monthLengths(y);
         const offset = weekday(y, m, 1);
@@ -445,6 +336,10 @@ const WEEKDAY_NAMES = [
         }
         monthSection.querySelector(".js-month").textContent = m;
         monthSection.querySelector(".js-monthlen").textContent = monthLengths(y)[m - 1];
+        if (trackYear !== y) {
+          renderDoyTrack(y);
+          trackYear = y;
+        }
         updateFooter();
       }
 
@@ -457,18 +352,25 @@ const WEEKDAY_NAMES = [
         footer.querySelector(".js-season").textContent = season;
         footer.querySelector(".js-doy").textContent = doy;
         footer.querySelector(".js-yearlen2").textContent = yearLength(y);
-        scrubRange.max = yearLength(y);
         scrubRange.value = doy;
       }
 
       updateMonth();
 
       scrubRange.addEventListener("input", () => {
-        const val = parseInt(scrubRange.value, 10);
-        const [_, mm, dd] = fromOrdinal(y, val);
-        m = mm;
-        d = dd;
-        updateMonth();
+        const doy = Number(scrubRange.value);
+        const [yy, mm, dd] = fromOrdinal(y, doy);
+        selectDate(yy, mm, dd);
+      });
+
+      scrubTrack.addEventListener("click", (e) => {
+        const rect = scrubTrack.getBoundingClientRect();
+        const p = (e.clientX - rect.left) / rect.width;
+        const yl = yearLength(y);
+        const doy = Math.min(yl, Math.max(1, Math.round(p * yl)));
+        scrubRange.value = String(doy);
+        const [yy, mm, dd] = fromOrdinal(y, doy);
+        selectDate(yy, mm, dd);
       });
 
       // EVENTS
@@ -501,10 +403,12 @@ const WEEKDAY_NAMES = [
           y = Math.min(2100, y + 1);
           updateMonth();
         });
-        yDown.addEventListener("click", () => {
-          y = Math.max(1, y - 1);
-          updateMonth();
-        });
+      yDown.addEventListener("click", () => {
+        y = Math.max(1, y - 1);
+        updateMonth();
+      });
+
+      window.addEventListener("resize", () => renderDoyTrack(y));
     }
 
     btn.addEventListener("click", open);

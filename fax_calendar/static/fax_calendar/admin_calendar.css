@@ -76,7 +76,7 @@
   border-radius: var(--wc-radius);
   box-shadow: var(--wc-shadow);
   display: grid;
-  grid-template-rows: auto auto auto auto auto 1fr;
+  grid-template-rows: auto auto 1fr;
 }
 
 /* -------------------- Header -------------------- */
@@ -178,58 +178,8 @@
 .wc-iconbtn:active, .wc-btn:active { transform: translateY(1px); }
 .wc-btn--primary { background: var(--wc-text); color: var(--wc-card); border-color: var(--wc-text); }
 .wc-btn--ghost { background: transparent; }
-
-/* -------------------- Toolbar -------------------- */
-.wc-toolbar {
-  display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 16px;
-  border-bottom: 1px solid var(--wc-border); background: var(--wc-card);
-  align-items: center;
-}
-
-.wc-toolbar .wc-btn[data-season] {
-  border-radius: 12px; border-color: transparent; box-shadow: 0 1px 0 rgba(2,6,23,.05);
-}
-.wc-toolbar .wc-btn[data-season]::before {
-  content: "📍"; margin-right: 6px; font-size: 14px; transform: translateY(1px);
-}
-.wc-toolbar .wc-btn[data-season="winter"] { background: var(--wc-winter-bg); color: #0d2a54; }
-.wc-toolbar .wc-btn[data-season="spring"] { background: var(--wc-spring-bg); color: #1f2a1f; }
-.wc-toolbar .wc-btn[data-season="summer"] { background: var(--wc-summer-bg); color: #0b1f12; }
-.wc-toolbar .wc-btn[data-season="autumn"] { background: var(--wc-autumn-bg); color: #3a1b00; }
 .wc-btn[disabled] { opacity: .45; cursor: not-allowed; filter: grayscale(.2); }
 
-/* -------------------- Season Bar -------------------- */
-.wc-seasonbar {
-  display: grid; grid-template-columns: 1fr; gap: 0; height: 12px;
-  margin: 8px 16px 6px;
-  border-radius: 999px; overflow: hidden;
-  background: color-mix(in srgb, var(--wc-elev) 70%, transparent);
-  border: 1px solid color-mix(in srgb, var(--wc-border) 65%, transparent);
-  position: relative;
-}
-.wc-seasonbar__seg { height: 100%; }
-.wc-seasonbar__seg.winter  { background: color-mix(in srgb, var(--wc-winter) 70%, transparent); }
-.wc-seasonbar__seg.spring  { background: color-mix(in srgb, var(--wc-spring) 70%, transparent); }
-.wc-seasonbar__seg.summer  { background: color-mix(in srgb, var(--wc-summer) 70%, transparent); }
-.wc-seasonbar__seg.autumn  { background: color-mix(in srgb, var(--wc-autumn) 70%, transparent); }
-.wc-seasonbar__mark {
-  position: absolute; top: -2px; width: 2px; height: 14px;
-  background: var(--wc-winter); border-radius: 2px;
-}
-
-/* Legend & year label (optional containers from your HTML) */
-.wc-season-legend { padding: 6px 16px 0; color: var(--wc-text-dim); font: 600 12px/1 var(--wc-font); }
-.wc-season-legend span {
-  display: inline-flex; align-items: center; gap: 6px; margin-right: 10px;
-}
-.wc-season-legend span::before {
-  content: ""; width: 10px; height: 10px; border-radius: 999px; display: inline-block; background: currentColor;
-}
-.wc-season-legend span[data-season="winter"]::before { background: var(--wc-winter); }
-.wc-season-legend span[data-season="spring"]::before { background: var(--wc-spring); }
-.wc-season-legend span[data-season="summer"]::before { background: var(--wc-summer); }
-.wc-season-legend span[data-season="autumn"]::before { background: var(--wc-autumn); }
-.wc-yearlabel { margin-left: auto; color: var(--wc-text-dim); }
 
 /* -------------------- Month Section -------------------- */
 .wc-month { border: 1px solid var(--wc-border); border-radius: 12px; overflow: hidden; background: var(--wc-card); }
@@ -341,12 +291,12 @@
 }
 
 /* -------------------- DOY Slider -------------------- */
-.wc-doy-scrubber { padding: 0 16px 8px; }
+.wc-doy-scrubber { position: relative; padding: 0 16px 8px; }
 .wc-doy-range { width: 100%; -webkit-appearance: none; background: transparent; height: 18px; }
 .wc-doy-range::-webkit-slider-runnable-track {
   height: 6px; border-radius: 999px;
-  background: color-mix(in srgb, var(--wc-elev) 70%, transparent);
-  border: 1px solid color-mix(in srgb, var(--wc-border) 65%, transparent);
+  background: transparent;
+  border: none;
 }
 .wc-doy-range::-webkit-slider-thumb {
   -webkit-appearance: none;
@@ -356,14 +306,22 @@
 }
 .wc-doy-range::-moz-range-track {
   height: 6px; border-radius: 999px;
-  background: color-mix(in srgb, var(--wc-elev) 70%, transparent);
-  border: 1px solid color-mix(in srgb, var(--wc-border) 65%, transparent);
+  background: transparent;
+  border: none;
 }
 .wc-doy-range::-moz-range-thumb {
   width: 18px; height: 18px; border-radius: 999px;
   background: var(--wc-card); border: 2px solid var(--wc-ring);
   box-shadow: 0 1px 2px rgba(2,6,23,.18);
 }
+
+.wc-doy-track { position: relative; height: 10px; border-radius: 999px; overflow: hidden; background: var(--wc-elev); }
+.wc-doy-track__seg { position: absolute; top:0; bottom:0; left: var(--l); width: var(--w); }
+.wc-doy-track__seg.winter { background: var(--wc-winter); }
+.wc-doy-track__seg.spring { background: var(--wc-spring); }
+.wc-doy-track__seg.summer { background: var(--wc-summer); }
+.wc-doy-track__seg.autumn { background: var(--wc-autumn); }
+.wc-doy-track__mark { position: absolute; top:-3px; bottom:-3px; width: 2px; background: var(--wc-border); opacity: .8; }
 
 /* -------------------- Month & Sidebar -------------------- */
 .wc-body {
