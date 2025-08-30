@@ -28,8 +28,16 @@ from .utils import filter_by_tour  # MSA-REDESIGN
 tab_choices = [("live", "Live"), ("upcoming", "Upcoming"), ("results", "Results")]
 
 
+def admin_mode_toggle(request):
+    if not request.user.is_staff:
+        return HttpResponseForbidden()
+    on = request.GET.get("on") == "1"
+    request.session["msa_admin"] = on
+    return redirect(request.META.get("HTTP_REFERER", "/"))
+
+
 def _is_admin(request):
-    return request.user.is_staff and request.session.get("admin_mode")
+    return request.user.is_staff and request.session.get("msa_admin")
 
 
 def _admin_required(view_func):
@@ -71,44 +79,34 @@ def home(request):
 
 
 def tournaments(request):
-    tour = request.GET.get("tour")  # MSA-REDESIGN
-    qs = filter_by_tour(Tournament.objects.all(), tour=tour)
-    status = request.GET.get("status")
-    if status:
-        qs = qs.filter(status=status)
-    category = request.GET.get("category")
-    if category:
-        qs = qs.filter(category__iexact=category)
-    country = request.GET.get("country")
-    if country:
-        qs = qs.filter(country__iexact=country)
-    month = request.GET.get("month")
-    if month:
-        qs = qs.filter(start_date__month=month)
-    qs = qs.order_by("start_date")
-    admin = _is_admin(request)
+    season_id = request.GET.get("season")
+    seasons = Season.objects.all()
+    selected_season = None
+    events = EventEdition.objects.none()
+    if season_id:
+        selected_season = get_object_or_404(Season, pk=season_id)
+    elif seasons:
+        selected_season = seasons.first()
+    if selected_season:
+        events = (
+            EventEdition.objects.filter(season=selected_season)
+            .select_related("brand", "category_season__category")
+            .prefetch_related("phases__rounds")
+        )
     return render(
         request,
-        "msa/tournament_list.html",
-        {"tournaments": qs, "tour": tour, "admin": admin},
-    )
-
-
-def tournament_detail(request, slug):
-    tour = request.GET.get("tour")  # MSA-REDESIGN
-    tournament = get_object_or_404(Tournament, slug=slug)
-    matches = tournament.matches.select_related("player1", "player2", "winner")
-    admin = _is_admin(request)
-    return render(
-        request,
-        "msa/tournament_detail.html",
+        "msa/tournaments.html",
         {
-            "tournament": tournament,
-            "matches": matches,
-            "tour": tour,
-            "admin": admin,
+            "seasons": seasons,
+            "selected_season": selected_season,
+            "events": events,
         },
     )
+
+
+def tournament_detail(request, pk):
+    event = get_object_or_404(EventEdition, pk=pk)
+    return render(request, "msa/tournament_detail.html", {"event": event})
 
 
 def live(request):
