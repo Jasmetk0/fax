@@ -52,6 +52,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "fax_calendar.context_processors.woorld_date",
+                "msa.context_processors.msa_admin_mode",
             ],
         },
     },

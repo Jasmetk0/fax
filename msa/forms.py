@@ -8,6 +8,10 @@ from .models import (
     RankingEntry,
     RankingSnapshot,
     Tournament,
+    Season,
+    Category,
+    CategorySeason,
+    EventEdition,
 )
 
 
@@ -96,4 +100,50 @@ class MediaItemForm(forms.ModelForm):
             "video_url",
             "thumbnail_url",
             "tags",
+        ]
+
+
+class SeasonForm(forms.ModelForm):
+    class Meta:
+        model = Season
+        fields = ["name", "code", "start_date", "end_date"]
+
+
+class CategoryForm(forms.ModelForm):
+    class Meta:
+        model = Category
+        fields = ["name"]
+
+
+class SeasonCategoryForm(forms.ModelForm):
+    class Meta:
+        model = CategorySeason
+        fields = [
+            "season",
+            "category",
+            "label",
+            "points_table",
+            "prize_table",
+            "bracket_policy",
+            "seeding_policy",
+        ]
+
+
+class EventEditionForm(forms.ModelForm):
+    class Meta:
+        model = EventEdition
+        fields = [
+            "name",
+            "brand",
+            "season",
+            "category_season",
+            "start_date",
+            "end_date",
+            "venue",
+            "city",
+            "scoring_rules",
+            "best_of",
+            "sanction_status",
+            "points_eligible",
+            "draw_template",
         ]

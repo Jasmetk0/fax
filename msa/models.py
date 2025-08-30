@@ -285,6 +285,7 @@ class BracketPolicy(AuditModel):
 
 class SeedingPolicy(AuditModel):
     name = models.CharField(max_length=100)
+    config = models.JSONField(default=dict)
 
     def __str__(self) -> str:  # pragma: no cover - trivial
         return self.name
@@ -383,6 +384,23 @@ class EventEdition(AuditModel):
         Season, on_delete=models.CASCADE, related_name="event_editions"
     )
     name = models.CharField(max_length=200)
+    category_season = models.ForeignKey(
+        "CategorySeason",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="event_editions",
+    )
+    start_date = WoorldDateField(null=True, blank=True)
+    end_date = WoorldDateField(null=True, blank=True)
+    venue = models.CharField(max_length=200, blank=True)
+    city = models.CharField(max_length=100, blank=True)
+    scoring_rules = models.ForeignKey(
+        "ScoringRule", null=True, blank=True, on_delete=models.SET_NULL
+    )
+    best_of = models.IntegerField(default=5)
+    sanction_status = models.CharField(max_length=20, blank=True)
+    points_eligible = models.BooleanField(default=True)
     draw_template = models.ForeignKey(
         "DrawTemplate", null=True, blank=True, on_delete=models.SET_NULL
     )

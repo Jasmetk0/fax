@@ -7,11 +7,8 @@ app_name = "msa"
 urlpatterns = [
     path("", views.home, name="home"),
     path("tournaments/", views.tournaments, name="tournament-list"),
-    path(
-        "tournaments/<slug:slug>/",
-        views.tournament_detail,
-        name="tournament-detail",
-    ),
+    path("tournaments/<int:pk>/", views.tournament_detail, name="tournament-detail"),
+    path("admin-mode", views.admin_mode_toggle, name="admin-mode-toggle"),
     path("live/", views.live, name="live"),  # MSA-REDESIGN: redirect to scores
     path("scores/", views.scores, name="scores"),  # MSA-REDESIGN
     path("search/", views.msa_search, name="search"),  # MSA-REDESIGN
@@ -99,6 +96,46 @@ urlpatterns = [
         manage_views.media_delete,
         name="media-delete",
     ),
+    path("manage/seasons/new/", manage_views.season_create, name="season-create"),
+    path("manage/seasons/<int:pk>/edit/", manage_views.season_edit, name="season-edit"),
+    path(
+        "manage/seasons/<int:pk>/delete/",
+        manage_views.season_delete,
+        name="season-delete",
+    ),
+    path(
+        "manage/categories/new/", manage_views.category_create, name="category-create"
+    ),
+    path(
+        "manage/categories/<int:pk>/edit/",
+        manage_views.category_edit,
+        name="category-edit",
+    ),
+    path(
+        "manage/categories/<int:pk>/delete/",
+        manage_views.category_delete,
+        name="category-delete",
+    ),
+    path(
+        "manage/season-categories/new/",
+        manage_views.seasoncategory_create,
+        name="seasoncategory-create",
+    ),
+    path(
+        "manage/season-categories/<int:pk>/edit/",
+        manage_views.seasoncategory_edit,
+        name="seasoncategory-edit",
+    ),
+    path(
+        "manage/season-categories/<int:pk>/delete/",
+        manage_views.seasoncategory_delete,
+        name="seasoncategory-delete",
+    ),
+    path("manage/events/new/", manage_views.event_create, name="event-create"),
+    path("manage/events/<int:pk>/edit/", manage_views.event_edit, name="event-edit"),
+    path(
+        "manage/events/<int:pk>/delete/", manage_views.event_delete, name="event-delete"
+    ),
     # API
     path("api/players/", views.api_players, name="api_players"),
     path("api/players/<slug:slug>/", views.api_player_detail, name="api_player"),
@@ -129,6 +166,21 @@ urlpatterns = [
         "api/events/<int:pk>/structure/",
         views.api_event_structure,
         name="api_event_structure",
+    ),
+    path(
+        "api/events/<int:pk>/seeding/preview/",
+        views.api_event_seeding_preview,
+        name="api_event_seeding_preview",
+    ),
+    path(
+        "api/events/<int:pk>/seeding/apply/",
+        views.api_event_seeding_apply,
+        name="api_event_seeding_apply",
+    ),
+    path(
+        "api/matches/<int:pk>/result/",
+        views.api_match_result,
+        name="api_match_result",
     ),
     path("api/h2h/", views.api_h2h, name="api_h2h"),
     path("api/live/", views.api_live, name="api_live"),

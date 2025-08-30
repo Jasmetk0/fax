@@ -10,6 +10,10 @@ from .forms import (
     RankingEntryForm,
     RankingSnapshotForm,
     TournamentForm,
+    SeasonForm,
+    CategoryForm,
+    SeasonCategoryForm,
+    EventEditionForm,
 )
 from .models import (
     Match,
@@ -19,6 +23,10 @@ from .models import (
     RankingEntry,
     RankingSnapshot,
     Tournament,
+    Season,
+    Category,
+    CategorySeason,
+    EventEdition,
 )
 from .views import _admin_required
 
@@ -480,5 +488,287 @@ def media_delete(request, slug):
         {
             "title": f"Delete {media.title}?",
             "cancel_url": reverse("msa:squashtv"),
+        },
+    )
+
+
+@_admin_required
+def season_create(request):
+    if request.method == "POST":
+        form = SeasonForm(request.POST)
+        if form.is_valid():
+            season = form.save(commit=False)
+            season.created_by = season.updated_by = request.user
+            season.save()
+            messages.success(request, "Saved")
+            return redirect(f"{reverse('msa:tournament-list')}?season={season.pk}")
+    else:
+        form = SeasonForm()
+    return render(
+        request,
+        "msa/manage_form.html",
+        {
+            "form": form,
+            "title": "Add Season",
+            "cancel_url": reverse("msa:tournament-list"),
+        },
+    )
+
+
+@_admin_required
+def season_edit(request, pk):
+    season = get_object_or_404(Season, pk=pk)
+    if request.method == "POST":
+        form = SeasonForm(request.POST, instance=season)
+        if form.is_valid():
+            obj = form.save(commit=False)
+            obj.updated_by = request.user
+            obj.save()
+            messages.success(request, "Saved")
+            return redirect(f"{reverse('msa:tournament-list')}?season={season.pk}")
+    else:
+        form = SeasonForm(instance=season)
+    return render(
+        request,
+        "msa/manage_form.html",
+        {
+            "form": form,
+            "title": "Edit Season",
+            "cancel_url": f"{reverse('msa:tournament-list')}?season={season.pk}",
+        },
+    )
+
+
+@_admin_required
+def season_delete(request, pk):
+    season = get_object_or_404(Season, pk=pk)
+    if request.method == "POST":
+        season.delete()
+        messages.success(request, "Deleted")
+        return redirect(reverse("msa:tournament-list"))
+    return render(
+        request,
+        "msa/manage_confirm_delete.html",
+        {
+            "title": f"Delete {season.name}?",
+            "cancel_url": f"{reverse('msa:tournament-list')}?season={season.pk}",
+        },
+    )
+
+
+@_admin_required
+def category_create(request):
+    season_id = request.GET.get("season")
+    if request.method == "POST":
+        form = CategoryForm(request.POST)
+        if form.is_valid():
+            cat = form.save(commit=False)
+            cat.created_by = cat.updated_by = request.user
+            cat.save()
+            messages.success(request, "Saved")
+            url = reverse("msa:tournament-list")
+            if season_id:
+                url += f"?season={season_id}"
+            return redirect(url)
+    else:
+        form = CategoryForm()
+    return render(
+        request,
+        "msa/manage_form.html",
+        {
+            "form": form,
+            "title": "Add Category",
+            "cancel_url": reverse("msa:tournament-list"),
+        },
+    )
+
+
+@_admin_required
+def category_edit(request, pk):
+    category = get_object_or_404(Category, pk=pk)
+    season_id = request.GET.get("season")
+    if request.method == "POST":
+        form = CategoryForm(request.POST, instance=category)
+        if form.is_valid():
+            obj = form.save(commit=False)
+            obj.updated_by = request.user
+            obj.save()
+            messages.success(request, "Saved")
+            url = reverse("msa:tournament-list")
+            if season_id:
+                url += f"?season={season_id}"
+            return redirect(url)
+    else:
+        form = CategoryForm(instance=category)
+    return render(
+        request,
+        "msa/manage_form.html",
+        {
+            "form": form,
+            "title": "Edit Category",
+            "cancel_url": reverse("msa:tournament-list"),
+        },
+    )
+
+
+@_admin_required
+def category_delete(request, pk):
+    category = get_object_or_404(Category, pk=pk)
+    season_id = request.GET.get("season")
+    if request.method == "POST":
+        category.delete()
+        messages.success(request, "Deleted")
+        url = reverse("msa:tournament-list")
+        if season_id:
+            url += f"?season={season_id}"
+        return redirect(url)
+    return render(
+        request,
+        "msa/manage_confirm_delete.html",
+        {
+            "title": f"Delete {category.name}?",
+            "cancel_url": reverse("msa:tournament-list"),
+        },
+    )
+
+
+@_admin_required
+def seasoncategory_create(request):
+    season_id = request.GET.get("season")
+    if request.method == "POST":
+        form = SeasonCategoryForm(request.POST)
+        if form.is_valid():
+            sc = form.save(commit=False)
+            sc.created_by = sc.updated_by = request.user
+            sc.save()
+            messages.success(request, "Saved")
+            url = reverse("msa:tournament-list")
+            url += f"?season={sc.season_id}"
+            return redirect(url)
+    else:
+        form = SeasonCategoryForm(initial={"season": season_id})
+    return render(
+        request,
+        "msa/manage_form.html",
+        {
+            "form": form,
+            "title": "Add SeasonCategory",
+            "cancel_url": reverse("msa:tournament-list"),
+        },
+    )
+
+
+@_admin_required
+def seasoncategory_edit(request, pk):
+    sc = get_object_or_404(CategorySeason, pk=pk)
+    if request.method == "POST":
+        form = SeasonCategoryForm(request.POST, instance=sc)
+        if form.is_valid():
+            obj = form.save(commit=False)
+            obj.updated_by = request.user
+            obj.save()
+            messages.success(request, "Saved")
+            url = reverse("msa:tournament-list")
+            url += f"?season={sc.season_id}"
+            return redirect(url)
+    else:
+        form = SeasonCategoryForm(instance=sc)
+    return render(
+        request,
+        "msa/manage_form.html",
+        {
+            "form": form,
+            "title": "Edit SeasonCategory",
+            "cancel_url": f"{reverse('msa:tournament-list')}?season={sc.season_id}",
+        },
+    )
+
+
+@_admin_required
+def seasoncategory_delete(request, pk):
+    sc = get_object_or_404(CategorySeason, pk=pk)
+    if request.method == "POST":
+        season_id = sc.season_id
+        sc.delete()
+        messages.success(request, "Deleted")
+        url = reverse("msa:tournament-list")
+        url += f"?season={season_id}"
+        return redirect(url)
+    return render(
+        request,
+        "msa/manage_confirm_delete.html",
+        {
+            "title": f"Delete {sc.label}?",
+            "cancel_url": f"{reverse('msa:tournament-list')}?season={sc.season_id}",
+        },
+    )
+
+
+@_admin_required
+def event_create(request):
+    season_id = request.GET.get("season")
+    if request.method == "POST":
+        form = EventEditionForm(request.POST)
+        if form.is_valid():
+            event = form.save(commit=False)
+            event.created_by = event.updated_by = request.user
+            event.save()
+            messages.success(request, "Saved")
+            return redirect(
+                f"{reverse('msa:tournament-list')}?season={event.season_id}"
+            )
+    else:
+        form = EventEditionForm(initial={"season": season_id})
+    return render(
+        request,
+        "msa/manage_form.html",
+        {
+            "form": form,
+            "title": "Add Tournament",
+            "cancel_url": reverse("msa:tournament-list"),
+        },
+    )
+
+
+@_admin_required
+def event_edit(request, pk):
+    event = get_object_or_404(EventEdition, pk=pk)
+    if request.method == "POST":
+        form = EventEditionForm(request.POST, instance=event)
+        if form.is_valid():
+            obj = form.save(commit=False)
+            obj.updated_by = request.user
+            obj.save()
+            messages.success(request, "Saved")
+            return redirect(
+                f"{reverse('msa:tournament-list')}?season={event.season_id}"
+            )
+    else:
+        form = EventEditionForm(instance=event)
+    return render(
+        request,
+        "msa/manage_form.html",
+        {
+            "form": form,
+            "title": "Edit Tournament",
+            "cancel_url": f"{reverse('msa:tournament-list')}?season={event.season_id}",
+        },
+    )
+
+
+@_admin_required
+def event_delete(request, pk):
+    event = get_object_or_404(EventEdition, pk=pk)
+    if request.method == "POST":
+        season_id = event.season_id
+        event.delete()
+        messages.success(request, "Deleted")
+        return redirect(f"{reverse('msa:tournament-list')}?season={season_id}")
+    return render(
+        request,
+        "msa/manage_confirm_delete.html",
+        {
+            "title": f"Delete {event.name}?",
+            "cancel_url": f"{reverse('msa:tournament-list')}?season={event.season_id}",
         },
     )

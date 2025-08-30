@@ -10,6 +10,8 @@ from .models import (
     CategorySeason,
     PointsRow,
     EventEdition,
+    EventMatch,
+    AdvancementEdge,
     Match,
     MediaItem,
     NewsPost,
@@ -18,14 +20,24 @@ from .models import (
     Season,
     Tournament,
 )
+from .services.seeding_service import preview_seeding, apply_seeding
+import json
 from .utils import filter_by_tour  # MSA-REDESIGN
 
 
 tab_choices = [("live", "Live"), ("upcoming", "Upcoming"), ("results", "Results")]
 
 
+def admin_mode_toggle(request):
+    if not request.user.is_staff:
+        return HttpResponseForbidden()
+    on = request.GET.get("on") == "1"
+    request.session["msa_admin"] = on
+    return redirect(request.META.get("HTTP_REFERER", "/"))
+
+
 def _is_admin(request):
-    return request.user.is_staff and request.session.get("admin_mode")
+    return request.user.is_staff and request.session.get("msa_admin")
 
 
 def _admin_required(view_func):
@@ -67,44 +79,34 @@ def home(request):
 
 
 def tournaments(request):
-    tour = request.GET.get("tour")  # MSA-REDESIGN
-    qs = filter_by_tour(Tournament.objects.all(), tour=tour)
-    status = request.GET.get("status")
-    if status:
-        qs = qs.filter(status=status)
-    category = request.GET.get("category")
-    if category:
-        qs = qs.filter(category__iexact=category)
-    country = request.GET.get("country")
-    if country:
-        qs = qs.filter(country__iexact=country)
-    month = request.GET.get("month")
-    if month:
-        qs = qs.filter(start_date__month=month)
-    qs = qs.order_by("start_date")
-    admin = _is_admin(request)
+    season_id = request.GET.get("season")
+    seasons = Season.objects.all()
+    selected_season = None
+    events = EventEdition.objects.none()
+    if season_id:
+        selected_season = get_object_or_404(Season, pk=season_id)
+    elif seasons:
+        selected_season = seasons.first()
+    if selected_season:
+        events = (
+            EventEdition.objects.filter(season=selected_season)
+            .select_related("brand", "category_season__category")
+            .prefetch_related("phases__rounds")
+        )
     return render(
         request,
-        "msa/tournament_list.html",
-        {"tournaments": qs, "tour": tour, "admin": admin},
-    )
-
-
-def tournament_detail(request, slug):
-    tour = request.GET.get("tour")  # MSA-REDESIGN
-    tournament = get_object_or_404(Tournament, slug=slug)
-    matches = tournament.matches.select_related("player1", "player2", "winner")
-    admin = _is_admin(request)
-    return render(
-        request,
-        "msa/tournament_detail.html",
+        "msa/tournaments.html",
         {
-            "tournament": tournament,
-            "matches": matches,
-            "tour": tour,
-            "admin": admin,
+            "seasons": seasons,
+            "selected_season": selected_season,
+            "events": events,
         },
     )
+
+
+def tournament_detail(request, pk):
+    event = get_object_or_404(EventEdition, pk=pk)
+    return render(request, "msa/tournament_detail.html", {"event": event})
 
 
 def live(request):
@@ -511,6 +513,66 @@ def api_event_structure(request, pk):
             }
         )
     return JsonResponse({"phases": phases})
+
+
+def api_event_seeding_preview(request, pk):
+    event = get_object_or_404(EventEdition, pk=pk)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405)
+    pairs = preview_seeding(event.pk)
+    return JsonResponse({"pairs": pairs})
+
+
+def api_event_seeding_apply(request, pk):
+    event = get_object_or_404(EventEdition, pk=pk)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405)
+    res = apply_seeding(event.pk)
+    return JsonResponse(res)
+
+
+def api_match_result(request, pk):
+    match = get_object_or_404(EventMatch, pk=pk)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405)
+    try:
+        data = json.loads(request.body or b"{}")
+    except json.JSONDecodeError:  # pragma: no cover - guard
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+    sets = data.get("sets", [])
+    a_sets = b_sets = 0
+    for s in sets:
+        if len(s) != 2:
+            continue
+        if s[0] > s[1]:
+            a_sets += 1
+        elif s[1] > s[0]:
+            b_sets += 1
+    needed = match.round.best_of // 2 + 1
+    if a_sets < needed and b_sets < needed:
+        return JsonResponse({"error": "Match incomplete"}, status=400)
+    winner = match.a_player if a_sets > b_sets else match.b_player
+    match.a_score = a_sets
+    match.b_score = b_sets
+    match.winner = winner
+    match.save()
+    from_ref = f"{match.round.code}:M{match.order}:W"
+    edges = AdvancementEdge.objects.filter(phase=match.phase, from_ref=from_ref)
+    for edge in edges:
+        try:
+            round_code, rest = edge.to_ref.split(":M")
+            match_no, slot = rest.split(":")
+            target = EventMatch.objects.get(
+                phase=edge.phase, round__code=round_code, order=int(match_no)
+            )
+            if slot == "A":
+                target.a_player = winner
+            else:
+                target.b_player = winner
+            target.save()
+        except Exception:  # pragma: no cover - safeguard
+            continue
+    return JsonResponse({"a_score": a_sets, "b_score": b_sets, "winner": winner.id})
 
 
 def api_h2h(request):
