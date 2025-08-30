@@ -175,9 +175,9 @@ const WEEKDAY_NAMES = [
         yArrows.append(yUp, yDown);
         yearCtrl.append(yearSel, yArrows);
 
-        function populateYearSelect(center) {
+        function populateYearSelect() {
           yearSel.innerHTML = "";
-          for (let i = center - 24; i <= center + 24; i++) {
+          for (let i = 1; i <= 2100; i++) {
             const opt = document.createElement("option");
             opt.value = i;
             opt.textContent = i;
@@ -185,6 +185,8 @@ const WEEKDAY_NAMES = [
             yearSel.appendChild(opt);
           }
         }
+
+        populateYearSelect();
 
       const yearLenDiv = document.createElement("div");
       yearLenDiv.className = "wc-year-len";
@@ -281,7 +283,6 @@ const WEEKDAY_NAMES = [
           const months = monthLengths(y);
           monthSel.value = String(m);
           monthPill.textContent = `${months[m - 1]} days`;
-          populateYearSelect(y);
           yearSel.value = String(y);
           yearPill.textContent = `${yearLength(y)} days`;
         }
@@ -495,11 +496,11 @@ const WEEKDAY_NAMES = [
           updateMonth();
         });
         yUp.addEventListener("click", () => {
-          y += 1;
+          y = Math.min(2100, y + 1);
           updateMonth();
         });
         yDown.addEventListener("click", () => {
-          y -= 1;
+          y = Math.max(1, y - 1);
           updateMonth();
         });
     }
