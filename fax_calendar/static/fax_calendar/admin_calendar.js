@@ -255,14 +255,12 @@ const WEEKDAY_NAMES = [
       const grid = document.createElement("div");
       grid.className = "wc-grid";
       monthSection.appendChild(grid);
-      card.appendChild(monthSection);
 
       // FOOTER
       const footer = document.createElement("div");
       footer.className = "wc-footer";
       const footerInfo = document.createElement("div");
-      footerInfo.style.display = "flex";
-      footerInfo.style.gap = "12px";
+      footerInfo.className = "wc-footer-info";
       footerInfo.innerHTML =
         '<div><strong>Date:</strong> <span class="js-date"></span></div>' +
         '<div><strong>Weekday:</strong> <span class="js-weekday"></span></div>' +
@@ -271,7 +269,11 @@ const WEEKDAY_NAMES = [
       const confirmBtn = buildBtn("Confirm", () => choose(y, m, d), "wc-btn--primary");
       confirmBtn.dataset.act = "confirm";
       footer.append(footerInfo, confirmBtn);
-      card.appendChild(footer);
+
+      const bodyWrap = document.createElement("div");
+      bodyWrap.className = "wc-body";
+      bodyWrap.append(monthSection, footer);
+      card.appendChild(bodyWrap);
 
       function clampDay() {
         const months = monthLengths(y);

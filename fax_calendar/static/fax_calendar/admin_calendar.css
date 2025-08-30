@@ -57,13 +57,15 @@
   padding: 24px;
 }
 .wc-card {
-  width: min(400px, 96vw);
+  width: auto;
+  max-width: 96vw;
   max-height: 92vh; overflow: hidden;
   background: var(--wc-card); color: var(--wc-text);
   border: 1px solid var(--wc-border);
   border-radius: var(--wc-radius);
   box-shadow: var(--wc-shadow);
-  display: grid; grid-template-rows: auto auto auto 1fr auto;
+  display: grid;
+  grid-template-rows: auto auto auto auto auto 1fr;
 }
 
 /* -------------------- Header -------------------- */
@@ -324,17 +326,50 @@
   box-shadow: 0 1px 2px rgba(2,6,23,.18);
 }
 
-/* -------------------- Footer -------------------- */
+/* -------------------- Month & Sidebar -------------------- */
+.wc-body {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 0 10px 12px;
+}
+.wc-month { flex: 0 0 400px; }
 .wc-footer {
-  display: flex; align-items: center; justify-content: space-between;
+  flex: 0 0 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   padding: 10px 16px;
   background: color-mix(in srgb, var(--wc-elev) 85%, transparent);
-  border-top: 1px solid color-mix(in srgb, var(--wc-border) 60%, transparent);
+  border: 1px solid color-mix(in srgb, var(--wc-border) 60%, transparent);
   border-radius: 12px;
-  margin: 6px 10px 12px;
-  font: 600 12px/1.2 var(--wc-font); color: var(--wc-text-dim);
+  margin: 0;
+  font: 600 12px/1.2 var(--wc-font);
+  color: var(--wc-text-dim);
+}
+.wc-footer-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 .wc-footer strong { color: var(--wc-text); }
+
+@media (max-width: 640px) {
+  .wc-body { flex-direction: column; }
+  .wc-month { flex: 0 0 auto; }
+  .wc-footer {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    margin: 6px 10px 12px;
+    border-top: 1px solid color-mix(in srgb, var(--wc-border) 60%, transparent);
+    border-left: none;
+  }
+  .wc-footer-info {
+    flex-direction: row;
+    gap: 12px;
+  }
+}
 
 /* -------------------- Tooltip -------------------- */
 .wc-tooltip {
