@@ -33,4 +33,5 @@ def woorld_calendar_meta(request):
         "WOORLD_CALENDAR_META": meta,
         "WOORLD_CALENDAR_MONTH_LENGTHS_JSON": json.dumps(meta["month_lengths"]),
         "WOORLD_CALENDAR_ANCHORS_JSON": json.dumps(meta["anchors"]),
+        "WOORLD_TODAY": request.session.get("woorld_today"),
     }
