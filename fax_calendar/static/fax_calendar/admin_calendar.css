@@ -1,104 +1,219 @@
-.woorld-calendar-btn {
-  margin-left: 4px;
+:root {
+  --wc-font: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Apple Color Emoji","Segoe UI Emoji";
+  --wc-radius: 14px;
+  --wc-gap: 10px;
+
+  /* neutrals */
+  --wc-bg: #ffffff;
+  --wc-elev: #f7f7f9;
+  --wc-card: #ffffff;
+  --wc-text: #0f172a;
+  --wc-text-dim: #475569;
+  --wc-border: #e5e7eb;
+  --wc-ring: #2563eb;
+
+  /* season tints (light) */
+  --wc-winter: #3b82f6;        /* blue */
+  --wc-spring: #84cc16;        /* yellow-green */
+  --wc-summer: #22c55e;        /* green */
+  --wc-autumn: #b45309;        /* red-brown */
+
+  --wc-winter-bg: color-mix(in srgb, var(--wc-winter) 10%, #ffffff);
+  --wc-spring-bg: color-mix(in srgb, var(--wc-spring) 10%, #ffffff);
+  --wc-summer-bg: color-mix(in srgb, var(--wc-summer) 10%, #ffffff);
+  --wc-autumn-bg: color-mix(in srgb, var(--wc-autumn) 10%, #ffffff);
+
+  --wc-shadow: 0 10px 30px rgba(2, 6, 23, 0.12);
 }
 
-.woorld-calendar-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.4);
-  display: none;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
+.wc-dark {
+  --wc-bg: #0b1020;
+  --wc-elev: #12182a;
+  --wc-card: #0f1528;
+  --wc-text: #e5eaf5;
+  --wc-text-dim: #b6c0d9;
+  --wc-border: #26314a;
+  --wc-ring: #60a5fa;
+
+  --wc-winter-bg: color-mix(in srgb, var(--wc-winter) 18%, #0f1528);
+  --wc-spring-bg: color-mix(in srgb, var(--wc-spring) 18%, #0f1528);
+  --wc-summer-bg: color-mix(in srgb, var(--wc-summer) 18%, #0f1528);
+  --wc-autumn-bg: color-mix(in srgb, var(--wc-autumn) 18%, #0f1528);
+
+  --wc-shadow: 0 12px 40px rgba(0,0,0,0.35);
 }
 
-.woorld-calendar-overlay.active {
-  display: flex;
+/* Overlay & Card */
+.wc-overlay {
+  position: fixed; inset: 0; z-index: 10000;
+  background: color-mix(in srgb, var(--wc-bg) 40%, transparent);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+}
+.wc-card {
+  width: min(1100px, 96vw);
+  max-height: 92vh; overflow: hidden;
+  background: var(--wc-card); color: var(--wc-text);
+  border: 1px solid var(--wc-border); border-radius: var(--wc-radius);
+  box-shadow: var(--wc-shadow);
+  display: grid; grid-template-rows: auto auto auto 1fr auto;
 }
 
-.woorld-calendar {
-  background: #fff;
-  padding: 1rem;
-  max-height: 90vh;
-  overflow: auto;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+/* Header */
+.wc-header {
+  display: grid; grid-template-columns: 1fr auto auto auto; gap: var(--wc-gap);
+  align-items: center; padding: 14px 16px; background: var(--wc-elev);
+  border-bottom: 1px solid var(--wc-border);
+}
+.wc-select, .wc-input {
+  font: 600 14px/1 var(--wc-font);
+  background: var(--wc-card); color: var(--wc-text);
+  border: 1px solid var(--wc-border); border-radius: 10px;
+  padding: 8px 10px; min-width: 100px;
+}
+.wc-input[type="number"] { -moz-appearance: textfield; }
+.wc-input::-webkit-outer-spin-button, .wc-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+.wc-meta {
+  display: flex; gap: 14px; align-items: center; justify-self: start; color: var(--wc-text-dim);
+}
+.wc-meta__pill {
+  background: var(--wc-card); border: 1px dashed var(--wc-border);
+  border-radius: 999px; padding: 6px 10px; font-size: 12px; font-weight: 600;
 }
 
-.woorld-calendar.wc-dark {
-  background: #222;
-  color: #eee;
+.wc-iconbtn, .wc-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: 6px; height: 34px; padding: 0 10px; cursor: pointer;
+  border-radius: 10px; border: 1px solid var(--wc-border); background: var(--wc-card);
+  color: var(--wc-text); font: 600 13px/1 var(--wc-font);
+  transition: transform .06s ease, background .15s, border-color .15s, color .15s;
+}
+.wc-iconbtn:hover, .wc-btn:hover { background: var(--wc-elev); }
+.wc-iconbtn:active, .wc-btn:active { transform: translateY(1px); }
+.wc-btn--primary { background: var(--wc-text); color: var(--wc-card); border-color: var(--wc-text); }
+.wc-btn--ghost { background: transparent; }
+
+.wc-theme-toggle { justify-self: end; }
+
+/* Toolbar (actions under header) */
+.wc-toolbar {
+  display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 16px;
+  border-bottom: 1px solid var(--wc-border); background: var(--wc-card);
 }
 
-.woorld-calendar .wc-header {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  margin-bottom: 0.5rem;
+/* Anchors (season jump buttons) */
+.wc-anchors { display: flex; gap: 8px; padding: 8px 16px; align-items: center; }
+.wc-anchors .wc-btn[data-season="winter"] { background: var(--wc-winter); color: #fff; border-color: var(--wc-winter); }
+.wc-anchors .wc-btn[data-season="spring"] { background: var(--wc-spring); color: #1f2a1f; border-color: var(--wc-spring); }
+.wc-anchors .wc-btn[data-season="summer"] { background: var(--wc-summer); color: #0b1f12; border-color: var(--wc-summer); }
+.wc-anchors .wc-btn[data-season="autumn"] { background: var(--wc-autumn); color: #fff; border-color: var(--wc-autumn); }
+.wc-btn[disabled] { opacity: .45; cursor: not-allowed; filter: grayscale(.2); }
+
+/* Season bar */
+.wc-seasonbar {
+  display: grid; grid-template-columns: 1fr; gap: 0; height: 10px; margin: 0 16px 10px;
+  border-radius: 999px; overflow: hidden; background: var(--wc-elev);
+  position: relative;
+}
+.wc-seasonbar__seg { height: 100%; }
+.wc-seasonbar__seg.winter  { background: var(--wc-winter); }
+.wc-seasonbar__seg.spring  { background: var(--wc-spring); }
+.wc-seasonbar__seg.summer  { background: var(--wc-summer); }
+.wc-seasonbar__seg.autumn  { background: var(--wc-autumn); }
+.wc-seasonbar__mark {
+  position: absolute; top: -2px; width: 2px; height: 14px; background: var(--wc-winter);
+  border-radius: 2px;
 }
 
-.woorld-calendar .wc-season-bar {
-  display: flex;
-  height: 8px;
-  margin-bottom: 0.5rem;
-  overflow: hidden;
+/* Months grid */
+.wc-months {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px;
+  padding: 12px 16px 16px; overflow: auto;
+}
+.wc-month {
+  border: 1px solid var(--wc-border); border-radius: 12px; overflow: hidden; background: var(--wc-card);
+}
+.wc-month__head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 10px; font: 700 13px/1 var(--wc-font); color: var(--wc-text);
+  background: var(--wc-elev); border-bottom: 1px solid var(--wc-border);
+}
+.wc-month__days { font: 600 11px/1 var(--wc-font); color: var(--wc-text-dim); }
+
+.wc-weekdays {
+  display: grid; grid-template-columns: repeat(7,1fr);
+  font: 700 11px/1 var(--wc-font); color: var(--wc-text-dim);
+  padding: 6px 8px;
+}
+.wc-weekdays span { text-align: center; }
+
+.wc-grid {
+  display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px;
+  padding: 6px 8px 10px;
+}
+.wc-day {
+  height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center;
+  font: 600 12px/1 var(--wc-font); color: var(--wc-text); border: 1px solid transparent;
+  cursor: pointer; position: relative;
+}
+.wc-day.is-disabled { opacity: .25; pointer-events: none; }
+.wc-day.is-weekend { filter: saturate(.85) brightness(.98); }
+.wc-day:hover { border-color: var(--wc-border); background: var(--wc-elev); }
+.wc-day.is-selected { outline: 2px solid var(--wc-ring); outline-offset: 1px; background: color-mix(in srgb, var(--wc-ring) 10%, transparent); }
+.wc-day.is-today { box-shadow: inset 0 0 0 2px var(--wc-ring); border-radius: 8px; }
+
+/* Season tints per day */
+.wc-day.season-winter { background: color-mix(in srgb, var(--wc-winter) 8%, transparent); }
+.wc-day.season-spring { background: color-mix(in srgb, var(--wc-spring) 8%, transparent); }
+.wc-day.season-summer { background: color-mix(in srgb, var(--wc-summer) 8%, transparent); }
+.wc-day.season-autumn { background: color-mix(in srgb, var(--wc-autumn) 8%, transparent); }
+
+/* Footer info */
+.wc-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 16px; border-top: 1px solid var(--wc-border); background: var(--wc-card);
+  font: 600 12px/1.2 var(--wc-font); color: var(--wc-text-dim);
+}
+.wc-footer strong { color: var(--wc-text); }
+
+/* Tooltip */
+.wc-tooltip {
+  position: absolute; z-index: 10; transform: translateY(-110%);
+  background: var(--wc-text); color: var(--wc-card); font: 600 11px/1 var(--wc-font);
+  padding: 6px 8px; border-radius: 8px; white-space: nowrap;
+  box-shadow: 0 6px 16px rgba(0,0,0,.18);
 }
 
-.wc-season-segment { height:100%; }
-.season-winteri { background: var(--season-winter, #b3d9ff); }
-.season-winterii { background: var(--season-winter, #b3d9ff); }
-.season-spring { background: var(--season-spring, #e6f9b5); }
-.season-summer { background: var(--season-summer, #b5f5b5); }
-.season-autumn { background: var(--season-autumn, #f5c6a5); }
+/* Light/Dark toggle */
+.wc-switch {
+  position: relative; width: 44px; height: 24px; border-radius: 999px;
+  background: var(--wc-border); border: 1px solid var(--wc-border);
+}
+.wc-switch__thumb {
+  position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 999px;
+  background: var(--wc-card); box-shadow: 0 1px 2px rgba(0,0,0,.15);
+  transition: left .18s ease;
+}
+.wc-switch.is-on { background: color-mix(in srgb, var(--wc-ring) 20%, var(--wc-border)); }
+.wc-switch.is-on .wc-switch__thumb { left: 24px; }
 
-.wc-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem;
-  margin-bottom: 0.5rem;
+/* Accessibility & helpers */
+.wc-btn:focus-visible, .wc-iconbtn:focus-visible, .wc-select:focus-visible, .wc-input:focus-visible,
+.wc-day:focus-visible { outline: 2px solid var(--wc-ring); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; }
+}
+@media (max-width: 980px) {
+  .wc-months { grid-template-columns: repeat(2, minmax(0,1fr)); }
+}
+@media (max-width: 640px) {
+  .wc-months { grid-template-columns: 1fr; }
 }
 
-.woorld-calendar .wc-month-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.5rem;
+/* Utility chips / kbd */
+.wc-kbd {
+  font: 700 10px/1 var(--wc-font); padding: 3px 6px; border: 1px solid var(--wc-border);
+  border-radius: 6px; background: var(--wc-elev); color: var(--wc-text-dim);
 }
 
-.woorld-calendar .wc-month {
-  border: 1px solid #ccc;
-  padding: 0.25rem;
-}
-
-.woorld-calendar table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.75rem;
-}
-
-.woorld-calendar th,
-.woorld-calendar td {
-  width: 14.285%;
-  text-align: center;
-  padding: 0.1rem;
-}
-
-.woorld-calendar td:hover {
-  background: #eef;
-  cursor: pointer;
-}
-
-.season-winteri { background:#f0f8ff; }
-.season-winterii { background:#e0f0ff; }
-.season-spring { background:#f8ffe6; }
-.season-summer { background:#e6ffe6; }
-.season-autumn { background:#ffe6d9; }
-
-.woorld-calendar td.wc-weekend { filter: brightness(0.9); }
-
-.woorld-calendar .wc-info {
-  margin-top: 0.5rem;
-  font-size: 0.8rem;
-}
