@@ -143,20 +143,19 @@
 .wc-toolbar {
   display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 16px;
   border-bottom: 1px solid var(--wc-border); background: var(--wc-card);
+  align-items: center;
 }
 
-/* -------------------- Season Jump Buttons -------------------- */
-.wc-anchors { display: flex; gap: 8px; padding: 8px 16px; align-items: center; }
-.wc-anchors .wc-btn {
+.wc-toolbar .wc-btn[data-season] {
   border-radius: 12px; border-color: transparent; box-shadow: 0 1px 0 rgba(2,6,23,.05);
 }
-.wc-anchors .wc-btn::before {
+.wc-toolbar .wc-btn[data-season]::before {
   content: "📍"; margin-right: 6px; font-size: 14px; transform: translateY(1px);
 }
-.wc-anchors .wc-btn[data-season="winter"] { background: var(--wc-winter-bg); color: #0d2a54; }
-.wc-anchors .wc-btn[data-season="spring"] { background: var(--wc-spring-bg); color: #1f2a1f; }
-.wc-anchors .wc-btn[data-season="summer"] { background: var(--wc-summer-bg); color: #0b1f12; }
-.wc-anchors .wc-btn[data-season="autumn"] { background: var(--wc-autumn-bg); color: #3a1b00; }
+.wc-toolbar .wc-btn[data-season="winter"] { background: var(--wc-winter-bg); color: #0d2a54; }
+.wc-toolbar .wc-btn[data-season="spring"] { background: var(--wc-spring-bg); color: #1f2a1f; }
+.wc-toolbar .wc-btn[data-season="summer"] { background: var(--wc-summer-bg); color: #0b1f12; }
+.wc-toolbar .wc-btn[data-season="autumn"] { background: var(--wc-autumn-bg); color: #3a1b00; }
 .wc-btn[disabled] { opacity: .45; cursor: not-allowed; filter: grayscale(.2); }
 
 /* -------------------- Season Bar -------------------- */

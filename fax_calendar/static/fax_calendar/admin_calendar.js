@@ -200,26 +200,7 @@ const WEEKDAY_NAMES = [
       // TOOLBAR
       const toolbar = document.createElement("div");
       toolbar.className = "wc-toolbar";
-      const firstBtn = buildBtn("1. den", () => selectDate(y, 1, 1));
-      firstBtn.dataset.act = "first-day";
-      const lastBtn = buildBtn("Poslední den", () => {
-        const [yy, mm, dd] = fromOrdinal(y, yearLength(y));
-        selectDate(yy, mm, dd);
-      });
-      lastBtn.dataset.act = "last-day";
-      const resetBtn = buildBtn(
-        "Reset",
-        () => selectDate(2020, 1, 1),
-        "wc-btn--ghost",
-      );
-      resetBtn.dataset.act = "reset";
-      toolbar.append(firstBtn, lastBtn, resetBtn);
       card.appendChild(toolbar);
-
-      // ANCHORS
-      const anchorRow = document.createElement("div");
-      anchorRow.className = "wc-anchors";
-      card.appendChild(anchorRow);
 
       // SEASON BAR
       const seasonbar = document.createElement("div");
@@ -266,9 +247,15 @@ const WEEKDAY_NAMES = [
         '<div><strong>Weekday:</strong> <span class="js-weekday"></span></div>' +
         '<div><strong>Season:</strong> <span class="js-season"></span></div>' +
         '<div><strong>Day in year:</strong> <span class="js-doy"></span> / <span class="js-yearlen2"></span></div>';
+      const resetBtn = buildBtn(
+        "Reset",
+        () => selectDate(2020, 1, 1),
+        "wc-btn--ghost",
+      );
+      resetBtn.dataset.act = "reset";
       const confirmBtn = buildBtn("Confirm", () => choose(y, m, d), "wc-btn--primary");
       confirmBtn.dataset.act = "confirm";
-      footer.append(footerInfo, confirmBtn);
+      footer.append(footerInfo, resetBtn, confirmBtn);
 
       const bodyWrap = document.createElement("div");
       bodyWrap.className = "wc-body";
@@ -289,45 +276,82 @@ const WEEKDAY_NAMES = [
         yearPill.textContent = `${yearLength(y)} days`;
       }
 
-      function updateAnchors() {
-        anchorRow.innerHTML = "";
+      function updateToolbar() {
+        toolbar.innerHTML = "";
         const events = eventsForYear(y);
 
-        // Winter buttons: one per anchor
+        const buttons = [];
+
+        buttons.push({
+          label: "1. den",
+          handler: () => selectDate(y, 1, 1),
+          doy: 1,
+          act: "first-day",
+        });
+
         if (events.winters.length) {
           events.winters.forEach((w) => {
-            const btn = buildBtn("Winter", () => selectDate(w.y, w.m, w.d));
-            btn.dataset.season = "winter";
-            btn.title = `Day ${w.doy}`;
-            anchorRow.appendChild(btn);
+            buttons.push({
+              label: "Winter",
+              handler: () => selectDate(w.y, w.m, w.d),
+              doy: w.doy,
+              season: "winter",
+            });
           });
         } else {
-          const btn = buildBtn("Winter", null);
-          btn.dataset.season = "winter";
-          btn.disabled = true;
-          btn.title = "Anchor not present in this year";
-          anchorRow.appendChild(btn);
+          buttons.push({
+            label: "Winter",
+            handler: null,
+            disabled: true,
+            season: "winter",
+            doy: Infinity,
+          });
         }
 
-        // Other seasons: at most one button each
         const cfg = [
           ["Spring", events.springs, "spring"],
           ["Summer", events.summers, "summer"],
           ["Autumn", events.autumns, "autumn"],
         ];
         cfg.forEach(([label, arr, season]) => {
-          let btn;
           if (arr.length) {
             const a = arr[0];
-            btn = buildBtn(label, () => selectDate(a.y, a.m, a.d));
-            btn.title = `Day ${a.doy}`;
+            buttons.push({
+              label,
+              handler: () => selectDate(a.y, a.m, a.d),
+              doy: a.doy,
+              season,
+            });
           } else {
-            btn = buildBtn(label, null);
-            btn.disabled = true;
-            btn.title = "Anchor not present in this year";
+            buttons.push({
+              label,
+              handler: null,
+              disabled: true,
+              season,
+              doy: Infinity,
+            });
           }
-          btn.dataset.season = season;
-          anchorRow.appendChild(btn);
+        });
+
+        const lastDoy = yearLength(y);
+        const [yy, mm, dd] = fromOrdinal(y, lastDoy);
+        buttons.push({
+          label: "Poslední den",
+          handler: () => selectDate(yy, mm, dd),
+          doy: lastDoy,
+          act: "last-day",
+        });
+
+        buttons.sort((a, b) => a.doy - b.doy);
+
+        buttons.forEach((b) => {
+          const btn = buildBtn(b.label, b.handler, b.cls || "");
+          if (b.disabled) btn.disabled = true;
+          if (b.act) btn.dataset.act = b.act;
+          if (b.season) btn.dataset.season = b.season;
+          if (Number.isFinite(b.doy)) btn.title = `Day ${b.doy}`;
+          else if (b.disabled) btn.title = "Anchor not present in this year";
+          toolbar.appendChild(btn);
         });
       }
 
@@ -372,7 +396,7 @@ const WEEKDAY_NAMES = [
       function updateMonth() {
         clampDay();
         updateHeader();
-        updateAnchors();
+        updateToolbar();
         updateSeasonBar();
         grid.innerHTML = "";
         const months = monthLengths(y);
