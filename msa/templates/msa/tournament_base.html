@@ -8,6 +8,7 @@
       <li><a href="{% url 'msa:tournament-detail' tournament.slug %}" class="py-2 px-1 block{% if request.resolver_match.url_name == 'tournament-detail' %} border-b-2 border-blue-500{% endif %}">Overview</a></li>
       <li><a href="{% url 'msa:tournament-players' tournament.slug %}" class="py-2 px-1 block{% if request.resolver_match.url_name == 'tournament-players' %} border-b-2 border-blue-500{% endif %}">Players</a></li>
       <li><a href="{% url 'msa:tournament-draw' tournament.slug %}" class="py-2 px-1 block{% if request.resolver_match.url_name == 'tournament-draw' %} border-b-2 border-blue-500{% endif %}">Draw</a></li>
+      <li><a href="{% url 'msa:tournament-qualifying' tournament.slug %}" class="py-2 px-1 block{% if request.resolver_match.url_name == 'tournament-qualifying' %} border-b-2 border-blue-500{% endif %}">Qualifying</a></li>
       <li><a href="{% url 'msa:tournament-results' tournament.slug %}" class="py-2 px-1 block{% if request.resolver_match.url_name == 'tournament-results' %} border-b-2 border-blue-500{% endif %}">Results</a></li>
     </ul>
   </nav>
