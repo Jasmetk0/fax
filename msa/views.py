@@ -30,6 +30,11 @@ from .services.draw import (
     replace_slot,
     progress_bracket,
 )
+from .services.qual import (
+    generate_qualifying,
+    progress_qualifying,
+    promote_qualifiers,
+)
 from .services.state import update_tournament_state
 from .services.seeding_service import preview_seeding, apply_seeding
 from .forms import (
@@ -687,6 +692,66 @@ def tournament_draw(request, slug):
                 request.user.id,
                 tournament.id,
             )
+    elif action == "qual_generate":
+        if generate_qualifying(tournament, user=request.user):
+            messages.success(request, "Qualifying generated")
+            logger.info(
+                "qual_generate success user=%s tournament=%s",
+                request.user.id,
+                tournament.id,
+            )
+        else:
+            messages.warning(request, "Nothing to generate")
+            logger.info(
+                "qual_generate fail user=%s tournament=%s",
+                request.user.id,
+                tournament.id,
+            )
+    elif action == "qual_regenerate":
+        if generate_qualifying(tournament, force=True, user=request.user):
+            messages.success(request, "Qualifying regenerated")
+            logger.info(
+                "qual_regenerate success user=%s tournament=%s",
+                request.user.id,
+                tournament.id,
+            )
+        else:
+            messages.warning(request, "Nothing to regenerate")
+            logger.info(
+                "qual_regenerate fail user=%s tournament=%s",
+                request.user.id,
+                tournament.id,
+            )
+    elif action == "qual_progress":
+        if progress_qualifying(tournament, user=request.user):
+            messages.success(request, "Qualifying progressed")
+            logger.info(
+                "qual_progress success user=%s tournament=%s",
+                request.user.id,
+                tournament.id,
+            )
+        else:
+            messages.warning(request, "Nothing to progress")
+            logger.info(
+                "qual_progress fail user=%s tournament=%s",
+                request.user.id,
+                tournament.id,
+            )
+    elif action == "promote_qualifiers":
+        if promote_qualifiers(tournament, user=request.user):
+            messages.success(request, "Qualifiers promoted")
+            logger.info(
+                "promote_qualifiers success user=%s tournament=%s",
+                request.user.id,
+                tournament.id,
+            )
+        else:
+            messages.warning(request, "Promotion failed")
+            logger.info(
+                "promote_qualifiers fail user=%s tournament=%s",
+                request.user.id,
+                tournament.id,
+            )
 
     entries = tournament.entries.filter(status="active").select_related("player")
     if entries.filter(position__isnull=False).exists():
@@ -702,14 +767,26 @@ def tournament_draw(request, slug):
         )
     )
     matches_by_round = {}
-    for m in tournament.matches.select_related("player1", "player2", "winner").order_by(
-        "id"
+    for m in (
+        tournament.matches.filter(round__startswith="R")
+        .select_related("player1", "player2", "winner")
+        .order_by("id")
     ):
         matches_by_round.setdefault(m.round, []).append(m)
     matches_by_round = dict(
+        sorted(matches_by_round.items(), key=lambda x: int(x[0][1:]), reverse=True)
+    )
+    qual_matches_by_round = {}
+    for m in (
+        tournament.matches.filter(round__startswith="Q")
+        .select_related("player1", "player2", "winner")
+        .order_by("id")
+    ):
+        qual_matches_by_round.setdefault(m.round, []).append(m)
+    qual_matches_by_round = dict(
         sorted(
-            matches_by_round.items(),
-            key=lambda x: int(x[0][1:]) if x[0].startswith("R") else 0,
+            qual_matches_by_round.items(),
+            key=lambda x: int(x[0][1:]) if x[0][1:].isdigit() else 0,
             reverse=True,
         )
     )
@@ -721,6 +798,7 @@ def tournament_draw(request, slug):
             "slots": slots,
             "is_admin": _is_admin(request),
             "matches_by_round": matches_by_round,
+            "qual_matches_by_round": qual_matches_by_round,
             "first_round_winners": first_round_winners,
         },
     )
