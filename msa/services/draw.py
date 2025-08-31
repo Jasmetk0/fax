@@ -1,7 +1,12 @@
+import logging
 from math import ceil, log2
 from typing import Dict, List
 
 from django.conf import settings
+from ..models import Match
+
+
+logger = logging.getLogger(__name__)
 
 
 def _generate_draw_legacy(tournament, force: bool = False):
@@ -32,6 +37,12 @@ SEED_POSITIONS: Dict[int, Dict[int, int]] = {
 DEFAULT_SEEDS = {32: 8, 64: 16, 96: 32, 128: 32}
 
 
+def pair_first_round_slots(bracket_size: int) -> list[tuple[int, int]]:
+    """Return slot pairs for the first round."""
+
+    return [(i, i + 1) for i in range(1, bracket_size + 1, 2)]
+
+
 def _sort_entries(entries: List, method: str) -> List:
     if method in {"manual", "ranking_snapshot"}:
         # ranking_snapshot fallback behaves like manual for now
@@ -55,13 +66,14 @@ def _seed_map_for_draw(
 
     if draw_size == 96:
         mapping_128 = SEED_POSITIONS[128]
-        byes = {129 - mapping_128[s] for s in range(1, seeds_count + 1)}
         slots = list(range(1, 129))
         seed_map = {s: mapping_128[s] for s in range(1, seeds_count + 1)}
+        byes = {(p + 1) if p % 2 else (p - 1) for p in seed_map.values()}
         playable = [p for p in slots if p not in byes and p not in seed_map.values()]
         return seed_map, slots, playable
     slots = list(range(1, draw_size + 1))
-    seed_map = SEED_POSITIONS.get(draw_size, {})
+    mapping = SEED_POSITIONS.get(draw_size, {})
+    seed_map = {s: mapping[s] for s in range(1, seeds_count + 1) if s in mapping}
     playable = [p for p in slots if p not in seed_map.values()]
     return seed_map, slots, playable
 
@@ -70,16 +82,27 @@ def _generate_draw_v1(tournament, force: bool = False):
     qs = tournament.entries.filter(status="active").select_related("player")
     if not qs.exists():
         return None
-    if not force and qs.filter(position__isnull=False).exists():
-        return None
-    if force:
-        qs.update(position=None)
 
     draw_size = tournament.draw_size or 32
-    seeds_count = tournament.seeds_count or DEFAULT_SEEDS.get(draw_size, 0)
+    if draw_size not in {32, 64, 96, 128}:
+        logger.warning("Unsupported draw size %s", draw_size)
+        return None
+
+    seeds_default = DEFAULT_SEEDS.get(draw_size, 0)
+    seeds_count = min(tournament.seeds_count or seeds_default, seeds_default)
+
+    if force:
+        if has_completed_main_matches(tournament) and not tournament.flex_mode:
+            return None
+        tournament.matches.all().delete()
+        qs.update(position=None)
+    else:
+        if tournament.matches.exists():
+            return None
+
     entries = list(qs)
     entries = _sort_entries(entries, tournament.seeding_method)
-    seed_map, slots, playable = _seed_map_for_draw(draw_size, seeds_count)
+    seed_map, _, playable = _seed_map_for_draw(draw_size, seeds_count)
 
     used = set()
     for idx, entry in enumerate(entries[:seeds_count], start=1):
@@ -95,6 +118,21 @@ def _generate_draw_v1(tournament, force: bool = False):
         entry.position = pos
         entry.save(update_fields=["position"])
 
+    bracket = 1 << (draw_size - 1).bit_length()
+    by_pos = {e.position: e for e in entries if e.position}
+    for a, b in pair_first_round_slots(bracket):
+        ea = by_pos.get(a)
+        eb = by_pos.get(b)
+        if ea and eb:
+            Match.objects.create(
+                tournament=tournament,
+                player1=ea.player,
+                player2=eb.player,
+                round=f"R{draw_size}",
+                section="",
+                best_of=5,
+            )
+
     if tournament.state != tournament.State.DRAWN:
         tournament.state = tournament.State.DRAWN
         tournament.save(update_fields=["state"])
@@ -102,7 +140,7 @@ def _generate_draw_v1(tournament, force: bool = False):
 
 
 def has_completed_main_matches(tournament) -> bool:
-    return False
+    return tournament.matches.filter(winner__isnull=False).exists()
 
 
 def generate_draw(tournament, force: bool = False):
