@@ -10,12 +10,39 @@
     >
   </div>
   {% endif %}
+  {% for round, matches in matches_by_round.items %}
+  <h3>{{ round }}</h3>
   <ul class="list-disc list-inside">
     {% for match in matches %}
-      <li>{{ match.player1.name }} vs {{ match.player2.name }}{% if match.winner %} - Winner: {{ match.winner.name }}{% endif %}</li>
-    {% empty %}
-      <li>No results available.</li>
+    <li>
+      {{ match.player1.name }} vs {{ match.player2.name }}{% if match.winner %} - Winner: {{ match.winner.name }}{% endif %}
+      {% if is_admin %}
+      <form method="post" class="inline ml-2">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="match_result" />
+        <input type="hidden" name="match_id" value="{{ match.id }}" />
+        <label class="text-xs mr-1"
+          ><input type="radio" name="winner" value="p1" />
+          {{ match.player1.name }}</label
+        >
+        <label class="text-xs mr-1"
+          ><input type="radio" name="winner" value="p2" />
+          {{ match.player2.name }}</label
+        >
+        <input
+          type="text"
+          name="scoreline"
+          class="border px-1 py-0.5 w-24 text-xs"
+          placeholder="Score"
+        />
+        <button class="px-2 py-0.5 border rounded text-xs">Save</button>
+      </form>
+      {% endif %}
+    </li>
     {% endfor %}
   </ul>
+  {% empty %}
+  <p>No results available.</p>
+  {% endfor %}
 </div>
 {% endblock %}

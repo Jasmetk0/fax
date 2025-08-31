@@ -89,11 +89,33 @@
     {% for match in matches %}
     <li>
       {% if match.winner_id == match.player1_id %}
-      <strong>{{ match.player1.name }}</strong> vs {{ match.player2.name }}
+        <strong>{{ match.player1.name }}</strong> vs {{ match.player2.name }}
       {% elif match.winner_id == match.player2_id %}
-      {{ match.player1.name }} vs <strong>{{ match.player2.name }}</strong>
+        {{ match.player1.name }} vs <strong>{{ match.player2.name }}</strong>
       {% else %}
-      {{ match.player1.name }} vs {{ match.player2.name }}
+        {{ match.player1.name }} vs {{ match.player2.name }}
+      {% endif %}
+      {% if is_admin %}
+      <form method="post" class="inline ml-2">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="match_result" />
+        <input type="hidden" name="match_id" value="{{ match.id }}" />
+        <label class="text-xs mr-1"
+          ><input type="radio" name="winner" value="p1" />
+          {{ match.player1.name }}</label
+        >
+        <label class="text-xs mr-1"
+          ><input type="radio" name="winner" value="p2" />
+          {{ match.player2.name }}</label
+        >
+        <input
+          type="text"
+          name="scoreline"
+          class="border px-1 py-0.5 w-24 text-xs"
+          placeholder="Score"
+        />
+        <button class="px-2 py-0.5 border rounded text-xs">Save</button>
+      </form>
       {% endif %}
     </li>
     {% endfor %}
