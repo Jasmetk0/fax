@@ -1201,6 +1201,7 @@ def tournament_draw_json(request, slug):
     if rounds_filter is None:
         rounds_param = request.GET.get("rounds")
         if rounds_param:
+            rounds_filter = [r.strip() for r in rounds_param.split(",") if r.strip()]
     entries = {
         e.player_id: e
         for e in tournament.entries.filter(status="active").select_related("player")
