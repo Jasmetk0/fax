@@ -6,6 +6,7 @@ from django.urls import reverse
 
 from msa.models import Player, Tournament, TournamentEntry
 from msa.services.draw import generate_draw
+from msa.services.qual import generate_qualifying
 from msa.services.share import make_share_token
 
 
