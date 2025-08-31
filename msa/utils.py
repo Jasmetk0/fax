@@ -9,7 +9,7 @@ def normalize_tour(val: str | None) -> str | None:
     return TOUR_MAP.get(v)
 
 
-def filter_by_tour(qs, tour_field="category", tour=None):
+def filter_by_tour(qs, tour_field="category__name", tour=None):
     """Filter queryset by tour if provided."""  # MSA-REDESIGN
     t = normalize_tour(tour)
     if not t:

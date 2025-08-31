@@ -34,7 +34,6 @@ class Command(BaseCommand):
         t1 = Tournament.objects.create(
             name="Ongoing Open",
             slug="ongoing-open",
-            category="Diamond",
             start_date=today,
             end_date=today,
             city="CityA",
@@ -44,7 +43,6 @@ class Command(BaseCommand):
         t2 = Tournament.objects.create(
             name="Future Cup",
             slug="future-cup",
-            category="Emerald",
             start_date=today + timezone.timedelta(days=30),
             end_date=today + timezone.timedelta(days=37),
             city="CityB",
