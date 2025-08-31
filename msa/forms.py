@@ -62,10 +62,22 @@ class TournamentForm(forms.ModelForm):
             "venue",
             "prize_money",
             "status",
+            "draw_size",
+            "seeds_count",
+            "qualifiers_count",
+            "lucky_losers",
+            "seeding_method",
+            "seeding_rank_date",
+            "entry_deadline",
+            "allow_manual_bracket_edits",
+            "flex_mode",
+            "draw_policy",
         ]
         widgets = {
             "start_date": WoorldAdminDateWidget(),
             "end_date": WoorldAdminDateWidget(),
+            "seeding_rank_date": WoorldAdminDateWidget(),
+            "entry_deadline": WoorldAdminDateWidget(),
         }
 
 
