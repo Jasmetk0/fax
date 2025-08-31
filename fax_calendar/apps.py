@@ -17,9 +17,7 @@ class FaxCalendarConfig(AppConfig):
                 if (
                     name.endswith("_date")
                     or getattr(w, "input_type", "") == "date"
-                    or getattr(w.attrs, "get", lambda x, y=None: None)(
-                        "data-woorld-date"
-                    )
+                    or getattr(w.attrs, "get", lambda x, y=None: None)("data-fax-date")
                 ):
                     attrs = getattr(w, "attrs", {})
                     field.widget = WoorldAdminDateWidget(attrs=attrs)

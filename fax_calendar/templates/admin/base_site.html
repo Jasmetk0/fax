@@ -3,18 +3,11 @@
 
 {% block extrahead %}
     {{ block.super }}
-    <link rel="stylesheet" href="{% static 'fax_calendar/widget.css' %}">
-    <link rel="stylesheet" href="{% static 'fax_calendar/admin_calendar.css' %}">
+    <link rel="stylesheet" href="{% static 'fax_calendar/datepicker.css' %}">
     <script type="module" src="{% static 'fax_calendar/core.js' %}"></script>
     <script type="module" src="{% static 'fax_calendar/astro.js' %}"></script>
-    <script src="{% static 'fax_calendar/widget.js' %}" defer></script>
-    <script type="module" src="{% static 'fax_calendar/admin_calendar.js' %}"></script>
+    <script type="module" src="{% static 'fax_calendar/datepicker.js' %}"></script>
     <script>window.WOORLD_TODAY={{ WOORLD_TODAY|default:"null"|safe }};</script>
-    <script>
-      window.addEventListener('DOMContentLoaded', () => {
-        try { enhanceAllWoorldDateInputs(); } catch (e) { console.error(e); }
-      });
-    </script>
 {% endblock %}
 
 {% block userlinks %}
@@ -22,6 +15,6 @@
     <form id="woorld-date-form" action="{% url 'fax_calendar:set_woorld_date' %}" method="post">
         {% csrf_token %}
         <label for="woorld-date-input">Aktuální datum Woorldu:</label>
-        <input id="woorld-date-input" type="text" name="date" value="{{ WOORLD_CURRENT_DATE }}" placeholder="DD-MM-YYYY" class="woorld-date-input" data-year="{{ WOORLD_CALENDAR_META.year }}" data-month-lengths='{{ WOORLD_CALENDAR_MONTH_LENGTHS_JSON|safe }}' data-anchors='{{ WOORLD_CALENDAR_ANCHORS_JSON|safe }}'>
+        <input id="woorld-date-input" type="text" name="date" value="{{ WOORLD_CURRENT_DATE }}" placeholder="DD-MM-YYYY" class="woorld-date-input">
     </form>
 {% endblock %}

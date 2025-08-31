@@ -14,10 +14,12 @@
   <script>
   (function(){
     function init(root){
-      if (window.enhanceAllWoorldDateInputs) {
-        window.enhanceAllWoorldDateInputs(root || document);
+      if (window.FaxDatepicker) {
+        window.FaxDatepicker.attach(
+          root.querySelectorAll('input.woorld-date-input,[data-fax-date]')
+        );
       } else {
-        console.warn("enhanceAllWoorldDateInputs() missing");
+        console.warn("FaxDatepicker missing");
       }
     }
     document.addEventListener("DOMContentLoaded", function(){ init(document); });

@@ -39,8 +39,7 @@
   </script>
 
   <!-- Project CSS -->
-  <link rel="stylesheet" href="{% static 'fax_calendar/woorld.css' %}" />
-  <link rel="stylesheet" href="{% static 'fax_calendar/admin_calendar.css' %}" />
+  <link rel="stylesheet" href="{% static 'fax_calendar/datepicker.css' %}" />
   <link rel="stylesheet" href="{% static 'wiki/css/infobox.css' %}" />
   <link rel="stylesheet" href="{% static 'wiki/css/infobox.country.css' %}" />
   <link rel="stylesheet" href="{% static 'wiki/css/infobox.city.css' %}" />
@@ -192,14 +191,9 @@
 
   <!-- ===== Scripts ===== -->
   <script src="{% static 'admin/js/core.js' %}"></script>
+  <script type="module" src="{% static 'fax_calendar/core.js' %}"></script>
   <script type="module" src="{% static 'fax_calendar/astro.js' %}"></script>
-  <script type="module" src="{% static 'fax_calendar/admin_calendar.js' %}"></script>
-  <script>
-    document.addEventListener('DOMContentLoaded', () =>
-      window.enhanceAllWoorldDateInputs?.(document)
-    );
-  </script>
-  <script src="{% static 'fax_calendar/woorld.js' %}"></script>
+  <script type="module" src="{% static 'fax_calendar/datepicker.js' %}"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="{% static 'wiki/dataseries.js' %}"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -296,7 +290,7 @@
             dateInput.dispatchEvent(new Event('change', { bubbles: true }));
             dateInput.addEventListener('change', () => setStoredDate(dateInput.value));
           }
-          widget.querySelectorAll('[data-woorld-date]').forEach(el => {
+          widget.querySelectorAll('input.woorld-date-input,[data-fax-date]').forEach(el => {
             el.value = iso;
             el.addEventListener('change', () => setStoredDate(el.value));
           });
