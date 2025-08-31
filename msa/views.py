@@ -1,3 +1,4 @@
+from django.db import transaction
 from django.db.models import Q
 import unicodedata
 
@@ -21,7 +22,7 @@ from .models import (
     Season,
     Tournament,
 )
-from .services.draw import generate_draw, has_completed_main_matches
+from .services.draw import generate_draw, has_completed_main_matches, replace_slot
 from .services.seeding_service import preview_seeding, apply_seeding
 import json
 from .utils import filter_by_tour  # MSA-REDESIGN
@@ -139,6 +140,120 @@ def tournament_players(request, slug):
 
 def tournament_draw(request, slug):
     tournament = get_object_or_404(Tournament, slug=slug)
+    if request.method == "POST":
+        action = request.POST.get("action")
+        if action == "swap":
+            if not (_is_admin(request) and tournament.allow_manual_bracket_edits):
+                return HttpResponseForbidden()
+            try:
+                slot_a = int(request.POST.get("slot_a"))
+                slot_b = int(request.POST.get("slot_b"))
+            except (TypeError, ValueError):  # pragma: no cover - guard
+                messages.error(request, "Invalid slots")
+                return redirect(request.path)
+            with transaction.atomic():
+                entries_qs = tournament.entries.select_for_update().select_related(
+                    "player"
+                )
+                entry_a = entries_qs.filter(position=slot_a).first()
+                entry_b = entries_qs.filter(position=slot_b).first()
+                if not entry_a or not entry_b:
+                    messages.warning(request, "Both slots must exist")
+                    return redirect(request.path)
+                mate_a = slot_a + 1 if slot_a % 2 else slot_a - 1
+                mate_b = slot_b + 1 if slot_b % 2 else slot_b - 1
+                needed = {slot_a, slot_b, mate_a, mate_b}
+                by_pos = {e.position: e for e in entries_qs.filter(position__in=needed)}
+                pairs = {
+                    tuple(sorted([slot_a, mate_a])),
+                    tuple(sorted([slot_b, mate_b])),
+                }
+                matches = {}
+                for low, high in pairs:
+                    ea = by_pos.get(low)
+                    eb = by_pos.get(high)
+                    if ea and eb:
+                        m = (
+                            tournament.matches.select_for_update()
+                            .filter(
+                                player1__in=[ea.player, eb.player],
+                                player2__in=[ea.player, eb.player],
+                            )
+                            .first()
+                        )
+                        if m:
+                            matches[(low, high)] = m
+                if (
+                    any(m.winner_id for m in matches.values())
+                    and not tournament.flex_mode
+                ):
+                    messages.warning(request, "Cannot swap over completed match")
+                    return redirect(request.path)
+                entry_a.position, entry_b.position = entry_b.position, entry_a.position
+                entry_a.save(update_fields=["position"])
+                entry_b.save(update_fields=["position"])
+                by_pos[entry_a.position] = entry_a
+                by_pos[entry_b.position] = entry_b
+                for (low, high), m in matches.items():
+                    if m.winner_id:
+                        messages.warning(
+                            request, "Match already completed; players not updated"
+                        )
+                        continue
+                    ea = by_pos.get(low)
+                    eb = by_pos.get(high)
+                    if ea and eb:
+                        m.player1 = ea.player
+                        m.player2 = eb.player
+                        m.save(update_fields=["player1", "player2"])
+                messages.success(request, "Slots swapped")
+            return redirect(request.path)
+        elif action == "replace":
+            if not (_is_admin(request) and tournament.allow_manual_bracket_edits):
+                return HttpResponseForbidden()
+            try:
+                slot = int(request.POST.get("slot"))
+                entry_id = int(request.POST.get("entry_id"))
+            except (TypeError, ValueError):  # pragma: no cover - guard
+                messages.error(request, "Invalid parameters")
+                return redirect(request.path)
+            mate = slot + 1 if slot % 2 else slot - 1
+            current = (
+                tournament.entries.filter(position=slot, status="active")
+                .select_related("player")
+                .first()
+            )
+            partner = (
+                tournament.entries.filter(position=mate, status="active")
+                .select_related("player")
+                .first()
+            )
+            match = None
+            if current and partner:
+                match = tournament.matches.filter(
+                    player1__in=[current.player, partner.player],
+                    player2__in=[current.player, partner.player],
+                ).first()
+                if match and match.winner_id and not tournament.flex_mode:
+                    messages.warning(request, "Cannot replace over completed match")
+                    return redirect(request.path)
+            ok = replace_slot(
+                tournament,
+                slot,
+                entry_id,
+                allow_over_completed=tournament.flex_mode,
+            )
+            if ok:
+                if match and match.winner_id:
+                    messages.warning(
+                        request, "Match already completed; players not updated"
+                    )
+                else:
+                    messages.success(request, "Slot replaced")
+            else:
+                messages.error(request, "Replacement failed")
+            return redirect(request.path)
+
     action = request.GET.get("action")
     if action == "generate":
         generate_draw(tournament, force=False)

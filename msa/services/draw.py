@@ -3,7 +3,8 @@ from math import ceil, log2
 from typing import Dict, List
 
 from django.conf import settings
-from ..models import Match
+from django.db import transaction
+from ..models import Match, TournamentEntry
 
 
 logger = logging.getLogger(__name__)
@@ -137,6 +138,79 @@ def _generate_draw_v1(tournament, force: bool = False):
         tournament.state = tournament.State.DRAWN
         tournament.save(update_fields=["state"])
     return None
+
+
+def replace_slot(
+    tournament,
+    slot: int,
+    replacement_entry_id: int,
+    *,
+    allow_over_completed: bool = False,
+) -> bool:
+    """
+    Vrátí True při úspěchu. Najde current entry v `position=slot` (ACTIVE),
+    označí ho `replaced`, replacement (ALT/LL) nastaví `ACTIVE` + `position=slot`.
+    Pokud existuje ne-completed zápas 1. kola pro tento slot, přepiš p1/p2.
+    Pokud je zápas completed a `allow_over_completed` False → return False.
+    """
+
+    with transaction.atomic():
+        entries = tournament.entries.select_for_update()
+        current = (
+            entries.filter(position=slot, status="active")
+            .select_related("player")
+            .first()
+        )
+        if not current:
+            return False
+        try:
+            replacement = entries.get(pk=replacement_entry_id)
+        except TournamentEntry.DoesNotExist:
+            return False
+        if replacement.status not in {
+            "active",
+            "withdrawn",
+        } or replacement.entry_type not in {
+            "ALT",
+            "LL",
+        }:
+            return False
+        mate_slot = slot + 1 if slot % 2 else slot - 1
+        mate = (
+            entries.filter(position=mate_slot, status="active")
+            .select_related("player")
+            .first()
+        )
+        match = None
+        if mate:
+            match = (
+                tournament.matches.select_for_update()
+                .filter(
+                    player1__in=[current.player, mate.player],
+                    player2__in=[current.player, mate.player],
+                )
+                .first()
+            )
+            if match and match.winner_id and not allow_over_completed:
+                return False
+        current.status = TournamentEntry.Status.REPLACED
+        current.position = None
+        current.save(update_fields=["status", "position"])
+        replacement.status = TournamentEntry.Status.ACTIVE
+        replacement.position = slot
+        replacement.save(update_fields=["status", "position"])
+        if match and not match.winner_id:
+            entries_by_pos = {slot: replacement}
+            if mate:
+                entries_by_pos[mate_slot] = mate
+            low, high = sorted([slot, mate_slot])
+            e_low = entries_by_pos.get(low)
+            e_high = entries_by_pos.get(high)
+            if e_low and e_high:
+                match.player1 = e_low.player
+                match.player2 = e_high.player
+                match.save(update_fields=["player1", "player2"])
+        return True
 
 
 def has_completed_main_matches(tournament) -> bool:

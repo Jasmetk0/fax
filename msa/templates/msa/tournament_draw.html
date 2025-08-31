@@ -14,6 +14,20 @@
       >Regenerate (danger)</a
     >
   </div>
+  <form method="post" class="flex gap-2 items-center mb-4">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="swap"/>
+    <input name="slot_a" type="number" min="1" class="border px-2 py-1 w-24" placeholder="Slot A"/>
+    <input name="slot_b" type="number" min="1" class="border px-2 py-1 w-24" placeholder="Slot B"/>
+    <button class="px-3 py-1 border rounded text-sm">Swap slots</button>
+  </form>
+  <form method="post" class="flex gap-2 items-center mb-4">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="replace"/>
+    <input name="slot" type="number" min="1" class="border px-2 py-1 w-20" placeholder="Slot"/>
+    <input name="entry_id" type="number" class="border px-2 py-1 w-28" placeholder="Entry ID (ALT/LL)"/>
+    <button class="px-3 py-1 border rounded text-sm">Replace</button>
+  </form>
   {% endif %}
   {% if messages %}
   <ul class="mb-3">
