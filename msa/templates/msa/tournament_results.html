@@ -9,6 +9,11 @@
       >Generate next round</a
     >
   </div>
+  <form method="post" class="mb-4">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="rebuild_live_points" />
+    <button class="px-3 py-1 border rounded text-sm">Rebuild live points</button>
+  </form>
   {% endif %}
   {% for round, matches in matches_by_round.items %}
   <h3>{{ round }}</h3>

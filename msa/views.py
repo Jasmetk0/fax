@@ -7,6 +7,7 @@ from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.dateparse import parse_date
 from django.contrib import messages
 
 from .models import (
@@ -36,6 +37,8 @@ from .services.qual import (
     promote_qualifiers,
 )
 from .services.state import update_tournament_state
+from .services.points import rebuild_season_live_points
+from .services.snapshot import create_ranking_snapshot
 from .services.alt_ll import (
     auto_fill_with_alternates,
     promote_lucky_losers_to_slot,
@@ -132,6 +135,10 @@ def _handle_match_result(request, tournament):
         match.save(update_fields=fields)
         progress_bracket(tournament)
         update_tournament_state(tournament, request.user)
+        if tournament.season:
+            rebuild_season_live_points(
+                tournament.season, persist=True, user=request.user
+            )
     messages.success(request, "Result saved")
     logger.info(
         "match_result success user=%s tournament=%s match=%s winner=%s score=%s",
@@ -480,6 +487,20 @@ def tournament_draw(request, slug):
             if not _is_admin(request):
                 return HttpResponseForbidden()
             return _handle_match_result(request, tournament)
+        elif action == "rebuild_live_points":
+            if not _is_admin(request):
+                return HttpResponseForbidden()
+            if tournament.season:
+                rebuild_season_live_points(
+                    tournament.season, persist=True, user=request.user
+                )
+            messages.success(request, "Live points rebuilt")
+            logger.info(
+                "rebuild_live_points success user=%s tournament=%s",
+                request.user.id,
+                tournament.id,
+            )
+            return redirect(request.path)
         if action == "swap":
             if not (_is_admin(request) and tournament.allow_manual_bracket_edits):
                 return HttpResponseForbidden()
@@ -900,7 +921,21 @@ def tournament_results(request, slug):
             if not _is_admin(request):
                 return HttpResponseForbidden()
             return _handle_match_result(request, tournament)
-    action = request.GET.get("action")
+        elif action == "rebuild_live_points":
+            if not _is_admin(request):
+                return HttpResponseForbidden()
+            if tournament.season:
+                rebuild_season_live_points(
+                    tournament.season, persist=True, user=request.user
+                )
+            messages.success(request, "Live points rebuilt")
+            logger.info(
+                "rebuild_live_points success user=%s tournament=%s",
+                request.user.id,
+                tournament.id,
+            )
+            return redirect(request.path)
+        action = request.GET.get("action")
     if action == "progress":
         if progress_bracket(tournament):
             messages.success(request, "Next round generated")
@@ -948,6 +983,23 @@ def live(request):
 
 
 def rankings(request):
+    if request.method == "POST":
+        if not _is_admin(request):
+            return HttpResponseForbidden()
+        action = request.POST.get("action")
+        if action == "create_snapshot":
+            as_of = parse_date(request.POST.get("as_of"))
+            if as_of:
+                create_ranking_snapshot(as_of, user=request.user)
+                messages.success(request, "Snapshot created")
+                logger.info(
+                    "snapshot.create user=%s as_of=%s",
+                    request.user.id,
+                    as_of,
+                )
+            else:
+                messages.error(request, "Invalid date")
+            return redirect(request.path)
     tour = request.GET.get("tour")  # MSA-REDESIGN
     as_of = request.GET.get("as_of")
     snapshot = (
