@@ -36,6 +36,11 @@ from .services.qual import (
     promote_qualifiers,
 )
 from .services.state import update_tournament_state
+from .services.alt_ll import (
+    auto_fill_with_alternates,
+    promote_lucky_losers_to_slot,
+    withdraw_slot_and_fill_ll,
+)
 from .services.seeding_service import preview_seeding, apply_seeding
 from .forms import (
     EntryAddForm,
@@ -636,6 +641,89 @@ def tournament_draw(request, slug):
                     tournament.id,
                     slot,
                     entry_id,
+                )
+            return redirect(request.path)
+        elif action == "alt_autofill":
+            if not _is_admin(request):
+                return HttpResponseForbidden()
+            res = auto_fill_with_alternates(tournament, user=request.user)
+            filled = res.get("filled", 0)
+            if filled:
+                messages.success(request, f"Filled {filled} slots")
+                logger.info(
+                    "alt_autofill success user=%s tournament=%s filled=%s",
+                    request.user.id,
+                    tournament.id,
+                    filled,
+                )
+            else:
+                messages.warning(request, "No alternates placed")
+                logger.info(
+                    "alt_autofill fail user=%s tournament=%s",
+                    request.user.id,
+                    tournament.id,
+                )
+            return redirect(request.path)
+        elif action == "withdraw_slot_ll":
+            if not _is_admin(request):
+                return HttpResponseForbidden()
+            try:
+                slot = int(request.POST.get("slot"))
+            except (TypeError, ValueError):  # pragma: no cover - guard
+                messages.error(request, "Invalid slot")
+                logger.info(
+                    "withdraw_slot_ll fail user=%s tournament=%s",
+                    request.user.id,
+                    tournament.id,
+                )
+                return redirect(request.path)
+            ok = withdraw_slot_and_fill_ll(tournament, slot, user=request.user)
+            if ok:
+                messages.success(request, "Slot withdrawn and filled")
+                logger.info(
+                    "withdraw_slot_ll success user=%s tournament=%s slot=%s",
+                    request.user.id,
+                    tournament.id,
+                    slot,
+                )
+            else:
+                messages.warning(request, "Withdraw/promotion failed")
+                logger.info(
+                    "withdraw_slot_ll fail user=%s tournament=%s slot=%s",
+                    request.user.id,
+                    tournament.id,
+                    slot,
+                )
+            return redirect(request.path)
+        elif action == "promote_ll_to_slot":
+            if not _is_admin(request):
+                return HttpResponseForbidden()
+            try:
+                slot = int(request.POST.get("slot"))
+            except (TypeError, ValueError):  # pragma: no cover - guard
+                messages.error(request, "Invalid slot")
+                logger.info(
+                    "promote_ll_to_slot fail user=%s tournament=%s",
+                    request.user.id,
+                    tournament.id,
+                )
+                return redirect(request.path)
+            ok = promote_lucky_losers_to_slot(tournament, slot, user=request.user)
+            if ok:
+                messages.success(request, "Lucky loser promoted")
+                logger.info(
+                    "promote_ll_to_slot success user=%s tournament=%s slot=%s",
+                    request.user.id,
+                    tournament.id,
+                    slot,
+                )
+            else:
+                messages.warning(request, "Promotion failed")
+                logger.info(
+                    "promote_ll_to_slot fail user=%s tournament=%s slot=%s",
+                    request.user.id,
+                    tournament.id,
+                    slot,
                 )
             return redirect(request.path)
 
