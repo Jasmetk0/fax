@@ -1129,6 +1129,8 @@ def tournament_qualifying(request, slug):
             return redirect(request.path)
     entries = {
         e.player_id: e
+        for e in tournament.entries.filter(status="active").select_related(
+            "player", "origin_match"
         )
     }
     matches = list(
@@ -1201,6 +1203,7 @@ def tournament_draw_json(request, slug):
         if rounds_param:
     entries = {
         e.player_id: e
+        for e in tournament.entries.filter(status="active").select_related("player")
     }
     seeds = _get_seeds_map(tournament, entries.values())
     order = ["R128", "R96", "R64", "R32", "R16", "QF", "SF", "F"]
