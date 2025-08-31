@@ -954,20 +954,16 @@ def tournament_results(request, slug):
             if form.is_valid():
                 try:
                     rows = parse_bulk_schedule_slots(form.cleaned_data["rows"])
-                except ValueError as e:
-                    messages.error(request, str(e))
-                else:
                     result = apply_bulk_schedule_slots(
                         tournament, rows, user=request.user
                     )
+                except ValueError as e:
+                    messages.error(request, str(e))
+                else:
                     if result["updated"]:
                         messages.success(
                             request, f"Scheduled {result['updated']} matches"
                         )
-                    if result["not_found"]:
-                        messages.warning(request, f"Not found: {result['not_found']}")
-                    if result["foreign"]:
-                        messages.warning(request, f"Foreign: {result['foreign']}")
                     logger.info(
                         "schedule_bulk_slots user=%s tournament=%s updated=%s",
                         request.user.id,
