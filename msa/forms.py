@@ -62,10 +62,22 @@ class TournamentForm(forms.ModelForm):
             "venue",
             "prize_money",
             "status",
+            "draw_size",
+            "seeds_count",
+            "qualifiers_count",
+            "lucky_losers",
+            "seeding_method",
+            "seeding_rank_date",
+            "entry_deadline",
+            "allow_manual_bracket_edits",
+            "flex_mode",
+            "draw_policy",
         ]
         widgets = {
             "start_date": WoorldAdminDateWidget(),
             "end_date": WoorldAdminDateWidget(),
+            "seeding_rank_date": WoorldAdminDateWidget(),
+            "entry_deadline": WoorldAdminDateWidget(),
         }
 
 
@@ -183,6 +195,26 @@ class EntryBulkForm(forms.Form):
         widget=forms.Textarea,
         help_text="CSV format: player_id[,entry_type]",
     )
+
+
+class ScheduleBulkSlotsForm(forms.Form):
+    rows = forms.CharField(
+        widget=forms.Textarea,
+        help_text="CSV: match_id,YYYY-MM-DD,SESSION,slot[,court]",
+    )
+
+
+class ScheduleSwapForm(forms.Form):
+    match_a = forms.IntegerField()
+    match_b = forms.IntegerField()
+
+
+class ScheduleMoveForm(forms.Form):
+    match_id = forms.IntegerField()
+    date = forms.DateField(input_formats=["%Y-%m-%d"])
+    session = forms.CharField()
+    slot = forms.IntegerField(min_value=1)
+    court = forms.CharField(required=False)
 
 
 class EntryUpdateTypeForm(forms.Form):

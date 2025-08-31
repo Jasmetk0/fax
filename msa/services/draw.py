@@ -103,7 +103,17 @@ def _seed_map_for_draw(
 
 
 def _generate_draw_v1(tournament, force: bool = False, user=None):
-    qs = tournament.entries.filter(status="active").select_related("player")
+    qs = (
+        tournament.entries.filter(status="active")
+        .exclude(
+            entry_type__in=[
+                TournamentEntry.EntryType.Q,
+                TournamentEntry.EntryType.LL,
+                TournamentEntry.EntryType.ALT,
+            ]
+        )
+        .select_related("player")
+    )
     if not qs.exists():
         return None
 
