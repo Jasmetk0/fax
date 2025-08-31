@@ -158,7 +158,7 @@ def tournament_draw(request, slug):
                 entry_a = entries_qs.filter(position=slot_a).first()
                 entry_b = entries_qs.filter(position=slot_b).first()
                 if not entry_a or not entry_b:
-                    messages.warning(request, "Both slots must exist")
+                    messages.warning(request, "Cannot swap with empty/BYE slot")
                     return redirect(request.path)
                 mate_a = slot_a + 1 if slot_a % 2 else slot_a - 1
                 mate_b = slot_b + 1 if slot_b % 2 else slot_b - 1
@@ -178,6 +178,7 @@ def tournament_draw(request, slug):
                             .filter(
                                 player1__in=[ea.player, eb.player],
                                 player2__in=[ea.player, eb.player],
+                                round=f"R{tournament.draw_size}",
                             )
                             .first()
                         )
@@ -233,6 +234,7 @@ def tournament_draw(request, slug):
                 match = tournament.matches.filter(
                     player1__in=[current.player, partner.player],
                     player2__in=[current.player, partner.player],
+                    round=f"R{tournament.draw_size}",
                 ).first()
                 if match and match.winner_id and not tournament.flex_mode:
                     messages.warning(request, "Cannot replace over completed match")
@@ -256,9 +258,14 @@ def tournament_draw(request, slug):
 
     action = request.GET.get("action")
     if action == "generate":
-        generate_draw(tournament, force=False)
+        if tournament.draw_size not in {32, 64, 96, 128}:
+            messages.warning(request, "Unsupported draw size")
+        else:
+            generate_draw(tournament, force=False)
     elif action == "regenerate":
-        if tournament.flex_mode or not has_completed_main_matches(tournament):
+        if tournament.draw_size not in {32, 64, 96, 128}:
+            messages.warning(request, "Unsupported draw size")
+        elif tournament.flex_mode or not has_completed_main_matches(tournament):
             generate_draw(tournament, force=True)
         else:
             messages.warning(request, "Draw regeneration not allowed.")
