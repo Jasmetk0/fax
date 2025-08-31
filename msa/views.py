@@ -84,16 +84,15 @@ def tournaments(request):
     season_id = request.GET.get("season")
     seasons = Season.objects.all()
     selected_season = None
-    events = EventEdition.objects.none()
+    tournaments = Tournament.objects.none()
     if season_id:
         selected_season = get_object_or_404(Season, pk=season_id)
     elif seasons:
         selected_season = seasons.first()
     if selected_season:
-        events = (
-            EventEdition.objects.filter(season=selected_season)
-            .select_related("brand", "category_season__category")
-            .prefetch_related("phases__rounds")
+        tournaments = Tournament.objects.filter(season=selected_season).select_related(
+            "category",
+            "season_category__category",
         )
     return render(
         request,
@@ -101,14 +100,18 @@ def tournaments(request):
         {
             "seasons": seasons,
             "selected_season": selected_season,
-            "events": events,
+            "tournaments": tournaments,
         },
     )
 
 
-def tournament_detail(request, pk):
-    event = get_object_or_404(EventEdition, pk=pk)
-    return render(request, "msa/tournament_detail.html", {"event": event})
+def tournament_detail(request, slug):
+    tournament = get_object_or_404(Tournament, slug=slug)
+    return render(
+        request,
+        "msa/tournament_detail.html",
+        {"tournament": tournament},
+    )
 
 
 def live(request):
