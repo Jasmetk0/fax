@@ -136,8 +136,80 @@ class Tournament(AuditModel):
         max_length=20, choices=STATUS_CHOICES, null=True, blank=True
     )
 
+    class State(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        ENTRY_OPEN = "entry_open", "Entry Open"
+        ENTRY_LOCKED = "entry_locked", "Entry Locked"
+        DRAWN = "drawn", "Drawn"
+        LIVE = "live", "Live"
+        COMPLETE = "complete", "Complete"
+
+    state = models.CharField(max_length=20, choices=State.choices, default=State.DRAFT)
+    draw_policy = models.CharField(max_length=20, default="single_elim")
+    draw_size = models.IntegerField(default=0)
+    seeds_count = models.IntegerField(default=0)
+    qualifiers_count = models.IntegerField(default=0)
+    lucky_losers = models.IntegerField(default=0)
+    seeding_method = models.CharField(
+        max_length=20,
+        choices=[
+            ("ranking_snapshot", "Ranking snapshot"),
+            ("manual", "Manual"),
+            ("random", "Random"),
+            ("local_rating", "Local rating"),
+        ],
+        default="manual",
+    )
+    seeding_rank_date = WoorldDateField(null=True, blank=True)
+    allow_manual_bracket_edits = models.BooleanField(default=True)
+    flex_mode = models.BooleanField(default=False)
+    entry_deadline = WoorldDateField(null=True, blank=True)
+
     def __str__(self) -> str:  # pragma: no cover - trivial
         return self.name
+
+
+class TournamentEntry(AuditModel):
+    class EntryType(models.TextChoices):
+        DA = "DA", "Direct Acceptance"
+        Q = "Q", "Qualifier"
+        WC = "WC", "Wildcard"
+        LL = "LL", "Lucky Loser"
+        ALT = "ALT", "Alternate"
+
+    class Status(models.TextChoices):
+        ACTIVE = "active", "Active"
+        WITHDRAWN = "withdrawn", "Withdrawn"
+        REPLACED = "replaced", "Replaced"
+
+    tournament = models.ForeignKey(
+        Tournament, on_delete=models.CASCADE, related_name="entries"
+    )
+    player = models.ForeignKey(Player, on_delete=models.CASCADE)
+    seed = models.IntegerField(null=True, blank=True)
+    entry_type = models.CharField(
+        max_length=3, choices=EntryType.choices, default=EntryType.DA
+    )
+    status = models.CharField(
+        max_length=10, choices=Status.choices, default=Status.ACTIVE
+    )
+    position = models.IntegerField(null=True, blank=True)
+    seed_locked = models.BooleanField(default=False)
+    origin_note = models.CharField(max_length=20, blank=True)
+    origin_match = models.ForeignKey(
+        "Match",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="origin_entries",
+    )
+
+    class Meta:
+        unique_together = ("tournament", "player")
+        ordering = ["seed", "player__name"]
+
+    def __str__(self) -> str:  # pragma: no cover - trivial
+        return f"{self.player} in {self.tournament}"
 
 
 class Match(AuditModel):
