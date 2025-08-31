@@ -1,0 +1,4 @@
+{% extends 'msa/tournament_base.html' %}
+{% block tournament_content %}
+<p class="mt-4">{% if tournament.prize_money %}Prize Money: {{ tournament.prize_money }}{% else %}Prize money information not available.{% endif %}</p>
+{% endblock %}

@@ -7,7 +7,24 @@ app_name = "msa"
 urlpatterns = [
     path("", views.home, name="home"),
     path("tournaments/", views.tournaments, name="tournament-list"),
-    path("tournaments/<slug:slug>/", views.tournament_detail, name="tournament-detail"),
+    path(
+        "tournaments/<slug:slug>/", views.tournament_overview, name="tournament-detail"
+    ),
+    path(
+        "tournaments/<slug:slug>/players/",
+        views.tournament_players,
+        name="tournament-players",
+    ),
+    path(
+        "tournaments/<slug:slug>/draw/",
+        views.tournament_draw,
+        name="tournament-draw",
+    ),
+    path(
+        "tournaments/<slug:slug>/results/",
+        views.tournament_results,
+        name="tournament-results",
+    ),
     path("live/", views.live, name="live"),  # MSA-REDESIGN: redirect to scores
     path("scores/", views.scores, name="scores"),  # MSA-REDESIGN
     path("search/", views.msa_search, name="search"),  # MSA-REDESIGN
