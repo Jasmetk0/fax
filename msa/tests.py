@@ -7,9 +7,9 @@ from .models import (
     CategorySeason,
     EventBrand,
     EventEdition,
-    DrawTemplate,
     EventPhase,
     PhaseRound,
+    Tournament,
 )
 from .templatetags.msa_extras import get_draw_label
 from .forms import (
@@ -55,46 +55,28 @@ class AdminModeTests(TestCase):
             {"season": season.pk, "category": category.pk, "label": "WT"},
         )
         sc = CategorySeason.objects.get()
-        # Prepare brand and template
-        brand = EventBrand.objects.create(name="Brand")
-        tmpl = DrawTemplate.objects.create(
-            code="se64",
-            name="SE64",
-            dsl_json={
-                "phases": [
-                    {
-                        "type": "single_elim",
-                        "config": {"draw": "single_elim", "size": 64},
-                    }
-                ]
-            },
-        )
         data = {
             "name": "Open",
-            "brand": brand.pk,
+            "slug": "open",
             "season": season.pk,
-            "category_season": sc.pk,
+            "category": category.pk,
+            "season_category": sc.pk,
             "start_date": "01-01-2024",
             "end_date": "05-01-2024",
-            "venue": "V",
             "city": "C",
-            "best_of": 5,
-            "sanction_status": "ok",
-            "points_eligible": True,
-            "draw_template": tmpl.pk,
         }
-        self.client.post(reverse("msa:event-create"), data)
-        event = EventEdition.objects.get()
+        self.client.post(reverse("msa:tournament-create"), data)
+        tournament = Tournament.objects.get()
         resp = self.client.get(reverse("msa:tournament-list"), {"season": season.pk})
         self.assertContains(resp, "Open")
         # Edit
         data["name"] = "Open2"
-        self.client.post(reverse("msa:event-edit", args=[event.pk]), data)
-        event.refresh_from_db()
-        self.assertEqual(event.name, "Open2")
+        self.client.post(reverse("msa:tournament-edit", args=[tournament.slug]), data)
+        tournament.refresh_from_db()
+        self.assertEqual(tournament.name, "Open2")
         # Delete
-        self.client.post(reverse("msa:event-delete", args=[event.pk]))
-        self.assertEqual(EventEdition.objects.count(), 0)
+        self.client.post(reverse("msa:tournament-delete", args=[tournament.slug]))
+        self.assertEqual(Tournament.objects.count(), 0)
 
     def test_get_draw_label(self):
         season = Season.objects.create(name="2024")

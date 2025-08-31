@@ -1,5 +1,4 @@
 {% extends 'msa/base.html' %}
-{% load msa_extras %}
 {% block msa_content %}
 <div class="flex justify-between items-center mb-4">
   <h1 class="text-3xl font-semibold">Tournaments</h1>
@@ -24,7 +23,7 @@
 <div class="mb-4 space-x-2">
   <a href="{% url 'msa:category-create' %}{% if selected_season %}?season={{ selected_season.id }}{% endif %}" onclick="openPopup(this.href);return false;" class="bg-blue-600 hover:bg-blue-500 text-white rounded-xl px-4 py-2">Add Category</a>
   <a href="{% url 'msa:seasoncategory-create' %}{% if selected_season %}?season={{ selected_season.id }}{% endif %}" onclick="openPopup(this.href);return false;" class="bg-blue-600 hover:bg-blue-500 text-white rounded-xl px-4 py-2">Add SeasonCategory</a>
-  <a href="{% url 'msa:event-create' %}{% if selected_season %}?season={{ selected_season.id }}{% endif %}" onclick="openPopup(this.href);return false;" class="bg-blue-600 hover:bg-blue-500 text-white rounded-xl px-4 py-2">Add Tournament</a>
+  <a href="{% url 'msa:tournament-create' %}{% if selected_season %}?season={{ selected_season.id }}{% endif %}" onclick="openPopup(this.href);return false;" class="bg-blue-600 hover:bg-blue-500 text-white rounded-xl px-4 py-2">Add Tournament</a>
 </div>
 {% endif %}
 <table class="w-full border-collapse">
@@ -34,27 +33,27 @@
       <th class="text-left">Datum</th>
       <th class="text-left">Tournament Name</th>
       <th class="text-left">Lokace</th>
-      <th class="text-left">Draw</th>
       {% if msa_admin_mode and user.is_staff %}<th></th>{% endif %}
     </tr>
   </thead>
   <tbody>
-    {% for ev in events %}
+    {% for t in tournaments %}
     <tr class="border-t border-slate-800">
-      <td>{{ ev.category_season.label|default:ev.category_season.category.name }}</td>
-      <td>{{ ev.start_date }} – {{ ev.end_date }}</td>
-      <td><a href="{% url 'msa:tournament-detail' ev.pk %}" class="text-blue-400 hover:text-blue-300">{{ ev.name }}</a></td>
-      <td>{{ ev.venue|default:ev.city }}</td>
-      <td>{% get_draw_label ev %}</td>
+      <td>{{ t.season_category.label|default:t.category.name }}</td>
+      <td>{{ t.start_date }} – {{ t.end_date }}</td>
+      <td><a href="{% url 'msa:tournament-detail' t.slug %}" class="text-blue-400 hover:text-blue-300">{{ t.name }}</a></td>
+      <td>{{ t.venue|default:t.city }}</td>
       {% if msa_admin_mode and user.is_staff %}
       <td>
-        <a href="{% url 'msa:event-edit' ev.pk %}" onclick="openPopup(this.href);return false;">✎</a>
-        <a href="{% url 'msa:event-delete' ev.pk %}" onclick="openPopup(this.href);return false;" class="text-red-500">🗑</a>
+        <a href="{% url 'msa:tournament-edit' t.slug %}" onclick="openPopup(this.href);return false;">✎</a>
+        <a href="{% url 'msa:tournament-delete' t.slug %}" onclick="openPopup(this.href);return false;" class="text-red-500">🗑</a>
       </td>
       {% endif %}
     </tr>
     {% empty %}
-    <tr><td colspan="6" class="text-center">No tournaments.</td></tr>
+    <tr>
+      <td colspan="{% if msa_admin_mode and user.is_staff %}5{% else %}4{% endif %}" class="text-center">No tournaments.</td>
+    </tr>
     {% endfor %}
   </tbody>
 </table>

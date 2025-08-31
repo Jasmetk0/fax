@@ -52,11 +52,13 @@ def _admin_required(view_func):
 def home(request):
     tour = request.GET.get("tour")  # MSA-REDESIGN
     upcoming_tournaments = filter_by_tour(
-        Tournament.objects.filter(status="upcoming"), tour=tour
+        Tournament.objects.filter(status="upcoming"),
+        tour_field="category__name",
+        tour=tour,
     ).order_by("start_date")[:5]
     live_matches = filter_by_tour(
         Match.objects.filter(live_status="live"),
-        tour_field="tournament__category",
+        tour_field="tournament__category__name",
         tour=tour,
     )[:5]
     snapshot = RankingSnapshot.objects.order_by("-as_of").first()
@@ -82,16 +84,15 @@ def tournaments(request):
     season_id = request.GET.get("season")
     seasons = Season.objects.all()
     selected_season = None
-    events = EventEdition.objects.none()
+    tournaments = Tournament.objects.none()
     if season_id:
         selected_season = get_object_or_404(Season, pk=season_id)
     elif seasons:
         selected_season = seasons.first()
     if selected_season:
-        events = (
-            EventEdition.objects.filter(season=selected_season)
-            .select_related("brand", "category_season__category")
-            .prefetch_related("phases__rounds")
+        tournaments = Tournament.objects.filter(season=selected_season).select_related(
+            "category",
+            "season_category__category",
         )
     return render(
         request,
@@ -99,14 +100,18 @@ def tournaments(request):
         {
             "seasons": seasons,
             "selected_season": selected_season,
-            "events": events,
+            "tournaments": tournaments,
         },
     )
 
 
-def tournament_detail(request, pk):
-    event = get_object_or_404(EventEdition, pk=pk)
-    return render(request, "msa/tournament_detail.html", {"event": event})
+def tournament_detail(request, slug):
+    tournament = get_object_or_404(Tournament, slug=slug)
+    return render(
+        request,
+        "msa/tournament_detail.html",
+        {"tournament": tournament},
+    )
 
 
 def live(request):
@@ -207,7 +212,7 @@ def scores(request):
     tour = request.GET.get("tour")  # MSA-REDESIGN
     tab = request.GET.get("tab", "live")
     qs = Match.objects.select_related("tournament", "player1", "player2")
-    qs = filter_by_tour(qs, tour_field="tournament__category", tour=tour)
+    qs = filter_by_tour(qs, tour_field="tournament__category__name", tour=tour)
     now = timezone.now()
     live = qs.filter(live_status__in=["live", "warmup"])
     upcoming = qs.filter(
@@ -260,7 +265,9 @@ def msa_search(request):
     tour = request.GET.get("tour")
     nq = _norm(q)
     players = Player.objects.all()
-    tournaments = filter_by_tour(Tournament.objects.all(), tour=tour)
+    tournaments = filter_by_tour(
+        Tournament.objects.all(), tour_field="category__name", tour=tour
+    )
     news = NewsPost.objects.filter(is_published=True)
 
     def match_q(name):
@@ -289,7 +296,9 @@ def stats(request):
     matches = Match.objects.select_related("tournament", "player1", "player2").filter(
         live_status__in=["finished", "result"]
     )
-    matches = filter_by_tour(matches, tour_field="tournament__category", tour=tour)
+    matches = filter_by_tour(
+        matches, tour_field="tournament__category__name", tour=tour
+    )
     from collections import defaultdict
 
     wins = defaultdict(int)
@@ -355,7 +364,9 @@ def squashtv(request):
     matches = Match.objects.filter(video_url__isnull=False).select_related(
         "tournament", "player1", "player2"
     )
-    matches = filter_by_tour(matches, tour_field="tournament__category", tour=tour)
+    matches = filter_by_tour(
+        matches, tour_field="tournament__category__name", tour=tour
+    )
     live_matches = matches.filter(live_status="live")
     upcoming = matches.filter(
         Q(scheduled_at__gte=timezone.now())

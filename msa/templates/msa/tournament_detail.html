@@ -1,7 +1,7 @@
 {% extends 'msa/base.html' %}
 {% block msa_content %}
 <div class="mb-4">
-  <h1 class="text-3xl font-semibold">{{ event.name }}</h1>
-  <p>{{ event.start_date }} - {{ event.end_date }} {{ event.venue|default:event.city }}</p>
+  <h1 class="text-3xl font-semibold">{{ tournament.name }}</h1>
+  <p>{{ tournament.start_date }} - {{ tournament.end_date }} {{ tournament.venue|default:tournament.city }}</p>
 </div>
 {% endblock %}
