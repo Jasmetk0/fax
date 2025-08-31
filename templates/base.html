@@ -100,7 +100,7 @@
           <div id="woorld-date-panel"
                class="hidden absolute right-0 mt-2 w-[min(92vw,420px)] rounded-2xl border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-800 dark:bg-slate-900">
             <div id="woorld-widget" class="rounded-xl border border-slate-200 bg-white p-2 dark:border-slate-800 dark:bg-slate-900">
-              {% include "fax_calendar/_woorld_date_control.html" %}
+              {% include "fax_calendar/_woorld_date_control.html" with WOORLD_CURRENT_DATE="01-01-2020" FAX_RESET_DATE="01-01-2020" %}
             </div>
           </div>
         </div>
@@ -262,16 +262,15 @@
     });
 
     // ---------- Woorld Date ----------
-    const WD_KEY = 'woorld.date';
     const wdBtn = document.getElementById('woorld-date-btn');
     const wdText = document.getElementById('woorld-date-text');
     const wdPanel = document.getElementById('woorld-date-panel');
+    let wdValue = '2020-01-01';
     function formatDDMMYYYY(iso) {
       try { const [y,m,d] = iso.split('-'); return `${d}.${m}.${y}`; } catch { return iso; }
     }
-    function getStoredDate() { return localStorage.getItem(WD_KEY) || '2020-01-01'; }
-    function setStoredDate(iso) { localStorage.setItem(WD_KEY, iso); wdText.textContent = formatDDMMYYYY(iso); }
-    setStoredDate(getStoredDate());
+    function setDate(iso) { wdValue = iso; wdText.textContent = formatDDMMYYYY(iso); }
+    setDate(wdValue);
     function toggleWoorld(open) {
       wdPanel.classList.toggle('hidden', !open);
       wdBtn.setAttribute('aria-expanded', String(!!open));
@@ -281,23 +280,29 @@
           widget?.querySelectorAll('label, p, span, div').forEach(el => {
             if (/aktuální.*datum.*woorldu/i.test(el.textContent || '')) el.classList.add('hidden');
           });
-          const iso = getStoredDate();
+          const iso = wdValue;
           const dateInput =
             widget.querySelector('input[type="date"]') ||
             widget.querySelector('input[id*="date" i], input[name*="date" i]');
           if (dateInput) {
             dateInput.value = iso;
             dateInput.dispatchEvent(new Event('change', { bubbles: true }));
-            dateInput.addEventListener('change', () => setStoredDate(dateInput.value));
+            dateInput.addEventListener('change', () => setDate(dateInput.value));
           }
           widget.querySelectorAll('input.woorld-date-input,[data-fax-date]').forEach(el => {
             el.value = iso;
-            el.addEventListener('change', () => setStoredDate(el.value));
+            el.addEventListener('change', () => setDate(el.value));
           });
+          const btn = widget.querySelector('input.woorld-date-input + .wc-iconbtn');
+          btn?.click();
         } catch (_) {}
       }
     }
-    wdBtn?.addEventListener('click', (e) => { e.stopPropagation(); toggleWoorld(wdPanel.classList.contains('hidden')); });
+    wdBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const open = wdPanel.classList.contains('hidden');
+      toggleWoorld(open);
+    });
 
     // ---------- Tab Strip ----------
     const TABS_KEY = 'fax.tabs.v1';

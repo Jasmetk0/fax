@@ -132,7 +132,11 @@ function formatDate({ day, month, year }) {
       const parsed = parseDate(input.value);
       let y, m, d;
       if (parsed) {
-        ({ year: y, month: m, day: d } = { year: parsed.year, month: parsed.month, day: parsed.day });
+        ({ year: y, month: m, day: d } = {
+          year: parsed.year,
+          month: parsed.month,
+          day: parsed.day,
+        });
       } else if (Array.isArray(window.WOORLD_TODAY)) {
         y = window.WOORLD_TODAY[0];
         m = window.WOORLD_TODAY[1];
@@ -142,7 +146,10 @@ function formatDate({ day, month, year }) {
         m = 1;
         d = 1;
       }
-      const init = { y, m, d };
+      const resetParsed = parseDate(input.dataset.faxReset || "");
+      const init = resetParsed
+        ? { y: resetParsed.year, m: resetParsed.month, d: resetParsed.day }
+        : { y, m, d };
 
       function close() {
         overlay.remove();

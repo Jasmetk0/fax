@@ -8,6 +8,7 @@
         value="{{ WOORLD_CURRENT_DATE }}"
         placeholder="DD-MM-YYYY"
         class="woorld-date-input"
+        {% if FAX_RESET_DATE %}data-fax-reset="{{ FAX_RESET_DATE }}"{% endif %}
     />
     <button type="submit">✔</button>
 </form>
