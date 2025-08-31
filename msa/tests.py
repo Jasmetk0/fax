@@ -1,8 +1,6 @@
 from django.test import Client, TestCase
 from django.urls import reverse
 from django.contrib.auth import get_user_model
-from django.utils import timezone
-
 from .models import (
     Season,
     Category,
@@ -14,6 +12,14 @@ from .models import (
     PhaseRound,
 )
 from .templatetags.msa_extras import get_draw_label
+from .forms import (
+    PlayerForm,
+    TournamentForm,
+    RankingSnapshotForm,
+    SeasonForm,
+    EventEditionForm,
+)
+from fax_calendar.widgets import WoorldAdminDateWidget
 
 
 class AdminModeTests(TestCase):
@@ -67,8 +73,8 @@ class AdminModeTests(TestCase):
             "brand": brand.pk,
             "season": season.pk,
             "category_season": sc.pk,
-            "start_date": timezone.now().date(),
-            "end_date": timezone.now().date(),
+            "start_date": "01-01-2024",
+            "end_date": "05-01-2024",
             "venue": "V",
             "city": "C",
             "best_of": 5,
@@ -108,3 +114,32 @@ class AdminModeTests(TestCase):
         self.assertEqual(get_draw_label(event), "Single Elim 64")
         EventPhase.objects.create(event=event, order=0, type="qualifying", name="Q")
         self.assertEqual(get_draw_label(event), "Single Elim 64 + Qualifying")
+
+
+class WoorldWidgetTests(TestCase):
+    def test_forms_use_admin_widget(self):
+        cases = [
+            (PlayerForm(), ["birthdate", "turned_pro"]),
+            (SeasonForm(), ["start_date", "end_date"]),
+            (TournamentForm(), ["start_date", "end_date"]),
+            (RankingSnapshotForm(), ["as_of"]),
+            (EventEditionForm(), ["start_date", "end_date"]),
+        ]
+        for form, fields in cases:
+            for field in fields:
+                self.assertIsInstance(form.fields[field].widget, WoorldAdminDateWidget)
+
+
+class PopupTemplateTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        User = get_user_model()
+        self.staff = User.objects.create_user("staff", password="x", is_staff=True)
+        self.client.force_login(self.staff)
+        self.client.get(reverse("msa:admin-mode-toggle"), {"on": "1"})
+
+    def test_season_form_includes_media(self):
+        resp = self.client.get(reverse("msa:season-create"))
+        self.assertContains(resp, "fax_calendar/admin_calendar.js")
+        self.assertContains(resp, "woorld-date-input")
+        self.assertContains(resp, 'id="cancelBtn"')

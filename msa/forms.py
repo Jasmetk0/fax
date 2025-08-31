@@ -14,6 +14,8 @@ from .models import (
     EventEdition,
 )
 
+from fax_calendar.widgets import WoorldAdminDateWidget
+
 
 class PlayerForm(forms.ModelForm):
     class Meta:
@@ -38,6 +40,10 @@ class PlayerForm(forms.ModelForm):
             "rtf_current_rank",
             "rtf_current_points",
         ]
+        widgets = {
+            "birthdate": WoorldAdminDateWidget(),
+            "turned_pro": WoorldAdminDateWidget(),
+        }
 
 
 class TournamentForm(forms.ModelForm):
@@ -55,6 +61,10 @@ class TournamentForm(forms.ModelForm):
             "prize_money",
             "status",
         ]
+        widgets = {
+            "start_date": WoorldAdminDateWidget(),
+            "end_date": WoorldAdminDateWidget(),
+        }
 
 
 class MatchForm(forms.ModelForm):
@@ -67,6 +77,7 @@ class RankingSnapshotForm(forms.ModelForm):
     class Meta:
         model = RankingSnapshot
         fields = ["as_of"]
+        widgets = {"as_of": WoorldAdminDateWidget()}
 
 
 class RankingEntryForm(forms.ModelForm):
@@ -107,6 +118,10 @@ class SeasonForm(forms.ModelForm):
     class Meta:
         model = Season
         fields = ["name", "code", "start_date", "end_date"]
+        widgets = {
+            "start_date": WoorldAdminDateWidget(),
+            "end_date": WoorldAdminDateWidget(),
+        }
 
 
 class CategoryForm(forms.ModelForm):
@@ -147,3 +162,7 @@ class EventEditionForm(forms.ModelForm):
             "points_eligible",
             "draw_template",
         ]
+        widgets = {
+            "start_date": WoorldAdminDateWidget(),
+            "end_date": WoorldAdminDateWidget(),
+        }

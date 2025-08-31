@@ -32,12 +32,12 @@ def admin_mode_toggle(request):
     if not request.user.is_staff:
         return HttpResponseForbidden()
     on = request.GET.get("on") == "1"
-    request.session["msa_admin"] = on
+    request.session["admin_mode"] = on
     return redirect(request.META.get("HTTP_REFERER", "/"))
 
 
 def _is_admin(request):
-    return request.user.is_staff and request.session.get("msa_admin")
+    return request.user.is_staff and request.session.get("admin_mode")
 
 
 def _admin_required(view_func):
