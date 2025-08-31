@@ -1,8 +1,16 @@
 {% extends 'msa/tournament_base.html' %}
 {% block tournament_content %}
 <ul class="mt-4 list-disc list-inside">
-  {% for player in players %}
-    <li>{{ player.name }}</li>
+  {% for entry in entries %}
+    <li>
+      {{ entry.player.name }}
+      {% if entry.entry_type == 'Q' or entry.entry_type == 'LL' %}
+        <span class="ml-1 text-xs">{{ entry.origin_note }}</span>
+        {% if entry.origin_match %}
+          <a href="{% url 'msa:match-edit' entry.origin_match.pk %}" class="ml-1 text-xs underline">Qualifying match</a>
+        {% endif %}
+      {% endif %}
+    </li>
   {% empty %}
     <li>No players registered.</li>
   {% endfor %}

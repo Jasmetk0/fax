@@ -1,10 +1,21 @@
 {% extends 'msa/tournament_base.html' %}
 {% block tournament_content %}
-<ul class="mt-4 list-disc list-inside">
-  {% for match in matches %}
-    <li>{{ match.player1.name }} vs {{ match.player2.name }}{% if match.winner %} - Winner: {{ match.winner.name }}{% endif %}</li>
-  {% empty %}
-    <li>No results available.</li>
-  {% endfor %}
-</ul>
+<div class="mt-4">
+  {% if is_admin %}
+  <div class="mb-4">
+    <a
+      href="{% url 'msa:tournament-results' tournament.slug %}?action=progress"
+      class="px-3 py-1 border rounded hover:bg-gray-50 text-sm"
+      >Generate next round</a
+    >
+  </div>
+  {% endif %}
+  <ul class="list-disc list-inside">
+    {% for match in matches %}
+      <li>{{ match.player1.name }} vs {{ match.player2.name }}{% if match.winner %} - Winner: {{ match.winner.name }}{% endif %}</li>
+    {% empty %}
+      <li>No results available.</li>
+    {% endfor %}
+  </ul>
+</div>
 {% endblock %}
