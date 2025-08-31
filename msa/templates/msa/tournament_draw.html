@@ -13,19 +13,47 @@
       class="px-3 py-1 border rounded hover:bg-red-50 text-sm text-red-600"
       >Regenerate (danger)</a
     >
+    <a
+      href="{% url 'msa:tournament-draw' tournament.slug %}?action=progress"
+      class="px-3 py-1 border rounded hover:bg-gray-50 text-sm"
+      >Generate next round</a
+    >
   </div>
   <form method="post" class="flex gap-2 items-center mb-4">
     {% csrf_token %}
-    <input type="hidden" name="action" value="swap"/>
-    <input name="slot_a" type="number" min="1" class="border px-2 py-1 w-24" placeholder="Slot A"/>
-    <input name="slot_b" type="number" min="1" class="border px-2 py-1 w-24" placeholder="Slot B"/>
+    <input type="hidden" name="action" value="swap" />
+    <input
+      name="slot_a"
+      type="number"
+      min="1"
+      class="border px-2 py-1 w-24"
+      placeholder="Slot A"
+    />
+    <input
+      name="slot_b"
+      type="number"
+      min="1"
+      class="border px-2 py-1 w-24"
+      placeholder="Slot B"
+    />
     <button class="px-3 py-1 border rounded text-sm">Swap slots</button>
   </form>
   <form method="post" class="flex gap-2 items-center mb-4">
     {% csrf_token %}
-    <input type="hidden" name="action" value="replace"/>
-    <input name="slot" type="number" min="1" class="border px-2 py-1 w-20" placeholder="Slot"/>
-    <input name="entry_id" type="number" class="border px-2 py-1 w-28" placeholder="Entry ID (ALT/LL)"/>
+    <input type="hidden" name="action" value="replace" />
+    <input
+      name="slot"
+      type="number"
+      min="1"
+      class="border px-2 py-1 w-20"
+      placeholder="Slot"
+    />
+    <input
+      name="entry_id"
+      type="number"
+      class="border px-2 py-1 w-28"
+      placeholder="Entry ID (ALT/LL)"
+    />
     <button class="px-3 py-1 border rounded text-sm">Replace</button>
   </form>
   {% endif %}
@@ -37,15 +65,43 @@
   </ul>
   {% endif %}
   {% if slots %}
+  <h3>R{{ tournament.draw_size }}</h3>
   <ul class="list-disc list-inside">
     {% for entry in slots %}
     <li>
-      {{ forloop.counter }}. {% if entry %}{{ entry.player.name }}{% else %}BYE{% endif %}
+      {{ forloop.counter }}.
+      {% if entry %}
+        {% if entry.player.id in first_round_winners %}
+          <strong>{{ entry.player.name }}</strong>
+        {% else %}
+          {{ entry.player.name }}
+        {% endif %}
+        {% if entry.seed %}<span class="ml-1 text-xs">(seed)</span>{% endif %}
+        {% if entry.entry_type == 'Q' or entry.entry_type == 'LL' %}<span class="ml-1 text-xs">{{ entry.origin_note }}</span>{% endif %}
+        {% if entry.origin_match %}<a href="{% url 'msa:match-edit' entry.origin_match.pk %}" class="ml-1 text-xs underline">Qualifying match</a>{% endif %}
+      {% else %}BYE{% endif %}
     </li>
     {% endfor %}
   </ul>
+  {% for round, matches in matches_by_round.items %}
+  <h3>{{ round }}</h3>
+  <ul class="list-disc list-inside">
+    {% for match in matches %}
+    <li>
+      {% if match.winner_id == match.player1_id %}
+      <strong>{{ match.player1.name }}</strong> vs {{ match.player2.name }}
+      {% elif match.winner_id == match.player2_id %}
+      {{ match.player1.name }} vs <strong>{{ match.player2.name }}</strong>
+      {% else %}
+      {{ match.player1.name }} vs {{ match.player2.name }}
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% endfor %}
   {% else %}
   <p>No draw available.</p>
   {% endif %}
 </div>
 {% endblock %}
+

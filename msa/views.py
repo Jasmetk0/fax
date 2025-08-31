@@ -1,3 +1,4 @@
+import logging
 from django.db import transaction
 from django.db.models import Q
 import unicodedata
@@ -21,11 +22,20 @@ from .models import (
     RankingSnapshot,
     Season,
     Tournament,
+    TournamentEntry,
 )
-from .services.draw import generate_draw, has_completed_main_matches, replace_slot
+from .services.draw import (
+    generate_draw,
+    has_completed_main_matches,
+    replace_slot,
+    progress_bracket,
+)
 from .services.seeding_service import preview_seeding, apply_seeding
 import json
 from .utils import filter_by_tour  # MSA-REDESIGN
+
+
+logger = logging.getLogger(__name__)
 
 
 tab_choices = [("live", "Live"), ("upcoming", "Upcoming"), ("results", "Results")]
@@ -119,10 +129,66 @@ def tournament_overview(request, slug):
 
 def tournament_players(request, slug):
     tournament = get_object_or_404(Tournament, slug=slug)
-    entries = tournament.entries.select_related("player").order_by("player__name")
-    if entries.exists():
-        players = [e.player for e in entries]
-    else:
+    if request.method == "POST" and _is_admin(request):
+        if request.POST.get("action") == "set_origin":
+            entry_id = request.POST.get("entry_id")
+            origin_note = request.POST.get("origin_note", "")
+            origin_match_id = request.POST.get("origin_match_id")
+            try:
+                entry = tournament.entries.get(pk=entry_id)
+            except TournamentEntry.DoesNotExist:
+                messages.error(request, "Entry not found")
+                logger.info(
+                    "set_origin fail user=%s tournament=%s entry=%s",
+                    request.user.id,
+                    tournament.id,
+                    entry_id,
+                )
+                return redirect(request.path)
+            if entry.entry_type not in {
+                TournamentEntry.EntryType.Q,
+                TournamentEntry.EntryType.LL,
+            }:
+                messages.error(request, "Only Q/LL entries allowed")
+                logger.info(
+                    "set_origin fail user=%s tournament=%s entry=%s",
+                    request.user.id,
+                    tournament.id,
+                    entry_id,
+                )
+                return redirect(request.path)
+            origin_match = None
+            if origin_match_id:
+                origin_match = Match.objects.filter(
+                    pk=origin_match_id, tournament=tournament
+                ).first()
+                if not origin_match:
+                    messages.error(request, "Invalid match")
+                    logger.info(
+                        "set_origin fail user=%s tournament=%s entry=%s match=%s",
+                        request.user.id,
+                        tournament.id,
+                        entry_id,
+                        origin_match_id,
+                    )
+                    return redirect(request.path)
+            with transaction.atomic():
+                entry.origin_note = origin_note or ""
+                entry.origin_match = origin_match
+                entry.updated_by = request.user
+                entry.save(update_fields=["origin_note", "origin_match", "updated_by"])
+            messages.success(request, "Origin updated")
+            logger.info(
+                "set_origin success user=%s tournament=%s entry=%s note=%s match=%s",
+                request.user.id,
+                tournament.id,
+                entry_id,
+                origin_note,
+                origin_match_id,
+            )
+            return redirect(request.path)
+    entries = list(tournament.entries.select_related("player").order_by("player__name"))
+    if not entries:
         players = (
             Player.objects.filter(
                 Q(matches_as_player1__tournament=tournament)
@@ -131,10 +197,17 @@ def tournament_players(request, slug):
             .distinct()
             .order_by("name")
         )
+        from types import SimpleNamespace
+
+        entries = [SimpleNamespace(player=p) for p in players]
     return render(
         request,
         "msa/tournament_players.html",
-        {"tournament": tournament, "players": players},
+        {
+            "tournament": tournament,
+            "entries": entries,
+            "is_admin": _is_admin(request),
+        },
     )
 
 
@@ -150,6 +223,9 @@ def tournament_draw(request, slug):
                 slot_b = int(request.POST.get("slot_b"))
             except (TypeError, ValueError):  # pragma: no cover - guard
                 messages.error(request, "Invalid slots")
+                logger.info(
+                    "swap fail user=%s tournament=%s", request.user.id, tournament.id
+                )
                 return redirect(request.path)
             with transaction.atomic():
                 entries_qs = tournament.entries.select_for_update().select_related(
@@ -159,6 +235,13 @@ def tournament_draw(request, slug):
                 entry_b = entries_qs.filter(position=slot_b).first()
                 if not entry_a or not entry_b:
                     messages.warning(request, "Cannot swap with empty/BYE slot")
+                    logger.info(
+                        "swap fail user=%s tournament=%s slot_a=%s slot_b=%s",
+                        request.user.id,
+                        tournament.id,
+                        slot_a,
+                        slot_b,
+                    )
                     return redirect(request.path)
                 mate_a = slot_a + 1 if slot_a % 2 else slot_a - 1
                 mate_b = slot_b + 1 if slot_b % 2 else slot_b - 1
@@ -189,10 +272,19 @@ def tournament_draw(request, slug):
                     and not tournament.flex_mode
                 ):
                     messages.warning(request, "Cannot swap over completed match")
+                    logger.info(
+                        "swap fail user=%s tournament=%s slot_a=%s slot_b=%s completed",
+                        request.user.id,
+                        tournament.id,
+                        slot_a,
+                        slot_b,
+                    )
                     return redirect(request.path)
                 entry_a.position, entry_b.position = entry_b.position, entry_a.position
-                entry_a.save(update_fields=["position"])
-                entry_b.save(update_fields=["position"])
+                entry_a.updated_by = request.user
+                entry_b.updated_by = request.user
+                entry_a.save(update_fields=["position", "updated_by"])
+                entry_b.save(update_fields=["position", "updated_by"])
                 by_pos[entry_a.position] = entry_a
                 by_pos[entry_b.position] = entry_b
                 for (low, high), m in matches.items():
@@ -208,6 +300,13 @@ def tournament_draw(request, slug):
                         m.player2 = eb.player
                         m.save(update_fields=["player1", "player2"])
                 messages.success(request, "Slots swapped")
+                logger.info(
+                    "swap success user=%s tournament=%s slot_a=%s slot_b=%s",
+                    request.user.id,
+                    tournament.id,
+                    slot_a,
+                    slot_b,
+                )
             return redirect(request.path)
         elif action == "replace":
             if not (_is_admin(request) and tournament.allow_manual_bracket_edits):
@@ -217,6 +316,9 @@ def tournament_draw(request, slug):
                 entry_id = int(request.POST.get("entry_id"))
             except (TypeError, ValueError):  # pragma: no cover - guard
                 messages.error(request, "Invalid parameters")
+                logger.info(
+                    "replace fail user=%s tournament=%s", request.user.id, tournament.id
+                )
                 return redirect(request.path)
             mate = slot + 1 if slot % 2 else slot - 1
             current = (
@@ -238,12 +340,19 @@ def tournament_draw(request, slug):
                 ).first()
                 if match and match.winner_id and not tournament.flex_mode:
                     messages.warning(request, "Cannot replace over completed match")
+                    logger.info(
+                        "replace fail user=%s tournament=%s slot=%s completed",
+                        request.user.id,
+                        tournament.id,
+                        slot,
+                    )
                     return redirect(request.path)
             ok = replace_slot(
                 tournament,
                 slot,
                 entry_id,
                 allow_over_completed=tournament.flex_mode,
+                user=request.user,
             )
             if ok:
                 if match and match.winner_id:
@@ -252,23 +361,77 @@ def tournament_draw(request, slug):
                     )
                 else:
                     messages.success(request, "Slot replaced")
+                logger.info(
+                    "replace success user=%s tournament=%s slot=%s entry=%s",
+                    request.user.id,
+                    tournament.id,
+                    slot,
+                    entry_id,
+                )
             else:
                 messages.error(request, "Replacement failed")
+                logger.info(
+                    "replace fail user=%s tournament=%s slot=%s entry=%s",
+                    request.user.id,
+                    tournament.id,
+                    slot,
+                    entry_id,
+                )
             return redirect(request.path)
 
     action = request.GET.get("action")
     if action == "generate":
         if tournament.draw_size not in {32, 64, 96, 128}:
             messages.warning(request, "Unsupported draw size")
+            logger.info(
+                "generate fail user=%s tournament=%s",
+                request.user.id,
+                tournament.id,
+            )
         else:
-            generate_draw(tournament, force=False)
+            generate_draw(tournament, force=False, user=request.user)
+            logger.info(
+                "generate success user=%s tournament=%s",
+                request.user.id,
+                tournament.id,
+            )
     elif action == "regenerate":
         if tournament.draw_size not in {32, 64, 96, 128}:
             messages.warning(request, "Unsupported draw size")
+            logger.info(
+                "regenerate fail user=%s tournament=%s",
+                request.user.id,
+                tournament.id,
+            )
         elif tournament.flex_mode or not has_completed_main_matches(tournament):
-            generate_draw(tournament, force=True)
+            generate_draw(tournament, force=True, user=request.user)
+            logger.info(
+                "regenerate success user=%s tournament=%s",
+                request.user.id,
+                tournament.id,
+            )
         else:
             messages.warning(request, "Draw regeneration not allowed.")
+            logger.info(
+                "regenerate fail user=%s tournament=%s completed",
+                request.user.id,
+                tournament.id,
+            )
+    elif action == "progress":
+        if progress_bracket(tournament):
+            messages.success(request, "Next round generated")
+            logger.info(
+                "progress success user=%s tournament=%s",
+                request.user.id,
+                tournament.id,
+            )
+        else:
+            messages.warning(request, "Nothing to progress")
+            logger.info(
+                "progress fail user=%s tournament=%s",
+                request.user.id,
+                tournament.id,
+            )
 
     entries = tournament.entries.filter(status="active").select_related("player")
     if entries.filter(position__isnull=False).exists():
@@ -277,6 +440,17 @@ def tournament_draw(request, slug):
         slots = [by_pos.get(i) for i in range(1, bracket + 1)]
     else:
         slots = list(entries.order_by("player__name"))
+    first_round = f"R{tournament.draw_size}"
+    first_round_winners = set(
+        tournament.matches.filter(round=first_round, winner__isnull=False).values_list(
+            "winner_id", flat=True
+        )
+    )
+    matches_by_round = {}
+    for m in tournament.matches.exclude(round=first_round).select_related(
+        "player1", "player2", "winner"
+    ):
+        matches_by_round.setdefault(m.round, []).append(m)
     return render(
         request,
         "msa/tournament_draw.html",
@@ -284,19 +458,41 @@ def tournament_draw(request, slug):
             "tournament": tournament,
             "slots": slots,
             "is_admin": _is_admin(request),
+            "matches_by_round": matches_by_round,
+            "first_round_winners": first_round_winners,
         },
     )
 
 
 def tournament_results(request, slug):
     tournament = get_object_or_404(Tournament, slug=slug)
+    action = request.GET.get("action")
+    if action == "progress":
+        if progress_bracket(tournament):
+            messages.success(request, "Next round generated")
+            logger.info(
+                "progress success user=%s tournament=%s",
+                request.user.id,
+                tournament.id,
+            )
+        else:
+            messages.warning(request, "Nothing to progress")
+            logger.info(
+                "progress fail user=%s tournament=%s",
+                request.user.id,
+                tournament.id,
+            )
     matches = tournament.matches.select_related(
         "player1", "player2", "winner"
     ).order_by("scheduled_at")
     return render(
         request,
         "msa/tournament_results.html",
-        {"tournament": tournament, "matches": matches},
+        {
+            "tournament": tournament,
+            "matches": matches,
+            "is_admin": _is_admin(request),
+        },
     )
 
 
