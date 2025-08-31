@@ -191,13 +191,13 @@
   </main>
 
   <!-- ===== Scripts ===== -->
-  <script src="{% static 'fax_calendar/core.js' %}"></script>
   <script src="{% static 'admin/js/core.js' %}"></script>
-  <script src="{% static 'fax_calendar/astro.js' %}"></script>
-  <script src="{% static 'fax_calendar/admin_calendar.js' %}"></script>
+  <script type="module" src="{% static 'fax_calendar/astro.js' %}"></script>
+  <script type="module" src="{% static 'fax_calendar/admin_calendar.js' %}"></script>
   <script>
-    document.addEventListener("DOMContentLoaded", () =>
-      window.enhanceAllWoorldDateInputs?.(document));
+    document.addEventListener('DOMContentLoaded', () =>
+      window.enhanceAllWoorldDateInputs?.(document)
+    );
   </script>
   <script src="{% static 'fax_calendar/woorld.js' %}"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
