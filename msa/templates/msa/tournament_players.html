@@ -1,0 +1,10 @@
+{% extends 'msa/tournament_base.html' %}
+{% block tournament_content %}
+<ul class="mt-4 list-disc list-inside">
+  {% for player in players %}
+    <li>{{ player.name }}</li>
+  {% empty %}
+    <li>No players registered.</li>
+  {% endfor %}
+</ul>
+{% endblock %}

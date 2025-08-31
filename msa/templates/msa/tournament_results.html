@@ -1,0 +1,10 @@
+{% extends 'msa/tournament_base.html' %}
+{% block tournament_content %}
+<ul class="mt-4 list-disc list-inside">
+  {% for match in matches %}
+    <li>{{ match.player1.name }} vs {{ match.player2.name }}{% if match.winner %} - Winner: {{ match.winner.name }}{% endif %}</li>
+  {% empty %}
+    <li>No results available.</li>
+  {% endfor %}
+</ul>
+{% endblock %}

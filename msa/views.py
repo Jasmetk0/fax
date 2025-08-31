@@ -105,12 +105,51 @@ def tournaments(request):
     )
 
 
-def tournament_detail(request, slug):
+def tournament_overview(request, slug):
     tournament = get_object_or_404(Tournament, slug=slug)
     return render(
         request,
-        "msa/tournament_detail.html",
+        "msa/tournament_overview.html",
         {"tournament": tournament},
+    )
+
+
+def tournament_players(request, slug):
+    tournament = get_object_or_404(Tournament, slug=slug)
+    players = (
+        Player.objects.filter(
+            Q(matches_as_player1__tournament=tournament)
+            | Q(matches_as_player2__tournament=tournament)
+        )
+        .distinct()
+        .order_by("name")
+    )
+    return render(
+        request,
+        "msa/tournament_players.html",
+        {"tournament": tournament, "players": players},
+    )
+
+
+def tournament_draw(request, slug):
+    tournament = get_object_or_404(Tournament, slug=slug)
+    matches = tournament.matches.select_related("player1", "player2").order_by("round")
+    return render(
+        request,
+        "msa/tournament_draw.html",
+        {"tournament": tournament, "matches": matches},
+    )
+
+
+def tournament_results(request, slug):
+    tournament = get_object_or_404(Tournament, slug=slug)
+    matches = tournament.matches.select_related(
+        "player1", "player2", "winner"
+    ).order_by("scheduled_at")
+    return render(
+        request,
+        "msa/tournament_results.html",
+        {"tournament": tournament, "matches": matches},
     )
 
 
