@@ -19,8 +19,8 @@ def test_admin_widget_and_validation(admin_client):
     url = reverse("admin:msa_season_add")
     resp = admin_client.get(url)
     html = resp.content.decode()
-    assert "fax_calendar/admin_calendar.js" in html
-    assert 'data-woorld-date="1"' in html
+    assert "fax_calendar/datepicker.js" in html
+    assert "woorld-date-input" in html
     assert "woorld-calendar-btn" in html
 
     invalid = {
