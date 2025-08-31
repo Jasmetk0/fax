@@ -390,20 +390,15 @@ function formatDate({ day, month, year }) {
 
       function renderJumpButtons(yy) {
         const yl = yearLength(yy);
-        const { segs } = seasonSegments(yy);
+        const { marks } = seasonSegments(yy);
         const items = [{ label: t.firstDay, kind: "first", doy: 1 }];
-        const order = ["spring", "summer", "autumn", "winter"];
-        order.forEach((kind) => {
-          segs
-            .filter((s) => s.kind === kind)
-            .forEach((s) => {
-              const cap = kind.charAt(0).toUpperCase() + kind.slice(1);
-              items.push({
-                label: t.seasons[cap] || cap,
-                kind,
-                doy: s.startDoy,
-              });
-            });
+        marks.forEach(({ kind, doy }) => {
+          const cap = kind.charAt(0).toUpperCase() + kind.slice(1);
+          items.push({
+            label: t.seasons[cap] || cap,
+            kind,
+            doy,
+          });
         });
         items.push({ label: t.lastDay, kind: "last", doy: yl });
         jumpsEl.innerHTML = "";
