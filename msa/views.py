@@ -36,7 +36,6 @@ from .services.qual import (
     progress_qualifying,
     promote_qualifiers,
 )
-from .services.state import update_tournament_state
 from .services.points import rebuild_season_live_points
 from .services.snapshot import create_ranking_snapshot
 from .services.alt_ll import (
@@ -77,6 +76,7 @@ from .services.scheduling import (
     move_scheduled_match,
     export_schedule_csv,
 )
+from .services.match_results import record_match_result
 import json
 from .utils import filter_by_tour  # MSA-REDESIGN
 
@@ -120,46 +120,41 @@ def _handle_match_result(request, tournament):
             request.POST.get("match_id"),
         )
         return redirect(request.path)
-    winner_side = request.POST.get("winner")
-    if winner_side not in {"p1", "p2"}:
-        messages.error(request, "Invalid winner")
+    result_type = (request.POST.get("result_type") or "NORMAL").upper()
+    scoreline = request.POST.get("scoreline") or None
+    retired_player_id = request.POST.get("retired_player_id")
+    if retired_player_id:
+        try:
+            retired_player_id = int(retired_player_id)
+        except ValueError:
+            retired_player_id = None
+    match = get_object_or_404(Match, pk=match_id, tournament=tournament)
+    try:
+        record_match_result(
+            match,
+            result_type=result_type,
+            scoreline_str=scoreline,
+            retired_player_id=retired_player_id,
+            user=request.user,
+        )
+    except ValueError as e:
+        messages.error(request, str(e))
         logger.info(
-            "match_result fail user=%s tournament=%s match=%s winner=%s",
+            "match_result fail user=%s tournament=%s match=%s err=%s",
             request.user.id,
             tournament.id,
             match_id,
-            winner_side,
+            e,
         )
-        return redirect(request.path)
-    scoreline = (request.POST.get("scoreline") or "").strip()
-    with transaction.atomic():
-        match = get_object_or_404(
-            Match.objects.select_for_update(), pk=match_id, tournament=tournament
+    else:
+        messages.success(request, "Result saved")
+        logger.info(
+            "match_result success user=%s tournament=%s match=%s type=%s",
+            request.user.id,
+            tournament.id,
+            match_id,
+            result_type,
         )
-        match.winner = match.player1 if winner_side == "p1" else match.player2
-        if scoreline:
-            match.scoreline = scoreline
-        match.live_status = "finished"
-        match.updated_by = request.user
-        fields = ["winner", "live_status", "updated_by"]
-        if scoreline:
-            fields.append("scoreline")
-        match.save(update_fields=fields)
-        progress_bracket(tournament)
-        update_tournament_state(tournament, request.user)
-        if tournament.season:
-            rebuild_season_live_points(
-                tournament.season, persist=True, user=request.user
-            )
-    messages.success(request, "Result saved")
-    logger.info(
-        "match_result success user=%s tournament=%s match=%s winner=%s score=%s",
-        request.user.id,
-        tournament.id,
-        match_id,
-        winner_side,
-        scoreline,
-    )
     return redirect(request.path)
 
 
@@ -1042,7 +1037,8 @@ def tournament_results(request, slug):
             else:
                 messages.error(request, "Invalid input")
             return redirect(request.path)
-        action = request.GET.get("action")
+        return redirect(request.path)
+    action = request.GET.get("action")
     if action == "progress":
         if progress_bracket(tournament):
             messages.success(request, "Next round generated")
