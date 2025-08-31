@@ -93,3 +93,6 @@ OFM_TILE_URL = os.getenv(
 )
 OFM_TILE_ATTRIBUTION = os.getenv("OFM_TILE_ATTRIBUTION", "© OpenStreetMap contributors")
 OFM_STYLE_URL = os.getenv("OFM_STYLE_URL", "")
+
+# Draw engine feature flag
+MSA_DRAW_ENGINE = os.getenv("MSA_DRAW_ENGINE", "v1")

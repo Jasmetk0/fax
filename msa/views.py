@@ -20,6 +20,7 @@ from .models import (
     Season,
     Tournament,
 )
+from .services.draw import generate_draw
 from .services.seeding_service import preview_seeding, apply_seeding
 import json
 from .utils import filter_by_tour  # MSA-REDESIGN
@@ -116,14 +117,18 @@ def tournament_overview(request, slug):
 
 def tournament_players(request, slug):
     tournament = get_object_or_404(Tournament, slug=slug)
-    players = (
-        Player.objects.filter(
-            Q(matches_as_player1__tournament=tournament)
-            | Q(matches_as_player2__tournament=tournament)
+    entries = tournament.entries.select_related("player").order_by("player__name")
+    if entries.exists():
+        players = [e.player for e in entries]
+    else:
+        players = (
+            Player.objects.filter(
+                Q(matches_as_player1__tournament=tournament)
+                | Q(matches_as_player2__tournament=tournament)
+            )
+            .distinct()
+            .order_by("name")
         )
-        .distinct()
-        .order_by("name")
-    )
     return render(
         request,
         "msa/tournament_players.html",
@@ -133,6 +138,7 @@ def tournament_players(request, slug):
 
 def tournament_draw(request, slug):
     tournament = get_object_or_404(Tournament, slug=slug)
+    generate_draw(tournament)
     matches = tournament.matches.select_related("player1", "player2").order_by("round")
     return render(
         request,
