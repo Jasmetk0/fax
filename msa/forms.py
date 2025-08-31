@@ -15,8 +15,6 @@ from .models import (
     EventEdition,
 )
 
-from fax_calendar.widgets import WoorldAdminDateWidget
-
 
 class PlayerForm(forms.ModelForm):
     class Meta:
