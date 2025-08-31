@@ -1,18 +1,78 @@
 {% extends 'msa/tournament_base.html' %}
 {% block tournament_content %}
-<ul class="mt-4 list-disc list-inside">
-  {% for entry in entries %}
-    <li>
-      {{ entry.player.name }}
-      {% if entry.entry_type == 'Q' or entry.entry_type == 'LL' %}
-        <span class="ml-1 text-xs">{{ entry.origin_note }}</span>
-        {% if entry.origin_match %}
-          <a href="{% url 'msa:match-edit' entry.origin_match.pk %}" class="ml-1 text-xs underline">Qualifying match</a>
+{% if is_admin %}
+  <h2 class="mt-4 text-lg">Entries</h2>
+  {% if tournament.state == 'draft' or tournament.state == 'entry_open' %}
+  <form method="post" class="mt-2">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="entries_lock" />
+    <button type="submit">Lock entries</button>
+  </form>
+  {% elif tournament.state == 'entry_locked' %}
+  <form method="post" class="mt-2">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="entries_unlock" />
+    <button type="submit">Unlock entries</button>
+  </form>
+  {% endif %}
+  <form method="get" class="mt-2">
+    <input type="hidden" name="action" value="entries_export_csv" />
+    <button type="submit">Export CSV</button>
+  </form>
+  <form method="post" class="mt-2">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="entry_add" />
+    {{ add_form.player }}
+    {{ add_form.entry_type }}
+    <button type="submit">Add</button>
+  </form>
+  <form method="post" class="mt-4">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="entry_bulk_add" />
+    {{ bulk_form.rows }}
+    <button type="submit">Bulk import</button>
+  </form>
+  <p class="mt-4">
+    Active main: {{ capacity.active_main }}/{{ capacity.draw_size }} |
+    ALT: {{ capacity.alt }} |
+    Withdrawn: {{ capacity.withdrawn }}
+  </p>
+  {% if pre_draw.errors or pre_draw.warnings %}
+  <div class="mt-4">
+    <h3>Pre-draw checklist</h3>
+    {% if pre_draw.errors %}
+    <ul>
+      {% for e in pre_draw.errors %}<li>{{ e }}</li>{% endfor %}
+    </ul>
+    {% endif %}
+    {% if pre_draw.warnings %}
+    <ul>
+      {% for w in pre_draw.warnings %}<li>{{ w }}</li>{% endfor %}
+    </ul>
+    {% endif %}
+  </div>
+  {% endif %}
+  {% include 'msa/partials/_entries_table.html' %}
+  {% if seed_editor_allowed %}
+    {% include 'msa/partials/_entries_seed_editor.html' %}
+  {% else %}
+    <p class="mt-4">Seed editor unavailable.</p>
+  {% endif %}
+{% else %}
+  <ul class="mt-4 list-disc list-inside">
+    {% for entry in entries %}
+      <li>
+        {{ entry.player.name }}
+        {% if entry.entry_type == 'Q' or entry.entry_type == 'LL' %}
+          <span class="ml-1 text-xs">{{ entry.origin_note }}</span>
+          {% if entry.origin_match %}
+            <a href="{% url 'msa:match-edit' entry.origin_match.pk %}" class="ml-1 text-xs underline">Qualifying match</a>
+          {% endif %}
         {% endif %}
-      {% endif %}
-    </li>
-  {% empty %}
-    <li>No players registered.</li>
-  {% endfor %}
-</ul>
+      </li>
+    {% empty %}
+      <li>No players registered.</li>
+    {% endfor %}
+  </ul>
+{% endif %}
 {% endblock %}

@@ -1,9 +1,9 @@
 import logging
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Case, IntegerField, Q, When
 import unicodedata
 
-from django.http import HttpResponseForbidden, JsonResponse
+from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -31,6 +31,26 @@ from .services.draw import (
     progress_bracket,
 )
 from .services.seeding_service import preview_seeding, apply_seeding
+from .forms import (
+    EntryAddForm,
+    EntryBulkForm,
+    EntryUpdateTypeForm,
+    SeedUpdateForm,
+    SeedsBulkForm,
+)
+from .services.entries import (
+    add_entry,
+    bulk_add_entries,
+    compute_capacity,
+    set_entry_status,
+    update_entry_type,
+    lock_entries,
+    unlock_entries,
+    validate_pre_draw,
+    set_seed,
+    bulk_set_seeds,
+    export_entries_csv,
+)
 import json
 from .utils import filter_by_tour  # MSA-REDESIGN
 
@@ -129,8 +149,156 @@ def tournament_overview(request, slug):
 
 def tournament_players(request, slug):
     tournament = get_object_or_404(Tournament, slug=slug)
-    if request.method == "POST" and _is_admin(request):
-        if request.POST.get("action") == "set_origin":
+    if request.method == "POST":
+        if not _is_admin(request):
+            return HttpResponseForbidden()
+        action = request.POST.get("action")
+        if action == "entry_add":
+            form = EntryAddForm(request.POST)
+            if form.is_valid():
+                ok, msg = add_entry(
+                    tournament,
+                    form.cleaned_data["player"],
+                    form.cleaned_data["entry_type"],
+                    request.user,
+                )
+                if ok and "ALT" in msg:
+                    messages.warning(request, msg)
+                elif ok:
+                    messages.success(request, msg)
+                else:
+                    messages.error(request, msg)
+            else:
+                messages.error(request, "Invalid data")
+            return redirect(request.path)
+        if action == "entry_bulk_add":
+            form = EntryBulkForm(request.POST)
+            if form.is_valid():
+                result = bulk_add_entries(
+                    tournament, form.cleaned_data["rows"], request.user
+                )
+                messages.info(
+                    request,
+                    f"added {result['added']}, skipped {result['skipped']}, errors {result['errors']}",
+                )
+                for m in result["messages"]:
+                    if "ALT" in m:
+                        messages.warning(request, m)
+                    else:
+                        messages.info(request, m)
+            else:
+                messages.error(request, "Invalid data")
+            return redirect(request.path)
+        if action == "entry_update_type":
+            form = EntryUpdateTypeForm(request.POST)
+            if form.is_valid():
+                entry = get_object_or_404(
+                    tournament.entries, pk=form.cleaned_data["entry_id"]
+                )
+                ok, msg = update_entry_type(
+                    entry, form.cleaned_data["entry_type"], request.user
+                )
+                if ok and "ALT" in msg:
+                    messages.warning(request, msg)
+                elif ok:
+                    messages.success(request, msg)
+                else:
+                    messages.error(request, msg)
+            else:
+                messages.error(request, "Invalid data")
+            return redirect(request.path)
+        if action == "entry_withdraw":
+            entry_id = request.POST.get("entry_id")
+            entry = get_object_or_404(tournament.entries, pk=entry_id)
+            ok, msg = set_entry_status(
+                entry, TournamentEntry.Status.WITHDRAWN, request.user
+            )
+            if ok:
+                messages.success(request, msg)
+            else:
+                messages.error(request, msg)
+            return redirect(request.path)
+        if action == "entry_reactivate":
+            entry_id = request.POST.get("entry_id")
+            entry = get_object_or_404(tournament.entries, pk=entry_id)
+            ok, msg = set_entry_status(
+                entry, TournamentEntry.Status.ACTIVE, request.user
+            )
+            if ok and "ALT" in msg:
+                messages.warning(request, msg)
+            elif ok:
+                messages.success(request, msg)
+            else:
+                messages.error(request, msg)
+            return redirect(request.path)
+        if action == "entries_lock":
+            ok, msg = lock_entries(tournament, request.user)
+            if ok:
+                messages.success(request, msg)
+            else:
+                messages.error(request, msg)
+            return redirect(request.path)
+        if action == "entries_unlock":
+            ok, msg = unlock_entries(tournament, request.user)
+            if ok:
+                messages.success(request, msg)
+            else:
+                messages.error(request, msg)
+            return redirect(request.path)
+        if action == "seed_update":
+            form = SeedUpdateForm(request.POST)
+            if form.is_valid():
+                entry = get_object_or_404(
+                    tournament.entries, pk=form.cleaned_data["entry_id"]
+                )
+                seed = form.cleaned_data.get("seed")
+                ok, msg = set_seed(entry, seed, request.user)
+                if ok and "warning" in msg:
+                    messages.warning(request, msg)
+                elif ok:
+                    messages.success(request, msg)
+                else:
+                    messages.error(request, msg)
+            else:
+                messages.error(request, "Invalid data")
+            return redirect(request.path)
+        if action == "seeds_bulk_update":
+            form = SeedsBulkForm(request.POST)
+            if form.is_valid():
+                mapping = {}
+                parse_errors = {}
+                for line in form.cleaned_data["rows"].splitlines():
+                    row = line.strip()
+                    if not row or row.startswith("#"):
+                        continue
+                    parts = [p.strip() for p in row.split(",")]
+                    if not parts[0]:
+                        continue
+                    try:
+                        eid = int(parts[0])
+                    except ValueError:
+                        parse_errors[parts[0]] = "Invalid entry id"
+                        continue
+                    seed = None
+                    if len(parts) > 1 and parts[1] != "":
+                        try:
+                            seed = int(parts[1])
+                        except ValueError:
+                            parse_errors[eid] = "Invalid seed"
+                            continue
+                    mapping[eid] = seed
+                result = bulk_set_seeds(tournament, mapping, request.user)
+                result["errors"].update(parse_errors)
+                messages.info(
+                    request,
+                    f"updated {result['updated']}, errors {len(result['errors'])}",
+                )
+                for eid, emsg in result["errors"].items():
+                    messages.error(request, f"{eid}: {emsg}")
+            else:
+                messages.error(request, "Invalid data")
+            return redirect(request.path)
+        if action == "set_origin":
             entry_id = request.POST.get("entry_id")
             origin_note = request.POST.get("origin_note", "")
             origin_match_id = request.POST.get("origin_match_id")
@@ -187,7 +355,30 @@ def tournament_players(request, slug):
                 origin_match_id,
             )
             return redirect(request.path)
-    entries = list(tournament.entries.select_related("player").order_by("player__name"))
+    if request.method == "GET" and request.GET.get("action") == "entries_export_csv":
+        if not _is_admin(request):
+            return HttpResponseForbidden()
+        csv_text = export_entries_csv(tournament)
+        resp = HttpResponse(csv_text, content_type="text/csv")
+        resp["Content-Disposition"] = (
+            f"attachment; filename={tournament.slug}_entries.csv"
+        )
+        return resp
+    with transaction.atomic():
+        capacity = compute_capacity(tournament)
+    pre_draw = validate_pre_draw(tournament)
+    order = [
+        Case(
+            When(status=TournamentEntry.Status.ACTIVE, then=0),
+            When(status=TournamentEntry.Status.WITHDRAWN, then=1),
+            When(status=TournamentEntry.Status.REPLACED, then=2),
+            output_field=IntegerField(),
+        ),
+        "entry_type",
+        "seed",
+        "player__name",
+    ]
+    entries = list(tournament.entries.select_related("player").order_by(*order))
     if not entries:
         players = (
             Player.objects.filter(
@@ -207,6 +398,14 @@ def tournament_players(request, slug):
             "tournament": tournament,
             "entries": entries,
             "is_admin": _is_admin(request),
+            "add_form": EntryAddForm(),
+            "bulk_form": EntryBulkForm(),
+            "entry_type_choices": TournamentEntry.EntryType.choices,
+            "capacity": capacity,
+            "pre_draw": pre_draw,
+            "seeds_bulk_form": SeedsBulkForm(),
+            "seed_editor_allowed": tournament.seeding_method == "manual"
+            or tournament.flex_mode,
         },
     )
 

@@ -1,0 +1,34 @@
+{% comment %}Seed editor partial{% endcomment %}
+<table class="mt-4">
+  <thead>
+    <tr>
+      <th>Player</th>
+      <th>Seed</th>
+      <th>Action</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for entry in entries %}
+      {% if entry.status == 'active' %}
+      <tr>
+        <td>{{ entry.player.name }}</td>
+        <td>
+          <form method="post" style="display:inline">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="seed_update" />
+            <input type="hidden" name="entry_id" value="{{ entry.id }}" />
+            <input type="number" name="seed" min="1" max="{{ tournament.seeds_count }}" value="{{ entry.seed|default_if_none:'' }}" />
+            <button type="submit">Set</button>
+          </form>
+        </td>
+      </tr>
+      {% endif %}
+    {% endfor %}
+  </tbody>
+</table>
+<form method="post" class="mt-2">
+  {% csrf_token %}
+  <input type="hidden" name="action" value="seeds_bulk_update" />
+  {{ seeds_bulk_form.rows }}
+  <button type="submit">Bulk update</button>
+</form>
