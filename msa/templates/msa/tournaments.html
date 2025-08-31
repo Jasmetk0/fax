@@ -12,19 +12,19 @@
       </select>
     </form>
     {% if msa_admin_mode and user.is_staff %}
-    <a href="{% url 'msa:season-create' %}" onclick="openPopup(this.href); return false;" class="bg-blue-600 hover:bg-blue-500 text-white rounded-xl px-4 py-2">Add Season</a>
+    <a href="{% url 'msa:season-create' %}" onclick="openPopup(this.href);return false;" class="bg-blue-600 hover:bg-blue-500 text-white rounded-xl px-4 py-2">Add Season</a>
     {% if selected_season %}
-    <a href="{% url 'msa:season-edit' selected_season.id %}" onclick="openPopup(this.href); return false;" class="bg-blue-600 hover:bg-blue-500 text-white rounded-xl px-4 py-2">Edit</a>
-    <a href="{% url 'msa:season-delete' selected_season.id %}" onclick="openPopup(this.href); return false;" class="bg-red-600 hover:bg-red-500 text-white rounded-xl px-4 py-2">Delete</a>
+    <a href="{% url 'msa:season-edit' selected_season.id %}" onclick="openPopup(this.href);return false;" class="bg-blue-600 hover:bg-blue-500 text-white rounded-xl px-4 py-2">Edit</a>
+    <a href="{% url 'msa:season-delete' selected_season.id %}" onclick="openPopup(this.href);return false;" class="bg-red-600 hover:bg-red-500 text-white rounded-xl px-4 py-2">Delete</a>
     {% endif %}
     {% endif %}
   </div>
 </div>
 {% if msa_admin_mode and user.is_staff %}
 <div class="mb-4 space-x-2">
-  <a href="{% url 'msa:category-create' %}{% if selected_season %}?season={{ selected_season.id }}{% endif %}" onclick="openPopup(this.href); return false;" class="bg-blue-600 hover:bg-blue-500 text-white rounded-xl px-4 py-2">Add Category</a>
-  <a href="{% url 'msa:seasoncategory-create' %}{% if selected_season %}?season={{ selected_season.id }}{% endif %}" onclick="openPopup(this.href); return false;" class="bg-blue-600 hover:bg-blue-500 text-white rounded-xl px-4 py-2">Add SeasonCategory</a>
-  <a href="{% url 'msa:event-create' %}{% if selected_season %}?season={{ selected_season.id }}{% endif %}" onclick="openPopup(this.href); return false;" class="bg-blue-600 hover:bg-blue-500 text-white rounded-xl px-4 py-2">Add Tournament</a>
+  <a href="{% url 'msa:category-create' %}{% if selected_season %}?season={{ selected_season.id }}{% endif %}" onclick="openPopup(this.href);return false;" class="bg-blue-600 hover:bg-blue-500 text-white rounded-xl px-4 py-2">Add Category</a>
+  <a href="{% url 'msa:seasoncategory-create' %}{% if selected_season %}?season={{ selected_season.id }}{% endif %}" onclick="openPopup(this.href);return false;" class="bg-blue-600 hover:bg-blue-500 text-white rounded-xl px-4 py-2">Add SeasonCategory</a>
+  <a href="{% url 'msa:event-create' %}{% if selected_season %}?season={{ selected_season.id }}{% endif %}" onclick="openPopup(this.href);return false;" class="bg-blue-600 hover:bg-blue-500 text-white rounded-xl px-4 py-2">Add Tournament</a>
 </div>
 {% endif %}
 <table class="w-full border-collapse">
@@ -44,12 +44,12 @@
       <td>{{ ev.category_season.label|default:ev.category_season.category.name }}</td>
       <td>{{ ev.start_date }} – {{ ev.end_date }}</td>
       <td><a href="{% url 'msa:tournament-detail' ev.pk %}" class="text-blue-400 hover:text-blue-300">{{ ev.name }}</a></td>
-      <td>{{ ev.venue|default:ev.brand.city }}</td>
+      <td>{{ ev.venue|default:ev.city }}</td>
       <td>{% get_draw_label ev %}</td>
       {% if msa_admin_mode and user.is_staff %}
       <td>
-        <a href="{% url 'msa:event-edit' ev.pk %}" onclick="openPopup(this.href); return false;">✎</a>
-        <a href="{% url 'msa:event-delete' ev.pk %}" onclick="openPopup(this.href); return false;" class="text-red-500">🗑</a>
+        <a href="{% url 'msa:event-edit' ev.pk %}" onclick="openPopup(this.href);return false;">✎</a>
+        <a href="{% url 'msa:event-delete' ev.pk %}" onclick="openPopup(this.href);return false;" class="text-red-500">🗑</a>
       </td>
       {% endif %}
     </tr>
@@ -59,8 +59,12 @@
   </tbody>
 </table>
 <script>
-function openPopup(url) {
-  window.open(url, 'msaManage', 'width=600,height=500,toolbar=no,location=no');
-}
+  function openPopup(url){
+    window.open(
+      url,
+      'msaManage',
+      'width=720,height=640,toolbar=no,location=no,menubar=no,status=no,scrollbars=yes,resizable=yes'
+    );
+  }
 </script>
 {% endblock %}

@@ -466,11 +466,17 @@ const WEEKDAY_NAMES = [
     btn.addEventListener("click", open);
   }
 
-  function enhanceAllWoorldDateInputs() {
-    document
-      .querySelectorAll('input[name$="_date"], input[data-woorld-date="1"]')
+  function enhanceAllWoorldDateInputs(root) {
+    (root || document)
+      .querySelectorAll("input.woorld-date-input")
       .forEach((el) => attachWoorldCalendar(el));
   }
 
   window.attachWoorldCalendar = attachWoorldCalendar;
   window.enhanceAllWoorldDateInputs = enhanceAllWoorldDateInputs;
+  document.addEventListener("DOMContentLoaded", () =>
+    enhanceAllWoorldDateInputs(document)
+  );
+  document.addEventListener("htmx:afterSwap", (e) =>
+    enhanceAllWoorldDateInputs(e.target)
+  );

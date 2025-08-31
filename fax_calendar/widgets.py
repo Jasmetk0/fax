@@ -28,7 +28,10 @@ class WoorldAdminDateWidget(TextInput):
     input_type = "text"
 
     def __init__(self, attrs=None):
-        attrs = {"placeholder": "DD-MM-YYYY", "data-woorld-date": "1", **(attrs or {})}
+        attrs = {"placeholder": "DD-MM-YYYY", **(attrs or {})}
+        css = attrs.get("class", "")
+        attrs["class"] = f"{css} woorld-date-input".strip()
+        attrs.setdefault("data-woorld-date", "1")
         super().__init__(attrs)
 
     def render(self, name, value, attrs=None, renderer=None):
@@ -39,6 +42,7 @@ class WoorldAdminDateWidget(TextInput):
     class Media:
         css = {"all": ["fax_calendar/admin_calendar.css"]}
         js = [
+            "admin/js/core.js",
             "fax_calendar/core.js",
             "fax_calendar/astro.js",
             "fax_calendar/admin_calendar.js",

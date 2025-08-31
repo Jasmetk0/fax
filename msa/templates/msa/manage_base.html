@@ -5,14 +5,35 @@
   <meta charset="utf-8" />
   <title>{% block title %}Manage{% endblock %}</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  {{ form.media }}
+  {{ form.media.css }}
+  <style>.woorld-calendar-popover{position:absolute;z-index:2147483647;}</style>
 </head>
 <body class="bg-slate-900 text-slate-100 p-4">
   {% block popup_content %}{% endblock %}
+  {{ form.media.js }}
   <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      enhanceAllWoorldDateInputs();
+  (function(){
+    function init(root){
+      if (window.enhanceAllWoorldDateInputs) {
+        window.enhanceAllWoorldDateInputs(root || document);
+      } else {
+        console.warn("enhanceAllWoorldDateInputs() missing");
+      }
+    }
+    document.addEventListener("DOMContentLoaded", function(){ init(document); });
+    document.addEventListener("htmx:afterSwap", function(e){ init(e.target); });
+  })();
+  </script>
+  <script>
+  document.addEventListener("DOMContentLoaded", function(){
+    document.getElementById("cancelBtn")?.addEventListener("click", function(e){
+      e.preventDefault();
+      if (window.opener && !window.opener.closed) { window.close(); }
+      else if (window.parent && window.parent !== window) { window.parent.postMessage({type:"close-msa-popup"}, "*"); }
+      else { history.back(); }
     });
+  });
   </script>
 </body>
 </html>
+
