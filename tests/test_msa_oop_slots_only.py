@@ -64,3 +64,12 @@ class OOPSlotsOnlyTests(TestCase):
         self.assertIn(
             f"SUMMARY:{m1.player1.name} vs {m1.player2.name} — {self.t.name}", ics
         )
+
+    def test_ics_events_count_matches_scheduled(self):
+        m1 = self._match(self.players[0], self.players[1])
+        m2 = self._match(self.players[2], self.players[3])
+        csv_text = f"{m1.id},2024-07-01,M,1\n{m2.id},2024-07-02,E,2"
+        rows = parse_bulk_schedule_slots(csv_text)
+        apply_bulk_schedule_slots(self.t, rows)
+        ics = generate_tournament_ics_date_only(self.t)
+        self.assertEqual(ics.count("BEGIN:VEVENT"), 2)

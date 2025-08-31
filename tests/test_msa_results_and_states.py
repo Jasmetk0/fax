@@ -40,13 +40,13 @@ class ResultsAndStateTests(TestCase):
             {
                 "action": "match_result",
                 "match_id": m1.id,
-                "winner": "p1",
-                "scoreline": "6-0 6-0",
+                "result_type": "NORMAL",
+                "scoreline": "6-0 6-0 6-0",
             },
         )
         m1.refresh_from_db()
         self.assertEqual(m1.winner, m1.player1)
-        self.assertEqual(m1.scoreline, "6-0 6-0")
+        self.assertEqual(m1.scoreline, "6-0 6-0 6-0")
         r16_matches = Match.objects.filter(tournament=t, round="R16")
         self.assertEqual(r16_matches.count(), 8)
         r16 = r16_matches.filter(
@@ -60,8 +60,8 @@ class ResultsAndStateTests(TestCase):
             {
                 "action": "match_result",
                 "match_id": m1.id,
-                "winner": "p1",
-                "scoreline": "6-0 6-0",
+                "result_type": "NORMAL",
+                "scoreline": "6-0 6-0 6-0",
             },
         )
         self.assertEqual(Match.objects.filter(tournament=t, round="R16").count(), 8)
@@ -77,18 +77,36 @@ class ResultsAndStateTests(TestCase):
         m2 = Match.objects.create(tournament=t, player1=p3, player2=p4, round="R32")
         url = reverse("msa:tournament-results", args=[t.slug])
         self.client.post(
-            url, {"action": "match_result", "match_id": m1.id, "winner": "p1"}
+            url,
+            {
+                "action": "match_result",
+                "match_id": m1.id,
+                "result_type": "NORMAL",
+                "scoreline": "1-0 1-0 1-0",
+            },
         )
         t.refresh_from_db()
         self.assertEqual(t.state, Tournament.State.LIVE)
         self.client.post(
-            url, {"action": "match_result", "match_id": m2.id, "winner": "p1"}
+            url,
+            {
+                "action": "match_result",
+                "match_id": m2.id,
+                "result_type": "NORMAL",
+                "scoreline": "1-0 1-0 1-0",
+            },
         )
         t.refresh_from_db()
         self.assertEqual(t.state, Tournament.State.LIVE)
         final = Match.objects.get(tournament=t, round="R16")
         self.client.post(
-            url, {"action": "match_result", "match_id": final.id, "winner": "p1"}
+            url,
+            {
+                "action": "match_result",
+                "match_id": final.id,
+                "result_type": "NORMAL",
+                "scoreline": "1-0 1-0 1-0",
+            },
         )
         t.refresh_from_db()
         self.assertEqual(t.state, Tournament.State.COMPLETE)

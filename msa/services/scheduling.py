@@ -12,14 +12,10 @@ logger = logging.getLogger(__name__)
 SESSION_MAP = {
     "M": "MORNING",
     "MORNING": "MORNING",
-    "A": "AFTERNOON",
-    "AFTERNOON": "AFTERNOON",
+    "D": "DAY",
+    "DAY": "DAY",
     "E": "EVENING",
     "EVENING": "EVENING",
-    "N": "NIGHT",
-    "NIGHT": "NIGHT",
-    "D": "D",
-    "DAY": "D",
 }
 
 ALLOWED_SESSIONS = set(SESSION_MAP.values())
@@ -70,10 +66,13 @@ def parse_bulk_schedule_slots(csv_text: str) -> list[dict]:
         if not line or line.startswith("#"):
             continue
         parts = [p.strip() for p in line.split(",")]
-        if len(parts) not in (4, 5):
-            raise ValueError(f"Line {line_no}: expected 4 or 5 columns")
+        if line_no == 1 and parts and parts[0].lower() == "match_id":
+            # header row from export
+            continue
+        if len(parts) < 4:
+            raise ValueError(f"Line {line_no}: expected at least 4 columns")
         match_id_str, date_str, session_raw, slot_str = parts[:4]
-        court = parts[4] if len(parts) == 5 else None
+        court = parts[4] if len(parts) > 4 and parts[4] else None
         try:
             match_id = int(match_id_str)
         except ValueError:
@@ -110,17 +109,19 @@ def apply_bulk_schedule_slots(tournament, rows, *, user=None) -> dict:
         matches = {
             m.id: m for m in Match.objects.select_for_update().filter(id__in=ids)
         }
-        updated = 0
         not_found = []
         foreign = []
         for row in rows:
             match = matches.get(row["match_id"])
             if not match:
                 not_found.append(row["match_id"])
-                continue
-            if match.tournament_id != tournament.id:
+            elif match.tournament_id != tournament.id:
                 foreign.append(row["match_id"])
-                continue
+        if not_found or foreign:
+            raise ValueError(f"Not found: {not_found}; foreign: {foreign}".strip())
+        updated = 0
+        for row in rows:
+            match = matches[row["match_id"]]
             schedule = {
                 "date": row["date"],
                 "session": row["session"],
@@ -130,15 +131,25 @@ def apply_bulk_schedule_slots(tournament, rows, *, user=None) -> dict:
                 schedule["court"] = row["court"]
             put_schedule(match, schedule, user=user)
             updated += 1
-        logger.info(
-            "schedule.bulk_slots user=%s tournament=%s updated=%s not_found=%s foreign=%s",
+    conflicts = find_conflicts_slots(tournament)
+    for c in conflicts.get("court_double_booked", []):
+        logger.warning(
+            "schedule.double_booked user=%s tournament=%s date=%s session=%s slot=%s court=%s matches=%s",
             getattr(user, "id", None),
             tournament.id,
-            updated,
-            not_found,
-            foreign,
+            c["date"],
+            c["session"],
+            c["slot"],
+            c["court"],
+            c["match_ids"],
         )
-    return {"updated": updated, "not_found": not_found, "foreign": foreign}
+    logger.info(
+        "schedule.bulk_slots user=%s tournament=%s updated=%s",
+        getattr(user, "id", None),
+        tournament.id,
+        updated,
+    )
+    return {"updated": updated}
 
 
 def _extract_schedule(match):
@@ -265,8 +276,8 @@ def swap_scheduled_matches(tournament, match_id_a, match_id_b, *, user=None) -> 
         sched_b = _extract_schedule(b)
         if not sched_a or not sched_b:
             return False
-        put_schedule(a, sched_b, user=user, preserve_legacy=False)
-        put_schedule(b, sched_a, user=user, preserve_legacy=False)
+        put_schedule(a, sched_b, user=user)
+        put_schedule(b, sched_a, user=user)
     logger.info(
         "schedule.swap user=%s tournament=%s a=%s b=%s",
         getattr(user, "id", None),
@@ -299,6 +310,20 @@ def move_scheduled_match(
         if match.tournament_id != tournament.id:
             return False
         put_schedule(match, schedule, user=user)
+    conflicts = find_conflicts_slots(tournament)
+    for c in conflicts.get("court_double_booked", []):
+        if match_id in c.get("match_ids", []):
+            logger.warning(
+                "schedule.double_booked user=%s tournament=%s date=%s session=%s slot=%s court=%s matches=%s",
+                getattr(user, "id", None),
+                tournament.id,
+                c["date"],
+                c["session"],
+                c["slot"],
+                c["court"],
+                c["match_ids"],
+            )
+            break
     logger.info(
         "schedule.move user=%s tournament=%s match=%s",
         getattr(user, "id", None),
