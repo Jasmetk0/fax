@@ -16,16 +16,7 @@ from .models import (
 )
 
 
-class WoorldDateWidgetMixin:
-    """Provides WoorldAdminDateWidget for Woorld date fields."""
-
-    @staticmethod
-    def woorld_widgets(*field_names: str) -> dict[str, WoorldAdminDateWidget]:
-        """Return widgets mapping for given Woorld date field names."""
-        return {field: WoorldAdminDateWidget() for field in field_names}
-
-
-class PlayerForm(WoorldDateWidgetMixin, forms.ModelForm):
+class PlayerForm(forms.ModelForm):
     class Meta:
         model = Player
         fields = [
@@ -48,10 +39,13 @@ class PlayerForm(WoorldDateWidgetMixin, forms.ModelForm):
             "rtf_current_rank",
             "rtf_current_points",
         ]
-        widgets = WoorldDateWidgetMixin.woorld_widgets("birthdate", "turned_pro")
+        widgets = {
+            "birthdate": WoorldAdminDateWidget(),
+            "turned_pro": WoorldAdminDateWidget(),
+        }
 
 
-class TournamentForm(WoorldDateWidgetMixin, forms.ModelForm):
+class TournamentForm(forms.ModelForm):
     class Meta:
         model = Tournament
         fields = [
@@ -66,7 +60,10 @@ class TournamentForm(WoorldDateWidgetMixin, forms.ModelForm):
             "prize_money",
             "status",
         ]
-        widgets = WoorldDateWidgetMixin.woorld_widgets("start_date", "end_date")
+        widgets = {
+            "start_date": WoorldAdminDateWidget(),
+            "end_date": WoorldAdminDateWidget(),
+        }
 
 
 class MatchForm(forms.ModelForm):
@@ -75,11 +72,11 @@ class MatchForm(forms.ModelForm):
         exclude = ["tournament", "created_at", "updated_at", "created_by", "updated_by"]
 
 
-class RankingSnapshotForm(WoorldDateWidgetMixin, forms.ModelForm):
+class RankingSnapshotForm(forms.ModelForm):
     class Meta:
         model = RankingSnapshot
         fields = ["as_of"]
-        widgets = WoorldDateWidgetMixin.woorld_widgets("as_of")
+        widgets = {"as_of": WoorldAdminDateWidget()}
 
 
 class RankingEntryForm(forms.ModelForm):
@@ -116,11 +113,14 @@ class MediaItemForm(forms.ModelForm):
         ]
 
 
-class SeasonForm(WoorldDateWidgetMixin, forms.ModelForm):
+class SeasonForm(forms.ModelForm):
     class Meta:
         model = Season
         fields = ["name", "code", "start_date", "end_date"]
-        widgets = WoorldDateWidgetMixin.woorld_widgets("start_date", "end_date")
+        widgets = {
+            "start_date": WoorldAdminDateWidget(),
+            "end_date": WoorldAdminDateWidget(),
+        }
 
 
 class CategoryForm(forms.ModelForm):
@@ -143,7 +143,7 @@ class SeasonCategoryForm(forms.ModelForm):
         ]
 
 
-class EventEditionForm(WoorldDateWidgetMixin, forms.ModelForm):
+class EventEditionForm(forms.ModelForm):
     class Meta:
         model = EventEdition
         fields = [
@@ -161,4 +161,7 @@ class EventEditionForm(WoorldDateWidgetMixin, forms.ModelForm):
             "points_eligible",
             "draw_template",
         ]
-        widgets = WoorldDateWidgetMixin.woorld_widgets("start_date", "end_date")
+        widgets = {
+            "start_date": WoorldAdminDateWidget(),
+            "end_date": WoorldAdminDateWidget(),
+        }
