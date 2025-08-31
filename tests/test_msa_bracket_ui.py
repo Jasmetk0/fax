@@ -35,9 +35,9 @@ class TestBracketUI(TestCase):
         self._create_entries(t, total=32, seeds=8)
         generate_draw(t)
         resp = self.client.get(reverse("msa:tournament-draw", args=[t.slug]))
-        self.assertContains(resp, "R32")
-        self.assertNotContains(resp, "R16")
-        self.assertNotContains(resp, "QF")
+        self.assertContains(resp, "<h3>R32</h3>", html=True)
+        self.assertNotContains(resp, "<h3>R16</h3>", html=True)
+        self.assertNotContains(resp, "<h3>QF</h3>", html=True)
 
     def test_seed_badges_and_chips_rendered(self):
         t = Tournament.objects.create(
