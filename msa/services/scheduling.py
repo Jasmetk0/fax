@@ -9,6 +9,59 @@ from ..models import Match
 
 logger = logging.getLogger(__name__)
 
+SESSION_MAP = {
+    "M": "MORNING",
+    "MORNING": "MORNING",
+    "A": "AFTERNOON",
+    "AFTERNOON": "AFTERNOON",
+    "E": "EVENING",
+    "EVENING": "EVENING",
+    "N": "NIGHT",
+    "NIGHT": "NIGHT",
+    "D": "D",
+    "DAY": "D",
+}
+
+ALLOWED_SESSIONS = set(SESSION_MAP.values())
+
+
+def _normalize_session(value: str) -> str:
+    key = value.strip().upper()
+    session = SESSION_MAP.get(key)
+    if not session:
+        raise ValueError("invalid session")
+    return session
+
+
+def load_section_dict(match) -> dict | None:
+    if not match.section:
+        return None
+    try:
+        data = json.loads(match.section)
+    except json.JSONDecodeError:
+        return None
+    return data
+
+
+def save_section_dict(match, data: dict, *, user=None):
+    match.section = json.dumps(data)
+    if user:
+        match.updated_by = user
+        match.save(update_fields=["section", "updated_by"])
+    else:
+        match.save(update_fields=["section"])
+
+
+def put_schedule(match, schedule: dict, *, user=None, preserve_legacy: bool = True):
+    data = load_section_dict(match)
+    if data is None:
+        if match.section and preserve_legacy:
+            data = {"legacy_section": match.section}
+        else:
+            data = {}
+    data["schedule"] = schedule
+    save_section_dict(match, data, user=user)
+
 
 def parse_bulk_schedule_slots(csv_text: str) -> list[dict]:
     rows: list[dict] = []
@@ -19,7 +72,7 @@ def parse_bulk_schedule_slots(csv_text: str) -> list[dict]:
         parts = [p.strip() for p in line.split(",")]
         if len(parts) not in (4, 5):
             raise ValueError(f"Line {line_no}: expected 4 or 5 columns")
-        match_id_str, date_str, session, slot_str = parts[:4]
+        match_id_str, date_str, session_raw, slot_str = parts[:4]
         court = parts[4] if len(parts) == 5 else None
         try:
             match_id = int(match_id_str)
@@ -29,8 +82,12 @@ def parse_bulk_schedule_slots(csv_text: str) -> list[dict]:
             dt = datetime.strptime(date_str, "%Y-%m-%d").date()
         except ValueError:
             raise ValueError(f"Line {line_no}: invalid date")
-        if not session:
+        if not session_raw:
             raise ValueError(f"Line {line_no}: session required")
+        try:
+            session = _normalize_session(session_raw)
+        except ValueError:
+            raise ValueError(f"Line {line_no}: invalid session")
         try:
             slot = int(slot_str)
         except ValueError:
@@ -69,14 +126,9 @@ def apply_bulk_schedule_slots(tournament, rows, *, user=None) -> dict:
                 "session": row["session"],
                 "slot": row["slot"],
             }
-            if "court" in row:
+            if "court" in row and row["court"]:
                 schedule["court"] = row["court"]
-            match.section = json.dumps({"schedule": schedule})
-            if user:
-                match.updated_by = user
-                match.save(update_fields=["section", "updated_by"])
-            else:
-                match.save(update_fields=["section"])
+            put_schedule(match, schedule, user=user)
             updated += 1
         logger.info(
             "schedule.bulk_slots user=%s tournament=%s updated=%s not_found=%s foreign=%s",
@@ -90,11 +142,8 @@ def apply_bulk_schedule_slots(tournament, rows, *, user=None) -> dict:
 
 
 def _extract_schedule(match):
-    if not match.section:
-        return None
-    try:
-        data = json.loads(match.section)
-    except json.JSONDecodeError:
+    data = load_section_dict(match)
+    if not data:
         return None
     return data.get("schedule")
 
@@ -102,11 +151,19 @@ def _extract_schedule(match):
 def find_conflicts_slots(tournament) -> dict:
     player_matches: dict[int, list] = defaultdict(list)
     scheduled_matches = 0
+    court_map: dict[tuple, list] = defaultdict(list)
     for m in tournament.matches.select_related("player1", "player2"):
         sched = _extract_schedule(m)
         if not sched:
             continue
         scheduled_matches += 1
+        key = (
+            sched["date"],
+            sched["session"],
+            int(sched["slot"]),
+            sched.get("court"),
+        )
+        court_map[key].append(m.id)
         for player in (m.player1, m.player2):
             player_matches[player.id].append(
                 (m.id, sched["date"], sched["session"], int(sched["slot"]))
@@ -136,9 +193,22 @@ def find_conflicts_slots(tournament) -> dict:
                             "delta_slots": delta,
                         }
                     )
+    court_double_booked = []
+    for key, ids in court_map.items():
+        if key[3] and len(ids) > 1:
+            court_double_booked.append(
+                {
+                    "date": key[0],
+                    "session": key[1],
+                    "slot": key[2],
+                    "court": key[3],
+                    "match_ids": ids,
+                }
+            )
     return {
         "hard": hard,
         "b2b": b2b,
+        "court_double_booked": court_double_booked,
         "stats": {
             "scheduled": scheduled_matches,
             "unique_players": len(player_matches),
@@ -177,3 +247,84 @@ def generate_tournament_ics_date_only(tournament) -> str:
         )
     lines.append("END:VCALENDAR")
     return "\r\n".join(lines)
+
+
+def swap_scheduled_matches(tournament, match_id_a, match_id_b, *, user=None) -> bool:
+    with transaction.atomic():
+        matches = list(
+            Match.objects.select_for_update().filter(id__in=[match_id_a, match_id_b])
+        )
+        if len(matches) != 2:
+            return False
+        m_map = {m.id: m for m in matches}
+        a = m_map.get(match_id_a)
+        b = m_map.get(match_id_b)
+        if a.tournament_id != tournament.id or b.tournament_id != tournament.id:
+            return False
+        sched_a = _extract_schedule(a)
+        sched_b = _extract_schedule(b)
+        if not sched_a or not sched_b:
+            return False
+        put_schedule(a, sched_b, user=user, preserve_legacy=False)
+        put_schedule(b, sched_a, user=user, preserve_legacy=False)
+    logger.info(
+        "schedule.swap user=%s tournament=%s a=%s b=%s",
+        getattr(user, "id", None),
+        tournament.id,
+        match_id_a,
+        match_id_b,
+    )
+    return True
+
+
+def move_scheduled_match(
+    tournament, match_id, new_schedule: dict, *, user=None
+) -> bool:
+    try:
+        session = _normalize_session(new_schedule["session"])
+    except ValueError:
+        return False
+    schedule = {
+        "date": new_schedule["date"],
+        "session": session,
+        "slot": new_schedule["slot"],
+    }
+    if new_schedule.get("court"):
+        schedule["court"] = new_schedule["court"]
+    with transaction.atomic():
+        try:
+            match = Match.objects.select_for_update().get(id=match_id)
+        except Match.DoesNotExist:
+            return False
+        if match.tournament_id != tournament.id:
+            return False
+        put_schedule(match, schedule, user=user)
+    logger.info(
+        "schedule.move user=%s tournament=%s match=%s",
+        getattr(user, "id", None),
+        tournament.id,
+        match_id,
+    )
+    return True
+
+
+def export_schedule_csv(tournament) -> str:
+    lines = ["match_id,date,session,slot,court,round,player1,player2"]
+    for m in tournament.matches.select_related("player1", "player2"):
+        sched = _extract_schedule(m)
+        if not sched:
+            continue
+        line = ",".join(
+            [
+                str(m.id),
+                sched["date"],
+                sched["session"],
+                str(sched["slot"]),
+                sched.get("court", ""),
+                m.round,
+                m.player1.name,
+                m.player2.name,
+            ]
+        )
+        lines.append(line)
+    return "\n".join(lines)

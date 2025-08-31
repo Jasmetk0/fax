@@ -52,6 +52,8 @@ from .forms import (
     SeedUpdateForm,
     SeedsBulkForm,
     ScheduleBulkSlotsForm,
+    ScheduleSwapForm,
+    ScheduleMoveForm,
 )
 from .services.entries import (
     add_entry,
@@ -71,6 +73,9 @@ from .services.scheduling import (
     apply_bulk_schedule_slots,
     find_conflicts_slots,
     generate_tournament_ics_date_only,
+    swap_scheduled_matches,
+    move_scheduled_match,
+    export_schedule_csv,
 )
 import json
 from .utils import filter_by_tour  # MSA-REDESIGN
@@ -972,6 +977,75 @@ def tournament_results(request, slug):
             else:
                 messages.error(request, "Invalid input")
             return redirect(request.path)
+        elif action == "schedule_swap_slots":
+            if not _is_admin(request):
+                return HttpResponseForbidden()
+            form = ScheduleSwapForm(request.POST)
+            if form.is_valid():
+                ok = swap_scheduled_matches(
+                    tournament,
+                    form.cleaned_data["match_a"],
+                    form.cleaned_data["match_b"],
+                    user=request.user,
+                )
+                if ok:
+                    messages.success(request, "Matches swapped")
+                    logger.info(
+                        "schedule.swap success user=%s tournament=%s a=%s b=%s",
+                        request.user.id,
+                        tournament.id,
+                        form.cleaned_data["match_a"],
+                        form.cleaned_data["match_b"],
+                    )
+                else:
+                    messages.error(request, "Swap failed")
+                    logger.info(
+                        "schedule.swap fail user=%s tournament=%s a=%s b=%s",
+                        request.user.id,
+                        tournament.id,
+                        form.cleaned_data.get("match_a"),
+                        form.cleaned_data.get("match_b"),
+                    )
+            else:
+                messages.error(request, "Invalid input")
+            return redirect(request.path)
+        elif action == "schedule_move_match":
+            if not _is_admin(request):
+                return HttpResponseForbidden()
+            form = ScheduleMoveForm(request.POST)
+            if form.is_valid():
+                schedule = {
+                    "date": form.cleaned_data["date"].isoformat(),
+                    "session": form.cleaned_data["session"],
+                    "slot": form.cleaned_data["slot"],
+                }
+                if form.cleaned_data.get("court"):
+                    schedule["court"] = form.cleaned_data["court"]
+                ok = move_scheduled_match(
+                    tournament,
+                    form.cleaned_data["match_id"],
+                    schedule,
+                    user=request.user,
+                )
+                if ok:
+                    messages.success(request, "Match moved")
+                    logger.info(
+                        "schedule.move success user=%s tournament=%s match=%s",
+                        request.user.id,
+                        tournament.id,
+                        form.cleaned_data["match_id"],
+                    )
+                else:
+                    messages.error(request, "Move failed")
+                    logger.info(
+                        "schedule.move fail user=%s tournament=%s match=%s",
+                        request.user.id,
+                        tournament.id,
+                        form.cleaned_data["match_id"],
+                    )
+            else:
+                messages.error(request, "Invalid input")
+            return redirect(request.path)
         action = request.GET.get("action")
     if action == "progress":
         if progress_bracket(tournament):
@@ -992,6 +1066,13 @@ def tournament_results(request, slug):
         ics = generate_tournament_ics_date_only(tournament)
         resp = HttpResponse(ics, content_type="text/calendar")
         resp["Content-Disposition"] = f'attachment; filename="{tournament.slug}.ics"'
+        return resp
+    if action == "export_schedule_csv":
+        csv_text = export_schedule_csv(tournament)
+        resp = HttpResponse(csv_text, content_type="text/csv")
+        resp["Content-Disposition"] = (
+            f'attachment; filename="{tournament.slug}_oop.csv"'
+        )
         return resp
     matches_by_round = {}
     scheduled = []
@@ -1024,6 +1105,8 @@ def tournament_results(request, slug):
         ).setdefault(court, []).append(match)
     conflicts_slots = find_conflicts_slots(tournament)
     schedule_form = ScheduleBulkSlotsForm()
+    schedule_swap_form = ScheduleSwapForm()
+    schedule_move_form = ScheduleMoveForm()
     return render(
         request,
         "msa/tournament_results.html",
@@ -1032,6 +1115,8 @@ def tournament_results(request, slug):
             "matches_by_round": matches_by_round,
             "is_admin": _is_admin(request),
             "schedule_form": schedule_form,
+            "schedule_swap_form": schedule_swap_form,
+            "schedule_move_form": schedule_move_form,
             "oop_slots": oop,
             "conflicts_slots": conflicts_slots,
         },

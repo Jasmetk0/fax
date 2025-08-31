@@ -204,6 +204,19 @@ class ScheduleBulkSlotsForm(forms.Form):
     )
 
 
+class ScheduleSwapForm(forms.Form):
+    match_a = forms.IntegerField()
+    match_b = forms.IntegerField()
+
+
+class ScheduleMoveForm(forms.Form):
+    match_id = forms.IntegerField()
+    date = forms.DateField(input_formats=["%Y-%m-%d"])
+    session = forms.CharField()
+    slot = forms.IntegerField(min_value=1)
+    court = forms.CharField(required=False)
+
+
 class EntryUpdateTypeForm(forms.Form):
     entry_id = forms.IntegerField(widget=forms.HiddenInput())
     entry_type = forms.ChoiceField(choices=TournamentEntry.EntryType.choices)
