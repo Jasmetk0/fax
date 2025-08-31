@@ -44,7 +44,7 @@
       <a
         href="{% url 'msa:tournament-results' tournament.slug %}?action=export_schedule_csv"
         class="px-3 py-1 border rounded hover:bg-gray-50 text-sm"
-        >Export CSV</a
+        >Export CSV (schedule)</a
       >
     </div>
   </div>
@@ -60,20 +60,20 @@
         {% csrf_token %}
         <input type="hidden" name="action" value="match_result" />
         <input type="hidden" name="match_id" value="{{ match.id }}" />
-        <label class="text-xs mr-1"
-          ><input type="radio" name="winner" value="p1" />
-          {{ match.player1.name }}</label
-        >
-        <label class="text-xs mr-1"
-          ><input type="radio" name="winner" value="p2" />
-          {{ match.player2.name }}</label
-        >
+        <label class="text-xs mr-1"><input type="radio" name="result_type" value="NORMAL" checked /> Normal</label>
+        <label class="text-xs mr-1"><input type="radio" name="result_type" value="WO" /> WO</label>
+        <label class="text-xs mr-1"><input type="radio" name="result_type" value="RET" /> RET</label>
         <input
           type="text"
           name="scoreline"
           class="border px-1 py-0.5 w-24 text-xs"
           placeholder="Score"
         />
+        <select name="retired_player_id" class="border px-1 py-0.5 text-xs">
+          <option value="">--retired--</option>
+          <option value="{{ match.player1_id }}">{{ match.player1.name }}</option>
+          <option value="{{ match.player2_id }}">{{ match.player2.name }}</option>
+        </select>
         <button class="px-2 py-0.5 border rounded text-xs">Save</button>
       </form>
       {% endif %}
@@ -129,51 +129,6 @@
   <ul class="list-disc list-inside">
     {% for c in conflicts_slots.court_double_booked %}
     <li>{{ c.date }} {{ c.session }} slot {{ c.slot }} court {{ c.court }}: {% for id in c.match_ids %}{{ id }}{% if not forloop.last %}, {% endif %}{% endfor %}</li>
-    {% empty %}<li>None</li>{% endfor %}
-  </ul>
-  {% empty %}
-  <p>No results available.</p>
-  {% endfor %}
-</div>
-{% if is_admin %}
-<div class="mt-8">
-  <h3>Order of Play (slots)</h3>
-  {% for date, sessions in oop_slots.items %}
-  <h4>{{ date }}</h4>
-  {% for session, slots in sessions.items %}
-  <div class="ml-4">
-    <h5>Session {{ session }}</h5>
-    {% for slot, courts in slots.items %}
-    <div class="ml-4">
-      <strong>Slot {{ slot }}</strong>
-      {% for court, matches in courts.items %}
-      <div class="ml-4">
-        {% if court %}<em>Court {{ court }}</em>{% endif %}
-        <ul class="list-disc list-inside">
-          {% for match in matches %}
-          <li>{{ match.player1.name }} vs {{ match.player2.name }} ({{ match.round }})</li>
-          {% endfor %}
-        </ul>
-      </div>
-      {% endfor %}
-    </div>
-    {% endfor %}
-  </div>
-  {% endfor %}
-  {% endfor %}
-</div>
-<div class="mt-8">
-  <h3>Conflicts</h3>
-  <h4>Hard</h4>
-  <ul class="list-disc list-inside">
-    {% for c in conflicts_slots.hard %}
-    <li>Player {{ c.player_id }}: {% for m in c.matches %}{{ m.0 }}{% if not forloop.last %}, {% endif %}{% endfor %}</li>
-    {% empty %}<li>None</li>{% endfor %}
-  </ul>
-  <h4 class="mt-2">Back-to-back</h4>
-  <ul class="list-disc list-inside">
-    {% for c in conflicts_slots.b2b %}
-    <li>Player {{ c.player_id }}: {{ c.prev_id }} → {{ c.next_id }} (Δ{{ c.delta_slots }})</li>
     {% empty %}<li>None</li>{% endfor %}
   </ul>
 </div>
