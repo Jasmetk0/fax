@@ -1,16 +1,16 @@
 {% extends 'msa/tournament_base.html' %}
 {% block tournament_content %}
-{% regroup matches by round as round_list %}
 <div class="mt-4">
-  {% for round in round_list %}
-  <h2 class="text-xl font-semibold mt-2">{{ round.grouper }}</h2>
+  {% if slots %}
   <ul class="list-disc list-inside">
-    {% for match in round.list %}
-      <li>{{ match.player1.name }} vs {{ match.player2.name }}</li>
+    {% for entry in slots %}
+      <li>
+        {{ forloop.counter }}. {% if entry %}{{ entry.player.name }}{% else %}BYE{% endif %}
+      </li>
     {% endfor %}
   </ul>
-  {% empty %}
+  {% else %}
   <p>No draw available.</p>
-  {% endfor %}
+  {% endif %}
 </div>
 {% endblock %}
