@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>{{ tournament.name }}</title>
+</head>
+<body class="p-4">
+  <h1 class="text-2xl">{{ tournament.name }}</h1>
+  <p>{{ tournament.start_date }} - {{ tournament.end_date }}</p>
+  {% include 'msa/partials/_bracket.html' %}
+</body>
+</html>

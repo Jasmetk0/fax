@@ -15,10 +15,14 @@ def update_tournament_state(tournament, user=None):
         matches = t.matches.all()
         new_state = t.state
         if matches.exists():
-            all_winners = not matches.filter(winner__isnull=True).exists()
+            # treat matches with result metadata in section as finished
+            all_winners = not matches.filter(
+                Q(winner__isnull=True) & ~Q(section__contains='"result_meta"')
+            ).exists()
             any_live = matches.filter(
                 Q(winner__isnull=False)
                 | Q(live_status__in=["live", "finished", "result"])
+                | Q(section__contains='"result_meta"')
             ).exists()
             if all_winners:
                 new_state = Tournament.State.COMPLETE

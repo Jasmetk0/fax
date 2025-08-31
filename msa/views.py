@@ -1,4 +1,5 @@
 import logging
+from collections import OrderedDict
 from django.db import transaction
 from django.db.models import Case, IntegerField, Q, When
 import unicodedata
@@ -36,7 +37,6 @@ from .services.qual import (
     progress_qualifying,
     promote_qualifiers,
 )
-from .services.state import update_tournament_state
 from .services.points import rebuild_season_live_points
 from .services.snapshot import create_ranking_snapshot
 from .services.alt_ll import (
@@ -77,6 +77,8 @@ from .services.scheduling import (
     move_scheduled_match,
     export_schedule_csv,
 )
+from .services.match_results import record_match_result
+from .services.share import make_share_token, verify_share_token
 import json
 from .utils import filter_by_tour  # MSA-REDESIGN
 
@@ -108,6 +110,33 @@ def _admin_required(view_func):
     return wrapper
 
 
+def _get_seeds_map(tournament, entries=None):
+    if entries is None:
+        entries = tournament.entries.filter(seed__isnull=False).only(
+            "player_id", "seed"
+        )
+    return {e.player_id: e.seed for e in entries if e.seed}
+
+
+def _group_matches_by_round(matches, *, round_order=None, qualifying=False):
+    grouped = OrderedDict()
+    for m in matches:
+        grouped.setdefault(m.round, []).append(m)
+    if round_order is not None:
+        order = [r for r in round_order if r in grouped]
+    else:
+        if qualifying:
+
+            def key(rc):
+                return int(rc[1:]) if rc[1:].isdigit() else 99
+
+            order = sorted(grouped.keys(), key=key)
+        else:
+            order = sorted(grouped.keys())
+    items = [(code, grouped[code]) for code in order]
+    return grouped, order, items
+
+
 def _handle_match_result(request, tournament):
     try:
         match_id = int(request.POST.get("match_id"))
@@ -120,46 +149,41 @@ def _handle_match_result(request, tournament):
             request.POST.get("match_id"),
         )
         return redirect(request.path)
-    winner_side = request.POST.get("winner")
-    if winner_side not in {"p1", "p2"}:
-        messages.error(request, "Invalid winner")
+    result_type = (request.POST.get("result_type") or "NORMAL").upper()
+    scoreline = request.POST.get("scoreline") or None
+    retired_player_id = request.POST.get("retired_player_id")
+    if retired_player_id:
+        try:
+            retired_player_id = int(retired_player_id)
+        except ValueError:
+            retired_player_id = None
+    match = get_object_or_404(Match, pk=match_id, tournament=tournament)
+    try:
+        record_match_result(
+            match,
+            result_type=result_type,
+            scoreline_str=scoreline,
+            retired_player_id=retired_player_id,
+            user=request.user,
+        )
+    except ValueError as e:
+        messages.error(request, str(e))
         logger.info(
-            "match_result fail user=%s tournament=%s match=%s winner=%s",
+            "match_result fail user=%s tournament=%s match=%s err=%s",
             request.user.id,
             tournament.id,
             match_id,
-            winner_side,
+            e,
         )
-        return redirect(request.path)
-    scoreline = (request.POST.get("scoreline") or "").strip()
-    with transaction.atomic():
-        match = get_object_or_404(
-            Match.objects.select_for_update(), pk=match_id, tournament=tournament
+    else:
+        messages.success(request, "Result saved")
+        logger.info(
+            "match_result success user=%s tournament=%s match=%s type=%s",
+            request.user.id,
+            tournament.id,
+            match_id,
+            result_type,
         )
-        match.winner = match.player1 if winner_side == "p1" else match.player2
-        if scoreline:
-            match.scoreline = scoreline
-        match.live_status = "finished"
-        match.updated_by = request.user
-        fields = ["winner", "live_status", "updated_by"]
-        if scoreline:
-            fields.append("scoreline")
-        match.save(update_fields=fields)
-        progress_bracket(tournament)
-        update_tournament_state(tournament, request.user)
-        if tournament.season:
-            rebuild_season_live_points(
-                tournament.season, persist=True, user=request.user
-            )
-    messages.success(request, "Result saved")
-    logger.info(
-        "match_result success user=%s tournament=%s match=%s winner=%s score=%s",
-        request.user.id,
-        tournament.id,
-        match_id,
-        winner_side,
-        scoreline,
-    )
     return redirect(request.path)
 
 
@@ -493,14 +517,70 @@ def tournament_players(request, slug):
 
 def tournament_draw(request, slug):
     tournament = get_object_or_404(Tournament, slug=slug)
+    share_token = request.GET.get("share")
+    rounds_filter = None
+    is_public = False
+    if share_token:
+        payload = verify_share_token(share_token)
+        if (
+            payload
+            and payload.get("slug") == slug
+            and payload.get("variant") == "main"
+            and payload.get("format") == "html"
+        ):
+            is_public = True
+            rounds_filter = payload.get("rounds") or None
+        elif not _is_admin(request):
+            return HttpResponseForbidden()
+    if rounds_filter is None:
+        rounds_param = request.GET.get("rounds")
+        if rounds_param:
+            rounds_filter = [r.strip() for r in rounds_param.split(",") if r.strip()]
+    user_is_admin = _is_admin(request)
+    is_admin = user_is_admin and not is_public
     if request.method == "POST":
+        if is_public:
+            return HttpResponseForbidden()
+        action = request.POST.get("action")
+        if action == "share_link":
+            if not user_is_admin:
+                return HttpResponseForbidden()
+            variant = request.POST.get("variant", "main")
+            fmt = request.POST.get("format", "html")
+            rounds_post = request.POST.get("rounds") or ""
+            rounds_list = [
+                r.strip() for r in rounds_post.split(",") if r.strip()
+            ] or None
+            token = make_share_token(tournament.slug, variant, fmt, rounds_list)
+            if fmt == "html":
+                path = reverse(
+                    (
+                        "msa:tournament-draw"
+                        if variant == "main"
+                        else "msa:tournament-qualifying"
+                    ),
+                    args=[tournament.slug],
+                )
+            else:
+                path = reverse(
+                    (
+                        "msa:tournament-draw-json"
+                        if variant == "main"
+                        else "msa:tournament-qualifying-json"
+                    ),
+                    args=[tournament.slug],
+                )
+            url = request.build_absolute_uri(f"{path}?share={token}")
+            request.session["share_url"] = url
+            messages.success(request, "Share link generated")
+            return redirect(request.path)
         action = request.POST.get("action")
         if action == "match_result":
-            if not _is_admin(request):
+            if not user_is_admin:
                 return HttpResponseForbidden()
             return _handle_match_result(request, tournament)
         elif action == "rebuild_live_points":
-            if not _is_admin(request):
+            if not user_is_admin:
                 return HttpResponseForbidden()
             if tournament.season:
                 rebuild_season_live_points(
@@ -514,7 +594,7 @@ def tournament_draw(request, slug):
             )
             return redirect(request.path)
         if action == "swap":
-            if not (_is_admin(request) and tournament.allow_manual_bracket_edits):
+            if not (user_is_admin and tournament.allow_manual_bracket_edits):
                 return HttpResponseForbidden()
             try:
                 slot_a = int(request.POST.get("slot_a"))
@@ -607,7 +687,7 @@ def tournament_draw(request, slug):
                 )
             return redirect(request.path)
         elif action == "replace":
-            if not (_is_admin(request) and tournament.allow_manual_bracket_edits):
+            if not (user_is_admin and tournament.allow_manual_bracket_edits):
                 return HttpResponseForbidden()
             try:
                 slot = int(request.POST.get("slot"))
@@ -677,7 +757,7 @@ def tournament_draw(request, slug):
                 )
             return redirect(request.path)
         elif action == "alt_autofill":
-            if not _is_admin(request):
+            if not user_is_admin:
                 return HttpResponseForbidden()
             res = auto_fill_with_alternates(tournament, user=request.user)
             filled = res.get("filled", 0)
@@ -698,7 +778,7 @@ def tournament_draw(request, slug):
                 )
             return redirect(request.path)
         elif action == "withdraw_slot_ll":
-            if not _is_admin(request):
+            if not user_is_admin:
                 return HttpResponseForbidden()
             try:
                 slot = int(request.POST.get("slot"))
@@ -729,7 +809,7 @@ def tournament_draw(request, slug):
                 )
             return redirect(request.path)
         elif action == "promote_ll_to_slot":
-            if not _is_admin(request):
+            if not user_is_admin:
                 return HttpResponseForbidden()
             try:
                 slot = int(request.POST.get("slot"))
@@ -761,7 +841,11 @@ def tournament_draw(request, slug):
             return redirect(request.path)
 
     action = request.GET.get("action")
+    if is_public and action:
+        return HttpResponseForbidden()
     if action == "generate":
+        if not user_is_admin:
+            return HttpResponseForbidden()
         if tournament.draw_size not in {32, 64, 96, 128}:
             messages.warning(request, "Unsupported draw size")
             logger.info(
@@ -777,6 +861,8 @@ def tournament_draw(request, slug):
                 tournament.id,
             )
     elif action == "regenerate":
+        if not user_is_admin:
+            return HttpResponseForbidden()
         if tournament.draw_size not in {32, 64, 96, 128}:
             messages.warning(request, "Unsupported draw size")
             logger.info(
@@ -799,6 +885,8 @@ def tournament_draw(request, slug):
                 tournament.id,
             )
     elif action == "progress":
+        if not user_is_admin:
+            return HttpResponseForbidden()
         if progress_bracket(tournament):
             messages.success(request, "Next round generated")
             logger.info(
@@ -813,116 +901,447 @@ def tournament_draw(request, slug):
                 request.user.id,
                 tournament.id,
             )
-    elif action == "qual_generate":
-        if generate_qualifying(tournament, user=request.user):
-            messages.success(request, "Qualifying generated")
-            logger.info(
-                "qual_generate success user=%s tournament=%s",
-                request.user.id,
-                tournament.id,
-            )
-        else:
-            messages.warning(request, "Nothing to generate")
-            logger.info(
-                "qual_generate fail user=%s tournament=%s",
-                request.user.id,
-                tournament.id,
-            )
-    elif action == "qual_regenerate":
-        if generate_qualifying(tournament, force=True, user=request.user):
-            messages.success(request, "Qualifying regenerated")
-            logger.info(
-                "qual_regenerate success user=%s tournament=%s",
-                request.user.id,
-                tournament.id,
-            )
-        else:
-            messages.warning(request, "Nothing to regenerate")
-            logger.info(
-                "qual_regenerate fail user=%s tournament=%s",
-                request.user.id,
-                tournament.id,
-            )
-    elif action == "qual_progress":
-        if progress_qualifying(tournament, user=request.user):
-            messages.success(request, "Qualifying progressed")
-            logger.info(
-                "qual_progress success user=%s tournament=%s",
-                request.user.id,
-                tournament.id,
-            )
-        else:
-            messages.warning(request, "Nothing to progress")
-            logger.info(
-                "qual_progress fail user=%s tournament=%s",
-                request.user.id,
-                tournament.id,
-            )
-    elif action == "promote_qualifiers":
-        if promote_qualifiers(tournament, user=request.user):
-            messages.success(request, "Qualifiers promoted")
-            logger.info(
-                "promote_qualifiers success user=%s tournament=%s",
-                request.user.id,
-                tournament.id,
-            )
-        else:
-            messages.warning(request, "Promotion failed")
-            logger.info(
-                "promote_qualifiers fail user=%s tournament=%s",
-                request.user.id,
-                tournament.id,
-            )
 
-    entries = tournament.entries.filter(status="active").select_related("player")
-    if entries.filter(position__isnull=False).exists():
-        bracket = 1 << ((tournament.draw_size or 32) - 1).bit_length()
-        by_pos = {e.position: e for e in entries if e.position}
-        slots = [by_pos.get(i) for i in range(1, bracket + 1)]
+    entries = tournament.entries.filter(status="active").select_related(
+        "player", "origin_match"
+    )
+    by_player_id = {e.player_id: e for e in entries}
+    by_pos = {e.position: e for e in entries if e.position}
+
+    round_order = ["R128", "R96", "R64", "R32", "R16", "QF", "SF", "F"]
+    draw_size = tournament.draw_size or 32
+    first_round = f"R{draw_size}"
+    bracket = OrderedDict()
+
+    if by_pos:
+        for i in range(1, draw_size + 1, 2):
+            e1 = by_pos.get(i)
+            e2 = by_pos.get(i + 1)
+            if not e1 and not e2:
+                continue
+            if e1 and e2:
+                m = (
+                    tournament.matches.filter(round=first_round)
+                    .filter(
+                        Q(player1=e1.player, player2=e2.player)
+                        | Q(player1=e2.player, player2=e1.player)
+                    )
+                    .select_related("player1", "player2", "winner")
+                    .first()
+                )
+                bracket.setdefault(first_round, []).append(
+                    {
+                        "match": m,
+                        "p1": e1.player,
+                        "p2": e2.player,
+                        "p1_entry": e1,
+                        "p2_entry": e2,
+                    }
+                )
+            else:
+                if draw_size == 96 and first_round == "R96":
+                    continue
+                entry = e1 or e2
+                bracket.setdefault(first_round, []).append(
+                    {
+                        "match": None,
+                        "p1": entry.player,
+                        "p2": None,
+                        "p1_entry": entry,
+                        "p2_entry": None,
+                        "bye": True,
+                    }
+                )
     else:
-        slots = list(entries.order_by("player__name"))
-    first_round = f"R{tournament.draw_size}"
-    first_round_winners = set(
-        tournament.matches.filter(round=first_round, winner__isnull=False).values_list(
-            "winner_id", flat=True
+        bracket[first_round] = [
+            {
+                "match": None,
+                "p1": e.player,
+                "p2": None,
+                "p1_entry": e,
+                "p2_entry": None,
+                "bye": True,
+            }
+            for e in entries.order_by("player__name")
+        ]
+
+    start_idx = round_order.index(first_round)
+    for code in round_order[start_idx + 1 :]:
+        matches = list(
+            tournament.matches.filter(round=code)
+            .select_related("player1", "player2", "winner")
+            .order_by("id")
         )
+        if matches:
+            bracket[code] = [
+                {
+                    "match": m,
+                    "p1": m.player1,
+                    "p2": m.player2,
+                    "p1_entry": by_player_id.get(m.player1_id),
+                    "p2_entry": by_player_id.get(m.player2_id),
+                }
+                for m in matches
+            ]
+        elif draw_size == 96 and code == "R64":
+            for i in range(1, draw_size + 1, 2):
+                e1 = by_pos.get(i)
+                e2 = by_pos.get(i + 1)
+                if e1 and not e2:
+                    bracket.setdefault("R64", []).append(
+                        {
+                            "match": None,
+                            "p1": e1.player,
+                            "p2": None,
+                            "p1_entry": e1,
+                            "p2_entry": None,
+                            "bye": True,
+                        }
+                    )
+                elif e2 and not e1:
+                    bracket.setdefault("R64", []).append(
+                        {
+                            "match": None,
+                            "p1": e2.player,
+                            "p2": None,
+                            "p1_entry": e2,
+                            "p2_entry": None,
+                            "bye": True,
+                        }
+                    )
+    round_order = [r for r in round_order if bracket.get(r)]
+    if rounds_filter:
+        round_order = [r for r in round_order if r in rounds_filter]
+    bracket_items = [(r, bracket[r]) for r in round_order]
+
+    print_mode = request.GET.get("print") == "1"
+    template_name = (
+        "msa/tournament_draw_print.html" if print_mode else "msa/tournament_draw.html"
     )
-    matches_by_round = {}
-    for m in (
-        tournament.matches.filter(round__startswith="R")
-        .select_related("player1", "player2", "winner")
-        .order_by("id")
-    ):
-        matches_by_round.setdefault(m.round, []).append(m)
-    matches_by_round = dict(
-        sorted(matches_by_round.items(), key=lambda x: int(x[0][1:]), reverse=True)
-    )
-    qual_matches_by_round = {}
-    for m in (
-        tournament.matches.filter(round__startswith="Q")
-        .select_related("player1", "player2", "winner")
-        .order_by("id")
-    ):
-        qual_matches_by_round.setdefault(m.round, []).append(m)
-    qual_matches_by_round = dict(
-        sorted(
-            qual_matches_by_round.items(),
-            key=lambda x: int(x[0][1:]) if x[0][1:].isdigit() else 0,
-            reverse=True,
-        )
-    )
+
+    share_url = request.session.pop("share_url", None)
     return render(
         request,
-        "msa/tournament_draw.html",
+        template_name,
         {
             "tournament": tournament,
-            "slots": slots,
-            "is_admin": _is_admin(request),
-            "matches_by_round": matches_by_round,
-            "qual_matches_by_round": qual_matches_by_round,
-            "first_round_winners": first_round_winners,
+            "bracket": bracket,
+            "round_order": round_order,
+            "bracket_items": bracket_items,
+            "entries_by_player_id": by_player_id,
+            "seeds_by_player_id": _get_seeds_map(tournament, entries),
+            "is_admin": is_admin,
+            "is_public": is_public,
+            "share_url": share_url,
+            "print_mode": print_mode,
         },
     )
+
+
+def tournament_qualifying(request, slug):
+    tournament = get_object_or_404(Tournament, slug=slug)
+    share_token = request.GET.get("share")
+    rounds_filter = None
+    is_public = False
+    if share_token:
+        payload = verify_share_token(share_token)
+        if (
+            payload
+            and payload.get("slug") == slug
+            and payload.get("variant") == "qual"
+            and payload.get("format") == "html"
+        ):
+            is_public = True
+            rounds_filter = payload.get("rounds") or None
+        elif not _is_admin(request):
+            return HttpResponseForbidden()
+    if rounds_filter is None:
+        rounds_param = request.GET.get("rounds")
+        if rounds_param:
+            rounds_filter = [r.strip() for r in rounds_param.split(",") if r.strip()]
+    user_is_admin = _is_admin(request)
+    is_admin = user_is_admin and not is_public
+    if request.method == "POST":
+        if is_public:
+            return HttpResponseForbidden()
+        action = request.POST.get("action")
+        if action == "share_link":
+            if not user_is_admin:
+                return HttpResponseForbidden()
+            variant = request.POST.get("variant", "qual")
+            fmt = request.POST.get("format", "html")
+            rounds_post = request.POST.get("rounds") or ""
+            rounds_list = [
+                r.strip() for r in rounds_post.split(",") if r.strip()
+            ] or None
+            token = make_share_token(tournament.slug, variant, fmt, rounds_list)
+            if fmt == "html":
+                path = reverse(
+                    (
+                        "msa:tournament-draw"
+                        if variant == "main"
+                        else "msa:tournament-qualifying"
+                    ),
+                    args=[tournament.slug],
+                )
+            else:
+                path = reverse(
+                    (
+                        "msa:tournament-draw-json"
+                        if variant == "main"
+                        else "msa:tournament-qualifying-json"
+                    ),
+                    args=[tournament.slug],
+                )
+            url = request.build_absolute_uri(f"{path}?share={token}")
+            request.session["share_url"] = url
+            messages.success(request, "Share link generated")
+            return redirect(request.path)
+        if action == "match_result":
+            if not user_is_admin:
+                return HttpResponseForbidden()
+            return _handle_match_result(request, tournament)
+        if not user_is_admin:
+            return HttpResponseForbidden()
+        if action == "qual_generate":
+            ok = generate_qualifying(tournament, user=request.user)
+            messages.success(
+                request, "Qualifying generated" if ok else "Nothing to generate"
+            )
+            return redirect(request.path)
+        if action == "qual_regenerate":
+            ok = generate_qualifying(tournament, force=True, user=request.user)
+            messages.success(
+                request, "Qualifying regenerated" if ok else "Nothing to regenerate"
+            )
+            return redirect(request.path)
+        if action == "qual_progress":
+            ok = progress_qualifying(tournament, user=request.user)
+            messages.success(
+                request, "Qualifying progressed" if ok else "Nothing to progress"
+            )
+            return redirect(request.path)
+        if action == "promote_qualifiers":
+            ok = promote_qualifiers(tournament, user=request.user)
+            messages.success(
+                request, "Qualifiers promoted" if ok else "Promotion failed"
+            )
+            return redirect(request.path)
+    entries = {
+        e.player_id: e
+        for e in tournament.entries.filter(status="active").select_related(
+            "player", "origin_match"
+        )
+    }
+    matches = list(
+        tournament.matches.filter(round__startswith="Q")
+        .select_related("player1", "player2", "winner")
+        .order_by("round", "id")
+    )
+    grouped, round_order, _ = _group_matches_by_round(matches, qualifying=True)
+    if rounds_filter:
+        round_order = [r for r in round_order if r in rounds_filter]
+    bracket = OrderedDict()
+    for code, ms in grouped.items():
+        if rounds_filter and code not in rounds_filter:
+            continue
+        bracket[code] = [
+            {
+                "match": m,
+                "p1": m.player1,
+                "p2": m.player2,
+                "p1_entry": entries.get(m.player1_id),
+                "p2_entry": entries.get(m.player2_id),
+            }
+            for m in ms
+        ]
+    bracket_items = [(code, bracket[code]) for code in round_order]
+
+    print_mode = request.GET.get("print") == "1"
+    template_name = (
+        "msa/tournament_draw_print.html"
+        if print_mode
+        else "msa/tournament_qualifying.html"
+    )
+
+    share_url = request.session.pop("share_url", None)
+    return render(
+        request,
+        template_name,
+        {
+            "tournament": tournament,
+            "bracket": bracket,
+            "round_order_q": round_order,
+            "bracket_items": bracket_items,
+            "entries_by_player_id": entries,
+            "seeds_by_player_id": _get_seeds_map(tournament, entries.values()),
+            "is_admin": is_admin,
+            "is_public": is_public,
+            "share_url": share_url,
+            "print_mode": print_mode,
+        },
+    )
+
+
+def tournament_draw_json(request, slug):
+    tournament = get_object_or_404(Tournament, slug=slug)
+    share_token = request.GET.get("share")
+    rounds_filter = None
+    if share_token:
+        payload = verify_share_token(share_token)
+        if (
+            payload
+            and payload.get("slug") == slug
+            and payload.get("variant") == "main"
+            and payload.get("format") == "json"
+        ):
+            rounds_filter = payload.get("rounds") or None
+        elif not _is_admin(request):
+            return HttpResponseForbidden()
+    if rounds_filter is None:
+        rounds_param = request.GET.get("rounds")
+        if rounds_param:
+            rounds_filter = [r.strip() for r in rounds_param.split(",") if r.strip()]
+    entries = {
+        e.player_id: e
+        for e in tournament.entries.filter(status="active").select_related("player")
+    }
+    seeds = _get_seeds_map(tournament, entries.values())
+    order = ["R128", "R96", "R64", "R32", "R16", "QF", "SF", "F"]
+    matches = list(
+        tournament.matches.filter(round__in=order)
+        .select_related("player1", "player2", "winner")
+        .order_by("round", "id")
+    )
+    grouped, round_order, _ = _group_matches_by_round(matches, round_order=order)
+    if rounds_filter:
+        round_order = [r for r in round_order if r in rounds_filter]
+    rounds_json = []
+    for code in round_order:
+        ms = grouped[code]
+        rounds_json.append(
+            {
+                "code": code,
+                "matches": [
+                    {
+                        "id": m.id,
+                        "p1": {
+                            "id": m.player1_id,
+                            "name": m.player1.name,
+                            "seed": seeds.get(m.player1_id),
+                            "tag": (
+                                entries.get(m.player1_id).entry_type
+                                if entries.get(m.player1_id)
+                                else None
+                            ),
+                        },
+                        "p2": {
+                            "id": m.player2_id,
+                            "name": m.player2.name,
+                            "seed": seeds.get(m.player2_id),
+                            "tag": (
+                                entries.get(m.player2_id).entry_type
+                                if entries.get(m.player2_id)
+                                else None
+                            ),
+                        },
+                        "winner_id": m.winner_id,
+                        "score": m.scoreline or None,
+                    }
+                    for m in ms
+                ],
+            }
+        )
+    data = {
+        "tournament": {
+            "slug": tournament.slug,
+            "name": tournament.name,
+            "draw_size": tournament.draw_size,
+            "seeds_count": tournament.seeds_count,
+        },
+        "rounds": rounds_json,
+    }
+    return JsonResponse(data)
+
+
+def tournament_qualifying_json(request, slug):
+    tournament = get_object_or_404(Tournament, slug=slug)
+    share_token = request.GET.get("share")
+    rounds_filter = None
+    if share_token:
+        payload = verify_share_token(share_token)
+        if (
+            payload
+            and payload.get("slug") == slug
+            and payload.get("variant") == "qual"
+            and payload.get("format") == "json"
+        ):
+            rounds_filter = payload.get("rounds") or None
+        elif not _is_admin(request):
+            return HttpResponseForbidden()
+    if rounds_filter is None:
+        rounds_param = request.GET.get("rounds")
+        if rounds_param:
+            rounds_filter = [r.strip() for r in rounds_param.split(",") if r.strip()]
+    entries = {
+        e.player_id: e
+        for e in tournament.entries.filter(status="active").select_related("player")
+    }
+    seeds = _get_seeds_map(tournament, entries.values())
+    matches = list(
+        tournament.matches.filter(round__startswith="Q")
+        .select_related("player1", "player2", "winner")
+        .order_by("round", "id")
+    )
+    grouped, round_order, _ = _group_matches_by_round(matches, qualifying=True)
+    if rounds_filter:
+        round_order = [r for r in round_order if r in rounds_filter]
+    rounds_json = []
+    for code in round_order:
+        ms = grouped[code]
+        rounds_json.append(
+            {
+                "code": code,
+                "matches": [
+                    {
+                        "id": m.id,
+                        "p1": {
+                            "id": m.player1_id,
+                            "name": m.player1.name,
+                            "seed": seeds.get(m.player1_id),
+                            "tag": (
+                                entries.get(m.player1_id).entry_type
+                                if entries.get(m.player1_id)
+                                else None
+                            ),
+                        },
+                        "p2": {
+                            "id": m.player2_id,
+                            "name": m.player2.name,
+                            "seed": seeds.get(m.player2_id),
+                            "tag": (
+                                entries.get(m.player2_id).entry_type
+                                if entries.get(m.player2_id)
+                                else None
+                            ),
+                        },
+                        "winner_id": m.winner_id,
+                        "score": m.scoreline or None,
+                    }
+                    for m in ms
+                ],
+            }
+        )
+    data = {
+        "tournament": {
+            "slug": tournament.slug,
+            "name": tournament.name,
+            "draw_size": tournament.draw_size,
+            "seeds_count": tournament.seeds_count,
+        },
+        "rounds": rounds_json,
+    }
+    return JsonResponse(data)
 
 
 def tournament_results(request, slug):
@@ -954,20 +1373,16 @@ def tournament_results(request, slug):
             if form.is_valid():
                 try:
                     rows = parse_bulk_schedule_slots(form.cleaned_data["rows"])
-                except ValueError as e:
-                    messages.error(request, str(e))
-                else:
                     result = apply_bulk_schedule_slots(
                         tournament, rows, user=request.user
                     )
+                except ValueError as e:
+                    messages.error(request, str(e))
+                else:
                     if result["updated"]:
                         messages.success(
                             request, f"Scheduled {result['updated']} matches"
                         )
-                    if result["not_found"]:
-                        messages.warning(request, f"Not found: {result['not_found']}")
-                    if result["foreign"]:
-                        messages.warning(request, f"Foreign: {result['foreign']}")
                     logger.info(
                         "schedule_bulk_slots user=%s tournament=%s updated=%s",
                         request.user.id,
@@ -1046,7 +1461,8 @@ def tournament_results(request, slug):
             else:
                 messages.error(request, "Invalid input")
             return redirect(request.path)
-        action = request.GET.get("action")
+        return redirect(request.path)
+    action = request.GET.get("action")
     if action == "progress":
         if progress_bracket(tournament):
             messages.success(request, "Next round generated")
