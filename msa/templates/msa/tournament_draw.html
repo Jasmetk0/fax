@@ -1,193 +1,70 @@
 {% extends 'msa/tournament_base.html' %}
 {% block tournament_content %}
 <div class="mt-4">
-  {% if is_admin %}
-  <div class="flex gap-2 mb-4">
-    <a
-      href="{% url 'msa:tournament-draw' tournament.slug %}?action=generate"
-      class="px-3 py-1 border rounded hover:bg-gray-50 text-sm"
-      >Generate draw</a
-    >
-    <a
-      href="{% url 'msa:tournament-draw' tournament.slug %}?action=regenerate"
-      class="px-3 py-1 border rounded hover:bg-red-50 text-sm text-red-600"
-      >Regenerate (danger)</a
-    >
-    <a
-      href="{% url 'msa:tournament-draw' tournament.slug %}?action=progress"
-      class="px-3 py-1 border rounded hover:bg-gray-50 text-sm"
-      >Generate next round</a
-    >
-    <a
-      href="{% url 'msa:tournament-draw' tournament.slug %}?action=qual_generate"
-      class="px-3 py-1 border rounded hover:bg-gray-50 text-sm"
-      >Generate qualifying</a
-    >
-    <a
-      href="{% url 'msa:tournament-draw' tournament.slug %}?action=qual_regenerate"
-      class="px-3 py-1 border rounded hover:bg-red-50 text-sm text-red-600"
-      >Regenerate qualifying</a
-    >
-    <a
-      href="{% url 'msa:tournament-draw' tournament.slug %}?action=qual_progress"
-      class="px-3 py-1 border rounded hover:bg-gray-50 text-sm"
-      >Progress qualifying</a
-    >
-    <a
-      href="{% url 'msa:tournament-draw' tournament.slug %}?action=promote_qualifiers"
-      class="px-3 py-1 border rounded hover:bg-gray-50 text-sm"
-      >Promote qualifiers</a
-    >
-  </div>
-  <form method="post" class="flex gap-2 items-center mb-4">
-    {% csrf_token %}
-    <input type="hidden" name="action" value="swap" />
-    <input
-      name="slot_a"
-      type="number"
-      min="1"
-      class="border px-2 py-1 w-24"
-      placeholder="Slot A"
-    />
-    <input
-      name="slot_b"
-      type="number"
-      min="1"
-      class="border px-2 py-1 w-24"
-      placeholder="Slot B"
-    />
-    <button class="px-3 py-1 border rounded text-sm">Swap slots</button>
-  </form>
-  <form method="post" class="flex gap-2 items-center mb-4">
-    {% csrf_token %}
-    <input type="hidden" name="action" value="replace" />
-    <input
-      name="slot"
-      type="number"
-      min="1"
-      class="border px-2 py-1 w-20"
-      placeholder="Slot"
-    />
-    <input
-      name="entry_id"
-      type="number"
-      class="border px-2 py-1 w-28"
-      placeholder="Entry ID (ALT/LL)"
-    />
-    <button class="px-3 py-1 border rounded text-sm">Replace</button>
-  </form>
-  <form method="post" class="mb-4">
-    {% csrf_token %}
-    <input type="hidden" name="action" value="alt_autofill" />
-    <button class="px-3 py-1 border rounded text-sm">ALT auto-fill</button>
-  </form>
-  <form method="post" class="flex gap-2 items-center mb-4">
-    {% csrf_token %}
-    <input type="hidden" name="action" value="withdraw_slot_ll" />
-    <input
-      name="slot"
-      type="number"
-      min="1"
-      class="border px-2 py-1 w-20"
-      placeholder="Slot"
-    />
-    <button class="px-3 py-1 border rounded text-sm">Withdraw & LL</button>
-  </form>
-  <form method="post" class="flex gap-2 items-center mb-4">
-    {% csrf_token %}
-    <input type="hidden" name="action" value="promote_ll_to_slot" />
-    <input
-      name="slot"
-      type="number"
-      min="1"
-      class="border px-2 py-1 w-20"
-      placeholder="Slot"
-    />
-    <button class="px-3 py-1 border rounded text-sm">Promote LL</button>
-  </form>
-  <form method="post" class="mb-4">
-    {% csrf_token %}
-    <input type="hidden" name="action" value="rebuild_live_points" />
-    <button class="px-3 py-1 border rounded text-sm">Rebuild live points</button>
-  </form>
+  {% if print_mode %}
+    <h1 class="text-2xl">{{ tournament.name }}</h1>
+    <p>{{ tournament.start_date }} - {{ tournament.end_date }}</p>
+  {% else %}
+    {% if is_admin %}
+    <div class="flex gap-2 mb-4">
+      <a href="{% url 'msa:tournament-draw' tournament.slug %}?action=generate" class="px-3 py-1 border rounded hover:bg-gray-50 text-sm">Generate draw</a>
+      <a href="{% url 'msa:tournament-draw' tournament.slug %}?action=regenerate" class="px-3 py-1 border rounded hover:bg-red-50 text-sm text-red-600">Regenerate (danger)</a>
+      <a href="{% url 'msa:tournament-draw' tournament.slug %}?action=progress" class="px-3 py-1 border rounded hover:bg-gray-50 text-sm">Generate next round</a>
+      <a href="{% url 'msa:tournament-draw' tournament.slug %}?action=qual_generate" class="px-3 py-1 border rounded hover:bg-gray-50 text-sm">Generate qualifying</a>
+      <a href="{% url 'msa:tournament-draw' tournament.slug %}?action=qual_regenerate" class="px-3 py-1 border rounded hover:bg-red-50 text-sm text-red-600">Regenerate qualifying</a>
+      <a href="{% url 'msa:tournament-draw' tournament.slug %}?action=qual_progress" class="px-3 py-1 border rounded hover:bg-gray-50 text-sm">Progress qualifying</a>
+      <a href="{% url 'msa:tournament-draw' tournament.slug %}?action=promote_qualifiers" class="px-3 py-1 border rounded hover:bg-gray-50 text-sm">Promote qualifiers</a>
+      <a href="{% url 'msa:tournament-draw' tournament.slug %}?print=1" target="_blank" class="px-3 py-1 border rounded hover:bg-gray-50 text-sm">Print (clean)</a>
+    </div>
+    <form method="post" class="flex gap-2 items-center mb-4">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="swap" />
+      <input name="slot_a" type="number" min="1" class="border px-2 py-1 w-24" placeholder="Slot A" />
+      <input name="slot_b" type="number" min="1" class="border px-2 py-1 w-24" placeholder="Slot B" />
+      <button class="px-3 py-1 border rounded text-sm">Swap slots</button>
+    </form>
+    <form method="post" class="flex gap-2 items-center mb-4">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="replace" />
+      <input name="slot" type="number" min="1" class="border px-2 py-1 w-20" placeholder="Slot" />
+      <input name="entry_id" type="number" class="border px-2 py-1 w-28" placeholder="Entry ID (ALT/LL)" />
+      <button class="px-3 py-1 border rounded text-sm">Replace</button>
+    </form>
+    <form method="post" class="mb-4">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="alt_autofill" />
+      <button class="px-3 py-1 border rounded text-sm">ALT auto-fill</button>
+    </form>
+    <form method="post" class="flex gap-2 items-center mb-4">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="withdraw_slot_ll" />
+      <input name="slot" type="number" min="1" class="border px-2 py-1 w-20" placeholder="Slot" />
+      <button class="px-3 py-1 border rounded text-sm">Withdraw & LL</button>
+    </form>
+    <form method="post" class="flex gap-2 items-center mb-4">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="promote_ll_to_slot" />
+      <input name="slot" type="number" min="1" class="border px-2 py-1 w-20" placeholder="Slot" />
+      <button class="px-3 py-1 border rounded text-sm">Promote LL</button>
+    </form>
+    <form method="post" class="mb-4">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="rebuild_live_points" />
+      <button class="px-3 py-1 border rounded text-sm">Rebuild live points</button>
+    </form>
+    {% endif %}
   {% endif %}
-  {% if messages %}
+
+  {% if messages and not print_mode %}
   <ul class="mb-3">
     {% for message in messages %}
     <li class="text-sm">{{ message }}</li>
     {% endfor %}
   </ul>
   {% endif %}
-  {% if slots %}
-  <h3>R{{ tournament.draw_size }}</h3>
-  <ul class="list-disc list-inside">
-    {% for entry in slots %}
-    <li>
-      {{ forloop.counter }}.
-      {% if entry %}
-        {% if entry.player.id in first_round_winners %}
-          <strong>{{ entry.player.name }}</strong>
-        {% else %}
-          {{ entry.player.name }}
-        {% endif %}
-        {% if entry.seed %}<span class="ml-1 text-xs">(seed)</span>{% endif %}
-        {% if entry.entry_type == 'Q' or entry.entry_type == 'LL' %}<span class="ml-1 text-xs">{{ entry.origin_note }}</span>{% endif %}
-        {% if entry.origin_match %}<a href="{% url 'msa:match-edit' entry.origin_match.pk %}" class="ml-1 text-xs underline">Qualifying match</a>{% endif %}
-      {% else %}BYE{% endif %}
-    </li>
-    {% endfor %}
-  </ul>
-  {% for round, matches in matches_by_round.items %}
-  <h3>{{ round }}</h3>
-  <ul class="list-disc list-inside">
-    {% for match in matches %}
-    <li>
-      {% if match.winner_id == match.player1_id %}
-        <strong>{{ match.player1.name }}</strong> vs {{ match.player2.name }}
-      {% elif match.winner_id == match.player2_id %}
-        {{ match.player1.name }} vs <strong>{{ match.player2.name }}</strong>
-      {% else %}
-        {{ match.player1.name }} vs {{ match.player2.name }}
-      {% endif %}
-      {% if is_admin %}
-      <form method="post" class="inline ml-2">
-        {% csrf_token %}
-        <input type="hidden" name="action" value="match_result" />
-        <input type="hidden" name="match_id" value="{{ match.id }}" />
-        <label class="text-xs mr-1"
-          ><input type="radio" name="result_type" value="NORMAL" checked />
-          Normal</label
-        >
-        <label class="text-xs mr-1"
-          ><input type="radio" name="result_type" value="WO" /> WO</label
-        >
-        <label class="text-xs mr-1"
-          ><input type="radio" name="result_type" value="RET" /> RET</label
-        >
-        <input
-          type="text"
-          name="scoreline"
-          class="border px-1 py-0.5 w-24 text-xs"
-          placeholder="Score"
-        />
-        <select
-          name="retired_player_id"
-          class="border px-1 py-0.5 text-xs"
-        >
-          <option value="">--retired--</option>
-          <option value="{{ match.player1_id }}">{{ match.player1.name }}</option>
-          <option value="{{ match.player2_id }}">{{ match.player2.name }}</option>
-        </select>
-        <button class="px-2 py-0.5 border rounded text-xs">Save</button>
-      </form>
-      {% endif %}
-    </li>
-    {% endfor %}
-  </ul>
-  {% endfor %}
-  {% else %}
-  <p>No draw available.</p>
-  {% endif %}
+
+  {% include 'msa/partials/_bracket.html' %}
+
   {% if qual_matches_by_round %}
   <h2 class="mt-6">Qualifying</h2>
   {% for round, matches in qual_matches_by_round.items %}
@@ -202,31 +79,16 @@
       {% else %}
         {{ match.player1.name }} vs {{ match.player2.name }}
       {% endif %}
-      {% if is_admin %}
+      {% if is_admin and not print_mode %}
       <form method="post" class="inline ml-2">
         {% csrf_token %}
         <input type="hidden" name="action" value="match_result" />
         <input type="hidden" name="match_id" value="{{ match.id }}" />
-        <label class="text-xs mr-1"
-          ><input type="radio" name="result_type" value="NORMAL" checked />
-          Normal</label
-        >
-        <label class="text-xs mr-1"
-          ><input type="radio" name="result_type" value="WO" /> WO</label
-        >
-        <label class="text-xs mr-1"
-          ><input type="radio" name="result_type" value="RET" /> RET</label
-        >
-        <input
-          type="text"
-          name="scoreline"
-          class="border px-1 py-0.5 w-24 text-xs"
-          placeholder="Score"
-        />
-        <select
-          name="retired_player_id"
-          class="border px-1 py-0.5 text-xs"
-        >
+        <label class="text-xs mr-1"><input type="radio" name="result_type" value="NORMAL" checked /> Normal</label>
+        <label class="text-xs mr-1"><input type="radio" name="result_type" value="WO" /> WO</label>
+        <label class="text-xs mr-1"><input type="radio" name="result_type" value="RET" /> RET</label>
+        <input type="text" name="scoreline" class="border px-1 py-0.5 w-24 text-xs" placeholder="Score" />
+        <select name="retired_player_id" class="border px-1 py-0.5 text-xs">
           <option value="">--retired--</option>
           <option value="{{ match.player1_id }}">{{ match.player1.name }}</option>
           <option value="{{ match.player2_id }}">{{ match.player2.name }}</option>
@@ -241,4 +103,3 @@
   {% endif %}
 </div>
 {% endblock %}
-

@@ -1,4 +1,5 @@
 import logging
+from collections import OrderedDict
 from django.db import transaction
 from django.db.models import Case, IntegerField, Q, When
 import unicodedata
@@ -869,29 +870,117 @@ def tournament_draw(request, slug):
                 tournament.id,
             )
 
-    entries = tournament.entries.filter(status="active").select_related("player")
-    if entries.filter(position__isnull=False).exists():
-        bracket = 1 << ((tournament.draw_size or 32) - 1).bit_length()
-        by_pos = {e.position: e for e in entries if e.position}
-        slots = [by_pos.get(i) for i in range(1, bracket + 1)]
+    entries = tournament.entries.filter(status="active").select_related(
+        "player", "origin_match"
+    )
+    by_player_id = {e.player_id: e for e in entries}
+    seeds_by_player_id = {e.player_id: e.seed for e in entries if e.seed}
+    by_pos = {e.position: e for e in entries if e.position}
+
+    round_order = ["R128", "R96", "R64", "R32", "R16", "QF", "SF", "F"]
+    draw_size = tournament.draw_size or 32
+    first_round = f"R{draw_size}"
+    bracket = OrderedDict()
+
+    if by_pos:
+        for i in range(1, draw_size + 1, 2):
+            e1 = by_pos.get(i)
+            e2 = by_pos.get(i + 1)
+            if not e1 and not e2:
+                continue
+            if e1 and e2:
+                m = (
+                    tournament.matches.filter(round=first_round)
+                    .filter(
+                        Q(player1=e1.player, player2=e2.player)
+                        | Q(player1=e2.player, player2=e1.player)
+                    )
+                    .select_related("player1", "player2", "winner")
+                    .first()
+                )
+                bracket.setdefault(first_round, []).append(
+                    {
+                        "match": m,
+                        "p1": e1.player,
+                        "p2": e2.player,
+                        "p1_entry": e1,
+                        "p2_entry": e2,
+                    }
+                )
+            else:
+                if draw_size == 96 and first_round == "R96":
+                    continue
+                entry = e1 or e2
+                bracket.setdefault(first_round, []).append(
+                    {
+                        "match": None,
+                        "p1": entry.player,
+                        "p2": None,
+                        "p1_entry": entry,
+                        "p2_entry": None,
+                        "bye": True,
+                    }
+                )
     else:
-        slots = list(entries.order_by("player__name"))
-    first_round = f"R{tournament.draw_size}"
-    first_round_winners = set(
-        tournament.matches.filter(round=first_round, winner__isnull=False).values_list(
-            "winner_id", flat=True
+        bracket[first_round] = [
+            {
+                "match": None,
+                "p1": e.player,
+                "p2": None,
+                "p1_entry": e,
+                "p2_entry": None,
+                "bye": True,
+            }
+            for e in entries.order_by("player__name")
+        ]
+
+    start_idx = round_order.index(first_round)
+    for code in round_order[start_idx + 1 :]:
+        matches = list(
+            tournament.matches.filter(round=code)
+            .select_related("player1", "player2", "winner")
+            .order_by("id")
         )
-    )
-    matches_by_round = {}
-    for m in (
-        tournament.matches.filter(round__startswith="R")
-        .select_related("player1", "player2", "winner")
-        .order_by("id")
-    ):
-        matches_by_round.setdefault(m.round, []).append(m)
-    matches_by_round = dict(
-        sorted(matches_by_round.items(), key=lambda x: int(x[0][1:]), reverse=True)
-    )
+        if matches:
+            bracket[code] = [
+                {
+                    "match": m,
+                    "p1": m.player1,
+                    "p2": m.player2,
+                    "p1_entry": by_player_id.get(m.player1_id),
+                    "p2_entry": by_player_id.get(m.player2_id),
+                }
+                for m in matches
+            ]
+        elif draw_size == 96 and code == "R64":
+            for i in range(1, draw_size + 1, 2):
+                e1 = by_pos.get(i)
+                e2 = by_pos.get(i + 1)
+                if e1 and not e2:
+                    bracket.setdefault("R64", []).append(
+                        {
+                            "match": None,
+                            "p1": e1.player,
+                            "p2": None,
+                            "p1_entry": e1,
+                            "p2_entry": None,
+                            "bye": True,
+                        }
+                    )
+                elif e2 and not e1:
+                    bracket.setdefault("R64", []).append(
+                        {
+                            "match": None,
+                            "p1": e2.player,
+                            "p2": None,
+                            "p1_entry": e2,
+                            "p2_entry": None,
+                            "bye": True,
+                        }
+                    )
+    round_order = [r for r in round_order if bracket.get(r)]
+    bracket_items = [(r, bracket[r]) for r in round_order]
+
     qual_matches_by_round = {}
     for m in (
         tournament.matches.filter(round__startswith="Q")
@@ -906,16 +995,25 @@ def tournament_draw(request, slug):
             reverse=True,
         )
     )
+
+    print_mode = request.GET.get("print") == "1"
+    template_name = (
+        "msa/tournament_draw_print.html" if print_mode else "msa/tournament_draw.html"
+    )
+
     return render(
         request,
-        "msa/tournament_draw.html",
+        template_name,
         {
             "tournament": tournament,
-            "slots": slots,
+            "bracket": bracket,
+            "round_order": round_order,
+            "bracket_items": bracket_items,
+            "entries_by_player_id": by_player_id,
+            "seeds_by_player_id": seeds_by_player_id,
             "is_admin": _is_admin(request),
-            "matches_by_round": matches_by_round,
+            "print_mode": print_mode,
             "qual_matches_by_round": qual_matches_by_round,
-            "first_round_winners": first_round_winners,
         },
     )
 
