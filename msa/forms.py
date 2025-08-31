@@ -51,7 +51,9 @@ class TournamentForm(forms.ModelForm):
         fields = [
             "name",
             "slug",
+            "season",
             "category",
+            "season_category",
             "start_date",
             "end_date",
             "city",

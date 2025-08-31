@@ -80,8 +80,16 @@ class SeasonAdmin(admin.ModelAdmin):
 
 @admin.register(Tournament)
 class TournamentAdmin(admin.ModelAdmin):
-    list_display = ("name", "category", "start_date", "city", "country", "status")
-    list_filter = ("status", "category", "country", "start_date")
+    list_display = (
+        "name",
+        "season",
+        "category",
+        "start_date",
+        "city",
+        "country",
+        "status",
+    )
+    list_filter = ("status", "category", "season", "country", "start_date")
     search_fields = ("name", "city", "country")
     prepopulated_fields = {"slug": ("name",)}
     readonly_fields = (

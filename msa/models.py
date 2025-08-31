@@ -105,14 +105,36 @@ class Tournament(AuditModel):
 
     name = models.CharField(max_length=200)
     slug = models.SlugField(unique=True)
-    category = models.CharField(max_length=50)
-    start_date = WoorldDateField()
-    end_date = WoorldDateField()
-    city = models.CharField(max_length=100)
-    country = models.CharField(max_length=100)
-    venue = models.CharField(max_length=200, blank=True)
+    season = models.ForeignKey(
+        Season,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="tournaments",
+    )
+    category = models.ForeignKey(
+        "Category",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="tournaments",
+    )
+    season_category = models.ForeignKey(
+        "CategorySeason",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="tournaments",
+    )
+    start_date = WoorldDateField(null=True, blank=True)
+    end_date = WoorldDateField(null=True, blank=True)
+    city = models.CharField(max_length=100, null=True, blank=True)
+    country = models.CharField(max_length=100, null=True, blank=True)
+    venue = models.CharField(max_length=200, null=True, blank=True)
     prize_money = models.IntegerField(null=True, blank=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES)
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, null=True, blank=True
+    )
 
     def __str__(self) -> str:  # pragma: no cover - trivial
         return self.name
