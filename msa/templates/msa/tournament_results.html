@@ -19,6 +19,9 @@
     <form method="post" class="mb-2">
       {% csrf_token %}
       <input type="hidden" name="action" value="schedule_bulk_slots" />
+      <div class="text-xs text-gray-600 mb-1">
+        Accepted session codes: MORNING | DAY | EVENING (také M/D/E, case-insensitive)
+      </div>
       {{ schedule_form.rows }}
       <div class="text-xs text-gray-600">{{ schedule_form.rows.help_text }}</div>
       <button class="px-3 py-1 border rounded text-sm mt-1">Apply schedule</button>
