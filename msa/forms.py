@@ -188,3 +188,15 @@ class EntryBulkForm(forms.Form):
 class EntryUpdateTypeForm(forms.Form):
     entry_id = forms.IntegerField(widget=forms.HiddenInput())
     entry_type = forms.ChoiceField(choices=TournamentEntry.EntryType.choices)
+
+
+class SeedUpdateForm(forms.Form):
+    entry_id = forms.IntegerField(widget=forms.HiddenInput())
+    seed = forms.IntegerField(required=False, min_value=1)
+
+
+class SeedsBulkForm(forms.Form):
+    rows = forms.CharField(
+        widget=forms.Textarea,
+        help_text="CSV format: entry_id,seed",
+    )

@@ -2,6 +2,23 @@
 {% block tournament_content %}
 {% if is_admin %}
   <h2 class="mt-4 text-lg">Entries</h2>
+  {% if tournament.state == 'draft' or tournament.state == 'entry_open' %}
+  <form method="post" class="mt-2">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="entries_lock" />
+    <button type="submit">Lock entries</button>
+  </form>
+  {% elif tournament.state == 'entry_locked' %}
+  <form method="post" class="mt-2">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="entries_unlock" />
+    <button type="submit">Unlock entries</button>
+  </form>
+  {% endif %}
+  <form method="get" class="mt-2">
+    <input type="hidden" name="action" value="entries_export_csv" />
+    <button type="submit">Export CSV</button>
+  </form>
   <form method="post" class="mt-2">
     {% csrf_token %}
     <input type="hidden" name="action" value="entry_add" />
@@ -20,7 +37,27 @@
     ALT: {{ capacity.alt }} |
     Withdrawn: {{ capacity.withdrawn }}
   </p>
+  {% if pre_draw.errors or pre_draw.warnings %}
+  <div class="mt-4">
+    <h3>Pre-draw checklist</h3>
+    {% if pre_draw.errors %}
+    <ul>
+      {% for e in pre_draw.errors %}<li>{{ e }}</li>{% endfor %}
+    </ul>
+    {% endif %}
+    {% if pre_draw.warnings %}
+    <ul>
+      {% for w in pre_draw.warnings %}<li>{{ w }}</li>{% endfor %}
+    </ul>
+    {% endif %}
+  </div>
+  {% endif %}
   {% include 'msa/partials/_entries_table.html' %}
+  {% if seed_editor_allowed %}
+    {% include 'msa/partials/_entries_seed_editor.html' %}
+  {% else %}
+    <p class="mt-4">Seed editor unavailable.</p>
+  {% endif %}
 {% else %}
   <ul class="mt-4 list-disc list-inside">
     {% for entry in entries %}
