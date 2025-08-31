@@ -5,7 +5,7 @@
     <h1 class="text-2xl">{{ tournament.name }}</h1>
     <p>{{ tournament.start_date }} - {{ tournament.end_date }}</p>
   {% else %}
-    {% if is_admin %}
+    {% if is_admin and not is_public %}
     <div class="flex gap-2 mb-4">
       <a href="{% url 'msa:tournament-draw' tournament.slug %}?action=generate" class="px-3 py-1 border rounded hover:bg-gray-50 text-sm">Generate draw</a>
       <a href="{% url 'msa:tournament-draw' tournament.slug %}?action=regenerate" class="px-3 py-1 border rounded hover:bg-red-50 text-sm text-red-600">Regenerate (danger)</a>
@@ -48,6 +48,7 @@
       <input type="hidden" name="action" value="rebuild_live_points" />
       <button class="px-3 py-1 border rounded text-sm">Rebuild live points</button>
     </form>
+    {% include 'msa/partials/_share_buttons.html' %}
     {% endif %}
   {% endif %}
 

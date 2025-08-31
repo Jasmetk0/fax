@@ -78,6 +78,7 @@ from .services.scheduling import (
     export_schedule_csv,
 )
 from .services.match_results import record_match_result
+from .services.share import make_share_token, verify_share_token
 import json
 from .utils import filter_by_tour  # MSA-REDESIGN
 
@@ -516,14 +517,70 @@ def tournament_players(request, slug):
 
 def tournament_draw(request, slug):
     tournament = get_object_or_404(Tournament, slug=slug)
+    share_token = request.GET.get("share")
+    rounds_filter = None
+    is_public = False
+    if share_token:
+        payload = verify_share_token(share_token)
+        if (
+            payload
+            and payload.get("slug") == slug
+            and payload.get("variant") == "main"
+            and payload.get("format") == "html"
+        ):
+            is_public = True
+            rounds_filter = payload.get("rounds") or None
+        elif not _is_admin(request):
+            return HttpResponseForbidden()
+    if rounds_filter is None:
+        rounds_param = request.GET.get("rounds")
+        if rounds_param:
+            rounds_filter = [r.strip() for r in rounds_param.split(",") if r.strip()]
+    user_is_admin = _is_admin(request)
+    is_admin = user_is_admin and not is_public
     if request.method == "POST":
+        if is_public:
+            return HttpResponseForbidden()
+        action = request.POST.get("action")
+        if action == "share_link":
+            if not user_is_admin:
+                return HttpResponseForbidden()
+            variant = request.POST.get("variant", "main")
+            fmt = request.POST.get("format", "html")
+            rounds_post = request.POST.get("rounds") or ""
+            rounds_list = [
+                r.strip() for r in rounds_post.split(",") if r.strip()
+            ] or None
+            token = make_share_token(tournament.slug, variant, fmt, rounds_list)
+            if fmt == "html":
+                path = reverse(
+                    (
+                        "msa:tournament-draw"
+                        if variant == "main"
+                        else "msa:tournament-qualifying"
+                    ),
+                    args=[tournament.slug],
+                )
+            else:
+                path = reverse(
+                    (
+                        "msa:tournament-draw-json"
+                        if variant == "main"
+                        else "msa:tournament-qualifying-json"
+                    ),
+                    args=[tournament.slug],
+                )
+            url = request.build_absolute_uri(f"{path}?share={token}")
+            request.session["share_url"] = url
+            messages.success(request, "Share link generated")
+            return redirect(request.path)
         action = request.POST.get("action")
         if action == "match_result":
-            if not _is_admin(request):
+            if not user_is_admin:
                 return HttpResponseForbidden()
             return _handle_match_result(request, tournament)
         elif action == "rebuild_live_points":
-            if not _is_admin(request):
+            if not user_is_admin:
                 return HttpResponseForbidden()
             if tournament.season:
                 rebuild_season_live_points(
@@ -537,7 +594,7 @@ def tournament_draw(request, slug):
             )
             return redirect(request.path)
         if action == "swap":
-            if not (_is_admin(request) and tournament.allow_manual_bracket_edits):
+            if not (user_is_admin and tournament.allow_manual_bracket_edits):
                 return HttpResponseForbidden()
             try:
                 slot_a = int(request.POST.get("slot_a"))
@@ -630,7 +687,7 @@ def tournament_draw(request, slug):
                 )
             return redirect(request.path)
         elif action == "replace":
-            if not (_is_admin(request) and tournament.allow_manual_bracket_edits):
+            if not (user_is_admin and tournament.allow_manual_bracket_edits):
                 return HttpResponseForbidden()
             try:
                 slot = int(request.POST.get("slot"))
@@ -700,7 +757,7 @@ def tournament_draw(request, slug):
                 )
             return redirect(request.path)
         elif action == "alt_autofill":
-            if not _is_admin(request):
+            if not user_is_admin:
                 return HttpResponseForbidden()
             res = auto_fill_with_alternates(tournament, user=request.user)
             filled = res.get("filled", 0)
@@ -721,7 +778,7 @@ def tournament_draw(request, slug):
                 )
             return redirect(request.path)
         elif action == "withdraw_slot_ll":
-            if not _is_admin(request):
+            if not user_is_admin:
                 return HttpResponseForbidden()
             try:
                 slot = int(request.POST.get("slot"))
@@ -752,7 +809,7 @@ def tournament_draw(request, slug):
                 )
             return redirect(request.path)
         elif action == "promote_ll_to_slot":
-            if not _is_admin(request):
+            if not user_is_admin:
                 return HttpResponseForbidden()
             try:
                 slot = int(request.POST.get("slot"))
@@ -784,7 +841,11 @@ def tournament_draw(request, slug):
             return redirect(request.path)
 
     action = request.GET.get("action")
+    if is_public and action:
+        return HttpResponseForbidden()
     if action == "generate":
+        if not user_is_admin:
+            return HttpResponseForbidden()
         if tournament.draw_size not in {32, 64, 96, 128}:
             messages.warning(request, "Unsupported draw size")
             logger.info(
@@ -800,6 +861,8 @@ def tournament_draw(request, slug):
                 tournament.id,
             )
     elif action == "regenerate":
+        if not user_is_admin:
+            return HttpResponseForbidden()
         if tournament.draw_size not in {32, 64, 96, 128}:
             messages.warning(request, "Unsupported draw size")
             logger.info(
@@ -822,6 +885,8 @@ def tournament_draw(request, slug):
                 tournament.id,
             )
     elif action == "progress":
+        if not user_is_admin:
+            return HttpResponseForbidden()
         if progress_bracket(tournament):
             messages.success(request, "Next round generated")
             logger.info(
@@ -945,6 +1010,8 @@ def tournament_draw(request, slug):
                         }
                     )
     round_order = [r for r in round_order if bracket.get(r)]
+    if rounds_filter:
+        round_order = [r for r in round_order if r in rounds_filter]
     bracket_items = [(r, bracket[r]) for r in round_order]
 
     print_mode = request.GET.get("print") == "1"
@@ -952,6 +1019,7 @@ def tournament_draw(request, slug):
         "msa/tournament_draw_print.html" if print_mode else "msa/tournament_draw.html"
     )
 
+    share_url = request.session.pop("share_url", None)
     return render(
         request,
         template_name,
@@ -962,7 +1030,9 @@ def tournament_draw(request, slug):
             "bracket_items": bracket_items,
             "entries_by_player_id": by_player_id,
             "seeds_by_player_id": _get_seeds_map(tournament, entries),
-            "is_admin": _is_admin(request),
+            "is_admin": is_admin,
+            "is_public": is_public,
+            "share_url": share_url,
             "print_mode": print_mode,
         },
     )
@@ -970,13 +1040,68 @@ def tournament_draw(request, slug):
 
 def tournament_qualifying(request, slug):
     tournament = get_object_or_404(Tournament, slug=slug)
+    share_token = request.GET.get("share")
+    rounds_filter = None
+    is_public = False
+    if share_token:
+        payload = verify_share_token(share_token)
+        if (
+            payload
+            and payload.get("slug") == slug
+            and payload.get("variant") == "qual"
+            and payload.get("format") == "html"
+        ):
+            is_public = True
+            rounds_filter = payload.get("rounds") or None
+        elif not _is_admin(request):
+            return HttpResponseForbidden()
+    if rounds_filter is None:
+        rounds_param = request.GET.get("rounds")
+        if rounds_param:
+            rounds_filter = [r.strip() for r in rounds_param.split(",") if r.strip()]
+    user_is_admin = _is_admin(request)
+    is_admin = user_is_admin and not is_public
     if request.method == "POST":
+        if is_public:
+            return HttpResponseForbidden()
         action = request.POST.get("action")
+        if action == "share_link":
+            if not user_is_admin:
+                return HttpResponseForbidden()
+            variant = request.POST.get("variant", "qual")
+            fmt = request.POST.get("format", "html")
+            rounds_post = request.POST.get("rounds") or ""
+            rounds_list = [
+                r.strip() for r in rounds_post.split(",") if r.strip()
+            ] or None
+            token = make_share_token(tournament.slug, variant, fmt, rounds_list)
+            if fmt == "html":
+                path = reverse(
+                    (
+                        "msa:tournament-draw"
+                        if variant == "main"
+                        else "msa:tournament-qualifying"
+                    ),
+                    args=[tournament.slug],
+                )
+            else:
+                path = reverse(
+                    (
+                        "msa:tournament-draw-json"
+                        if variant == "main"
+                        else "msa:tournament-qualifying-json"
+                    ),
+                    args=[tournament.slug],
+                )
+            url = request.build_absolute_uri(f"{path}?share={token}")
+            request.session["share_url"] = url
+            messages.success(request, "Share link generated")
+            return redirect(request.path)
         if action == "match_result":
-            if not _is_admin(request):
+            if not user_is_admin:
                 return HttpResponseForbidden()
             return _handle_match_result(request, tournament)
-        if not _is_admin(request):
+        if not user_is_admin:
             return HttpResponseForbidden()
         if action == "qual_generate":
             ok = generate_qualifying(tournament, user=request.user)
@@ -1014,8 +1139,12 @@ def tournament_qualifying(request, slug):
         .order_by("round", "id")
     )
     grouped, round_order, _ = _group_matches_by_round(matches, qualifying=True)
+    if rounds_filter:
+        round_order = [r for r in round_order if r in rounds_filter]
     bracket = OrderedDict()
     for code, ms in grouped.items():
+        if rounds_filter and code not in rounds_filter:
+            continue
         bracket[code] = [
             {
                 "match": m,
@@ -1035,6 +1164,7 @@ def tournament_qualifying(request, slug):
         else "msa/tournament_qualifying.html"
     )
 
+    share_url = request.session.pop("share_url", None)
     return render(
         request,
         template_name,
@@ -1045,7 +1175,9 @@ def tournament_qualifying(request, slug):
             "bracket_items": bracket_items,
             "entries_by_player_id": entries,
             "seeds_by_player_id": _get_seeds_map(tournament, entries.values()),
-            "is_admin": _is_admin(request),
+            "is_admin": is_admin,
+            "is_public": is_public,
+            "share_url": share_url,
             "print_mode": print_mode,
         },
     )
@@ -1053,6 +1185,23 @@ def tournament_qualifying(request, slug):
 
 def tournament_draw_json(request, slug):
     tournament = get_object_or_404(Tournament, slug=slug)
+    share_token = request.GET.get("share")
+    rounds_filter = None
+    if share_token:
+        payload = verify_share_token(share_token)
+        if (
+            payload
+            and payload.get("slug") == slug
+            and payload.get("variant") == "main"
+            and payload.get("format") == "json"
+        ):
+            rounds_filter = payload.get("rounds") or None
+        elif not _is_admin(request):
+            return HttpResponseForbidden()
+    if rounds_filter is None:
+        rounds_param = request.GET.get("rounds")
+        if rounds_param:
+            rounds_filter = [r.strip() for r in rounds_param.split(",") if r.strip()]
     entries = {
         e.player_id: e
         for e in tournament.entries.filter(status="active").select_related("player")
@@ -1065,6 +1214,8 @@ def tournament_draw_json(request, slug):
         .order_by("round", "id")
     )
     grouped, round_order, _ = _group_matches_by_round(matches, round_order=order)
+    if rounds_filter:
+        round_order = [r for r in round_order if r in rounds_filter]
     rounds_json = []
     for code in round_order:
         ms = grouped[code]
@@ -1115,6 +1266,23 @@ def tournament_draw_json(request, slug):
 
 def tournament_qualifying_json(request, slug):
     tournament = get_object_or_404(Tournament, slug=slug)
+    share_token = request.GET.get("share")
+    rounds_filter = None
+    if share_token:
+        payload = verify_share_token(share_token)
+        if (
+            payload
+            and payload.get("slug") == slug
+            and payload.get("variant") == "qual"
+            and payload.get("format") == "json"
+        ):
+            rounds_filter = payload.get("rounds") or None
+        elif not _is_admin(request):
+            return HttpResponseForbidden()
+    if rounds_filter is None:
+        rounds_param = request.GET.get("rounds")
+        if rounds_param:
+            rounds_filter = [r.strip() for r in rounds_param.split(",") if r.strip()]
     entries = {
         e.player_id: e
         for e in tournament.entries.filter(status="active").select_related("player")
@@ -1126,6 +1294,8 @@ def tournament_qualifying_json(request, slug):
         .order_by("round", "id")
     )
     grouped, round_order, _ = _group_matches_by_round(matches, qualifying=True)
+    if rounds_filter:
+        round_order = [r for r in round_order if r in rounds_filter]
     rounds_json = []
     for code in round_order:
         ms = grouped[code]
