@@ -109,3 +109,29 @@ class AdminModeTests(TestCase):
         self.assertEqual(get_draw_label(event), "Single Elim 64")
         EventPhase.objects.create(event=event, order=0, type="qualifying", name="Q")
         self.assertEqual(get_draw_label(event), "Single Elim 64 + Qualifying")
+
+
+class SeasonFormMediaTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        User = get_user_model()
+        self.staff = User.objects.create_user("staff", password="x", is_staff=True)
+        self.client.force_login(self.staff)
+        self.client.post(reverse("admin-toggle"))
+
+    def test_season_create_includes_calendar_media(self):
+        resp = self.client.get(reverse("msa:season-create"))
+        self.assertContains(resp, "woorld-calendar-btn")
+        self.assertContains(resp, "fax_calendar/admin_calendar.js")
+
+    def test_season_edit_includes_calendar_media(self):
+        season = Season.objects.create(name="2024", code="2024")
+        resp = self.client.get(reverse("msa:season-edit", args=[season.pk]))
+        self.assertContains(resp, "woorld-calendar-btn")
+        self.assertContains(resp, "fax_calendar/admin_calendar.js")
+
+    def test_season_delete_has_no_calendar_media(self):
+        season = Season.objects.create(name="2024", code="2024")
+        resp = self.client.get(reverse("msa:season-delete", args=[season.pk]))
+        self.assertNotContains(resp, "woorld-calendar-btn")
+        self.assertNotContains(resp, "fax_calendar/admin_calendar.js")
