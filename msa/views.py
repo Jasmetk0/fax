@@ -30,6 +30,12 @@ from .services.draw import (
     replace_slot,
     progress_bracket,
 )
+from .services.qual import (
+    generate_qualifying,
+    progress_qualifying,
+    promote_qualifiers,
+)
+from .services.state import update_tournament_state
 from .services.seeding_service import preview_seeding, apply_seeding
 from .forms import (
     EntryAddForm,
@@ -80,6 +86,57 @@ def _admin_required(view_func):
         return view_func(request, *args, **kwargs)
 
     return wrapper
+
+
+def _handle_match_result(request, tournament):
+    try:
+        match_id = int(request.POST.get("match_id"))
+    except (TypeError, ValueError):  # pragma: no cover - guard
+        messages.error(request, "Invalid match")
+        logger.info(
+            "match_result fail user=%s tournament=%s match=%s",
+            request.user.id,
+            tournament.id,
+            request.POST.get("match_id"),
+        )
+        return redirect(request.path)
+    winner_side = request.POST.get("winner")
+    if winner_side not in {"p1", "p2"}:
+        messages.error(request, "Invalid winner")
+        logger.info(
+            "match_result fail user=%s tournament=%s match=%s winner=%s",
+            request.user.id,
+            tournament.id,
+            match_id,
+            winner_side,
+        )
+        return redirect(request.path)
+    scoreline = (request.POST.get("scoreline") or "").strip()
+    with transaction.atomic():
+        match = get_object_or_404(
+            Match.objects.select_for_update(), pk=match_id, tournament=tournament
+        )
+        match.winner = match.player1 if winner_side == "p1" else match.player2
+        if scoreline:
+            match.scoreline = scoreline
+        match.live_status = "finished"
+        match.updated_by = request.user
+        fields = ["winner", "live_status", "updated_by"]
+        if scoreline:
+            fields.append("scoreline")
+        match.save(update_fields=fields)
+        progress_bracket(tournament)
+        update_tournament_state(tournament, request.user)
+    messages.success(request, "Result saved")
+    logger.info(
+        "match_result success user=%s tournament=%s match=%s winner=%s score=%s",
+        request.user.id,
+        tournament.id,
+        match_id,
+        winner_side,
+        scoreline,
+    )
+    return redirect(request.path)
 
 
 def home(request):
@@ -414,6 +471,10 @@ def tournament_draw(request, slug):
     tournament = get_object_or_404(Tournament, slug=slug)
     if request.method == "POST":
         action = request.POST.get("action")
+        if action == "match_result":
+            if not _is_admin(request):
+                return HttpResponseForbidden()
+            return _handle_match_result(request, tournament)
         if action == "swap":
             if not (_is_admin(request) and tournament.allow_manual_bracket_edits):
                 return HttpResponseForbidden()
@@ -631,6 +692,66 @@ def tournament_draw(request, slug):
                 request.user.id,
                 tournament.id,
             )
+    elif action == "qual_generate":
+        if generate_qualifying(tournament, user=request.user):
+            messages.success(request, "Qualifying generated")
+            logger.info(
+                "qual_generate success user=%s tournament=%s",
+                request.user.id,
+                tournament.id,
+            )
+        else:
+            messages.warning(request, "Nothing to generate")
+            logger.info(
+                "qual_generate fail user=%s tournament=%s",
+                request.user.id,
+                tournament.id,
+            )
+    elif action == "qual_regenerate":
+        if generate_qualifying(tournament, force=True, user=request.user):
+            messages.success(request, "Qualifying regenerated")
+            logger.info(
+                "qual_regenerate success user=%s tournament=%s",
+                request.user.id,
+                tournament.id,
+            )
+        else:
+            messages.warning(request, "Nothing to regenerate")
+            logger.info(
+                "qual_regenerate fail user=%s tournament=%s",
+                request.user.id,
+                tournament.id,
+            )
+    elif action == "qual_progress":
+        if progress_qualifying(tournament, user=request.user):
+            messages.success(request, "Qualifying progressed")
+            logger.info(
+                "qual_progress success user=%s tournament=%s",
+                request.user.id,
+                tournament.id,
+            )
+        else:
+            messages.warning(request, "Nothing to progress")
+            logger.info(
+                "qual_progress fail user=%s tournament=%s",
+                request.user.id,
+                tournament.id,
+            )
+    elif action == "promote_qualifiers":
+        if promote_qualifiers(tournament, user=request.user):
+            messages.success(request, "Qualifiers promoted")
+            logger.info(
+                "promote_qualifiers success user=%s tournament=%s",
+                request.user.id,
+                tournament.id,
+            )
+        else:
+            messages.warning(request, "Promotion failed")
+            logger.info(
+                "promote_qualifiers fail user=%s tournament=%s",
+                request.user.id,
+                tournament.id,
+            )
 
     entries = tournament.entries.filter(status="active").select_related("player")
     if entries.filter(position__isnull=False).exists():
@@ -646,10 +767,29 @@ def tournament_draw(request, slug):
         )
     )
     matches_by_round = {}
-    for m in tournament.matches.exclude(round=first_round).select_related(
-        "player1", "player2", "winner"
+    for m in (
+        tournament.matches.filter(round__startswith="R")
+        .select_related("player1", "player2", "winner")
+        .order_by("id")
     ):
         matches_by_round.setdefault(m.round, []).append(m)
+    matches_by_round = dict(
+        sorted(matches_by_round.items(), key=lambda x: int(x[0][1:]), reverse=True)
+    )
+    qual_matches_by_round = {}
+    for m in (
+        tournament.matches.filter(round__startswith="Q")
+        .select_related("player1", "player2", "winner")
+        .order_by("id")
+    ):
+        qual_matches_by_round.setdefault(m.round, []).append(m)
+    qual_matches_by_round = dict(
+        sorted(
+            qual_matches_by_round.items(),
+            key=lambda x: int(x[0][1:]) if x[0][1:].isdigit() else 0,
+            reverse=True,
+        )
+    )
     return render(
         request,
         "msa/tournament_draw.html",
@@ -658,6 +798,7 @@ def tournament_draw(request, slug):
             "slots": slots,
             "is_admin": _is_admin(request),
             "matches_by_round": matches_by_round,
+            "qual_matches_by_round": qual_matches_by_round,
             "first_round_winners": first_round_winners,
         },
     )
@@ -665,6 +806,12 @@ def tournament_draw(request, slug):
 
 def tournament_results(request, slug):
     tournament = get_object_or_404(Tournament, slug=slug)
+    if request.method == "POST":
+        action = request.POST.get("action")
+        if action == "match_result":
+            if not _is_admin(request):
+                return HttpResponseForbidden()
+            return _handle_match_result(request, tournament)
     action = request.GET.get("action")
     if action == "progress":
         if progress_bracket(tournament):
@@ -681,15 +828,24 @@ def tournament_results(request, slug):
                 request.user.id,
                 tournament.id,
             )
-    matches = tournament.matches.select_related(
-        "player1", "player2", "winner"
-    ).order_by("scheduled_at")
+    matches_by_round = {}
+    for m in tournament.matches.select_related("player1", "player2", "winner").order_by(
+        "id"
+    ):
+        matches_by_round.setdefault(m.round, []).append(m)
+    matches_by_round = dict(
+        sorted(
+            matches_by_round.items(),
+            key=lambda x: int(x[0][1:]) if x[0].startswith("R") else 0,
+            reverse=True,
+        )
+    )
     return render(
         request,
         "msa/tournament_results.html",
         {
             "tournament": tournament,
-            "matches": matches,
+            "matches_by_round": matches_by_round,
             "is_admin": _is_admin(request),
         },
     )

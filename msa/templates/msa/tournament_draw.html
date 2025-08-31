@@ -18,6 +18,26 @@
       class="px-3 py-1 border rounded hover:bg-gray-50 text-sm"
       >Generate next round</a
     >
+    <a
+      href="{% url 'msa:tournament-draw' tournament.slug %}?action=qual_generate"
+      class="px-3 py-1 border rounded hover:bg-gray-50 text-sm"
+      >Generate qualifying</a
+    >
+    <a
+      href="{% url 'msa:tournament-draw' tournament.slug %}?action=qual_regenerate"
+      class="px-3 py-1 border rounded hover:bg-red-50 text-sm text-red-600"
+      >Regenerate qualifying</a
+    >
+    <a
+      href="{% url 'msa:tournament-draw' tournament.slug %}?action=qual_progress"
+      class="px-3 py-1 border rounded hover:bg-gray-50 text-sm"
+      >Progress qualifying</a
+    >
+    <a
+      href="{% url 'msa:tournament-draw' tournament.slug %}?action=promote_qualifiers"
+      class="px-3 py-1 border rounded hover:bg-gray-50 text-sm"
+      >Promote qualifiers</a
+    >
   </div>
   <form method="post" class="flex gap-2 items-center mb-4">
     {% csrf_token %}
@@ -89,11 +109,33 @@
     {% for match in matches %}
     <li>
       {% if match.winner_id == match.player1_id %}
-      <strong>{{ match.player1.name }}</strong> vs {{ match.player2.name }}
+        <strong>{{ match.player1.name }}</strong> vs {{ match.player2.name }}
       {% elif match.winner_id == match.player2_id %}
-      {{ match.player1.name }} vs <strong>{{ match.player2.name }}</strong>
+        {{ match.player1.name }} vs <strong>{{ match.player2.name }}</strong>
       {% else %}
-      {{ match.player1.name }} vs {{ match.player2.name }}
+        {{ match.player1.name }} vs {{ match.player2.name }}
+      {% endif %}
+      {% if is_admin %}
+      <form method="post" class="inline ml-2">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="match_result" />
+        <input type="hidden" name="match_id" value="{{ match.id }}" />
+        <label class="text-xs mr-1"
+          ><input type="radio" name="winner" value="p1" />
+          {{ match.player1.name }}</label
+        >
+        <label class="text-xs mr-1"
+          ><input type="radio" name="winner" value="p2" />
+          {{ match.player2.name }}</label
+        >
+        <input
+          type="text"
+          name="scoreline"
+          class="border px-1 py-0.5 w-24 text-xs"
+          placeholder="Score"
+        />
+        <button class="px-2 py-0.5 border rounded text-xs">Save</button>
+      </form>
       {% endif %}
     </li>
     {% endfor %}
@@ -101,6 +143,47 @@
   {% endfor %}
   {% else %}
   <p>No draw available.</p>
+  {% endif %}
+  {% if qual_matches_by_round %}
+  <h2 class="mt-6">Qualifying</h2>
+  {% for round, matches in qual_matches_by_round.items %}
+  <h3>{{ round }}</h3>
+  <ul class="list-disc list-inside">
+    {% for match in matches %}
+    <li>
+      {% if match.winner_id == match.player1_id %}
+        <strong>{{ match.player1.name }}</strong> vs {{ match.player2.name }}
+      {% elif match.winner_id == match.player2_id %}
+        {{ match.player1.name }} vs <strong>{{ match.player2.name }}</strong>
+      {% else %}
+        {{ match.player1.name }} vs {{ match.player2.name }}
+      {% endif %}
+      {% if is_admin %}
+      <form method="post" class="inline ml-2">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="match_result" />
+        <input type="hidden" name="match_id" value="{{ match.id }}" />
+        <label class="text-xs mr-1"
+          ><input type="radio" name="winner" value="p1" />
+          {{ match.player1.name }}</label
+        >
+        <label class="text-xs mr-1"
+          ><input type="radio" name="winner" value="p2" />
+          {{ match.player2.name }}</label
+        >
+        <input
+          type="text"
+          name="scoreline"
+          class="border px-1 py-0.5 w-24 text-xs"
+          placeholder="Score"
+        />
+        <button class="px-2 py-0.5 border rounded text-xs">Save</button>
+      </form>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% endfor %}
   {% endif %}
 </div>
 {% endblock %}
