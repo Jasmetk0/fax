@@ -13,13 +13,15 @@ class WoorldDateWidget(TextInput):
         attrs = {"placeholder": "DD-MM-YYYY", **(attrs or {})}
         css = attrs.get("class", "")
         attrs["class"] = f"{css} woorld-date-input".strip()
-        # marker for JS datepicker hookup
-        attrs.setdefault("data-woorld-datepicker", "1")
         super().__init__(attrs)
 
     class Media:
-        css = {"all": ["fax_calendar/woorld.css"]}
-        js = ["fax_calendar/core.js", "fax_calendar/woorld.js"]
+        css = {"all": ["fax_calendar/datepicker.css"]}
+        js = [
+            "fax_calendar/core.js",
+            "fax_calendar/astro.js",
+            "fax_calendar/datepicker.js",
+        ]
 
 
 class WoorldAdminDateWidget(TextInput):
@@ -31,7 +33,6 @@ class WoorldAdminDateWidget(TextInput):
         attrs = {"placeholder": "DD-MM-YYYY", **(attrs or {})}
         css = attrs.get("class", "")
         attrs["class"] = f"{css} woorld-date-input".strip()
-        attrs.setdefault("data-woorld-date", "1")
         super().__init__(attrs)
 
     def render(self, name, value, attrs=None, renderer=None):
@@ -40,10 +41,10 @@ class WoorldAdminDateWidget(TextInput):
         return mark_safe(f"{html}{button}")
 
     class Media:
-        css = {"all": ["fax_calendar/admin_calendar.css"]}
+        css = {"all": ["fax_calendar/datepicker.css"]}
         js = [
             "admin/js/core.js",
             "fax_calendar/core.js",
             "fax_calendar/astro.js",
-            "fax_calendar/admin_calendar.js",
+            "fax_calendar/datepicker.js",
         ]

@@ -141,6 +141,6 @@ class PopupTemplateTests(TestCase):
 
     def test_season_form_includes_media(self):
         resp = self.client.get(reverse("msa:season-create"))
-        self.assertContains(resp, "fax_calendar/admin_calendar.js")
+        self.assertContains(resp, "fax_calendar/datepicker.js")
         self.assertContains(resp, "woorld-date-input")
         self.assertContains(resp, 'id="cancelBtn"')

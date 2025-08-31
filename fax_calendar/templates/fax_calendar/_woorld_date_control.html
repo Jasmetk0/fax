@@ -1,17 +1,14 @@
-<form id="woorld-date-form" class="inline" method="post" action="{% url 'fax_calendar:set_woorld_date' %}" data-endpoint="{% url 'fax_calendar:set_woorld_date' %}">
+<form id="woorld-date-form" class="inline" method="post" action="{% url 'fax_calendar:set_woorld_date' %}">
     {% csrf_token %}
     <label for="woorld-date-input" class="mr-1">Aktuální datum Woorldu:</label>
     <input
         id="woorld-date-input"
-        data-woorld-datepicker="1"
         type="text"
         name="woorld_date"
         value="{{ WOORLD_CURRENT_DATE }}"
         placeholder="DD-MM-YYYY"
         class="woorld-date-input"
-        data-year="{{ WOORLD_CALENDAR_META.year }}"
-        data-month-lengths='{{ WOORLD_CALENDAR_MONTH_LENGTHS_JSON|safe }}'
-        data-anchors='{{ WOORLD_CALENDAR_ANCHORS_JSON|safe }}'
+        {% if FAX_RESET_DATE %}data-fax-reset="{{ FAX_RESET_DATE }}"{% endif %}
     />
     <button type="submit">✔</button>
 </form>
