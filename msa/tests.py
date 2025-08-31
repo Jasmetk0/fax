@@ -30,7 +30,8 @@ class AdminModeTests(TestCase):
 
     def _toggle_admin(self, on=True):
         self.client.force_login(self.staff)
-        self.client.get(reverse("msa:admin-mode-toggle"), {"on": "1" if on else "0"})
+        if self.client.session.get("admin_mode", False) != on:
+            self.client.post(reverse("admin-toggle"))
 
     def test_admin_buttons_visibility(self):
         self._toggle_admin(True)
