@@ -158,7 +158,11 @@ def tournament_draw(request, slug):
     return render(
         request,
         "msa/tournament_draw.html",
-        {"tournament": tournament, "slots": slots},
+        {
+            "tournament": tournament,
+            "slots": slots,
+            "is_admin": _is_admin(request),
+        },
     )
 
 
