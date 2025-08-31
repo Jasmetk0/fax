@@ -1,3 +1,6 @@
+from math import ceil, log2
+from typing import Dict, List
+
 from django.conf import settings
 
 
@@ -6,9 +9,100 @@ def _generate_draw_legacy(tournament, force: bool = False):
     return None
 
 
+def _build_seed_positions(size: int) -> List[int]:
+    """Return list mapping seed index -> slot for power-of-two size."""
+
+    if size == 1:
+        return [1]
+    prev = _build_seed_positions(size // 2)
+    result: List[int] = []
+    for p in prev:
+        result.append(p)
+        result.append(size + 1 - p)
+    return result
+
+
+# Pre-computed seeding maps for standard draw sizes
+SEED_POSITIONS: Dict[int, Dict[int, int]] = {
+    n: {i + 1: pos for i, pos in enumerate(_build_seed_positions(n))}
+    for n in (32, 64, 128)
+}
+
+
+DEFAULT_SEEDS = {32: 8, 64: 16, 96: 32, 128: 32}
+
+
+def _sort_entries(entries: List, method: str) -> List:
+    if method in {"manual", "ranking_snapshot"}:
+        # ranking_snapshot fallback behaves like manual for now
+        entries.sort(
+            key=lambda e: (e.seed is None, e.seed or 0, e.player.id, e.player.name)
+        )
+        return entries
+    if method in {"random", "local_rating"}:
+        raise NotImplementedError("Seeding method not implemented")
+    return entries
+
+
+def _next_pow2(n: int) -> int:
+    return 1 << ceil(log2(n))
+
+
+def _seed_map_for_draw(
+    draw_size: int, seeds_count: int
+) -> (Dict[int, int], List[int], List[int]):
+    """Return mapping of seed -> slot, all slots, and playable slots."""
+
+    if draw_size == 96:
+        mapping_128 = SEED_POSITIONS[128]
+        byes = {129 - mapping_128[s] for s in range(1, seeds_count + 1)}
+        slots = list(range(1, 129))
+        seed_map = {s: mapping_128[s] for s in range(1, seeds_count + 1)}
+        playable = [p for p in slots if p not in byes and p not in seed_map.values()]
+        return seed_map, slots, playable
+    slots = list(range(1, draw_size + 1))
+    seed_map = SEED_POSITIONS.get(draw_size, {})
+    playable = [p for p in slots if p not in seed_map.values()]
+    return seed_map, slots, playable
+
+
 def _generate_draw_v1(tournament, force: bool = False):
-    """Placeholder for v1 draw generation."""
+    qs = tournament.entries.filter(status="active").select_related("player")
+    if not qs.exists():
+        return None
+    if not force and qs.filter(position__isnull=False).exists():
+        return None
+    if force:
+        qs.update(position=None)
+
+    draw_size = tournament.draw_size or 32
+    seeds_count = tournament.seeds_count or DEFAULT_SEEDS.get(draw_size, 0)
+    entries = list(qs)
+    entries = _sort_entries(entries, tournament.seeding_method)
+    seed_map, slots, playable = _seed_map_for_draw(draw_size, seeds_count)
+
+    used = set()
+    for idx, entry in enumerate(entries[:seeds_count], start=1):
+        pos = seed_map.get(idx)
+        if pos is None:
+            break
+        entry.position = pos
+        entry.save(update_fields=["position"])
+        used.add(pos)
+
+    available = [p for p in playable if p not in used]
+    for entry, pos in zip(entries[seeds_count:], available):
+        entry.position = pos
+        entry.save(update_fields=["position"])
+
+    if tournament.state != tournament.State.DRAWN:
+        tournament.state = tournament.State.DRAWN
+        tournament.save(update_fields=["state"])
     return None
+
+
+def has_completed_main_matches(tournament) -> bool:
+    return False
 
 
 def generate_draw(tournament, force: bool = False):

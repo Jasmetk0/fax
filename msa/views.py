@@ -5,6 +5,7 @@ from django.http import HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.contrib import messages
 
 from .models import (
     CategorySeason,
@@ -20,7 +21,7 @@ from .models import (
     Season,
     Tournament,
 )
-from .services.draw import generate_draw
+from .services.draw import generate_draw, has_completed_main_matches
 from .services.seeding_service import preview_seeding, apply_seeding
 import json
 from .utils import filter_by_tour  # MSA-REDESIGN
@@ -138,12 +139,26 @@ def tournament_players(request, slug):
 
 def tournament_draw(request, slug):
     tournament = get_object_or_404(Tournament, slug=slug)
-    generate_draw(tournament)
-    matches = tournament.matches.select_related("player1", "player2").order_by("round")
+    action = request.GET.get("action")
+    if action == "generate":
+        generate_draw(tournament, force=False)
+    elif action == "regenerate":
+        if tournament.flex_mode or not has_completed_main_matches(tournament):
+            generate_draw(tournament, force=True)
+        else:
+            messages.warning(request, "Draw regeneration not allowed.")
+
+    entries = tournament.entries.filter(status="active").select_related("player")
+    if entries.filter(position__isnull=False).exists():
+        bracket = 1 << ((tournament.draw_size or 32) - 1).bit_length()
+        by_pos = {e.position: e for e in entries if e.position}
+        slots = [by_pos.get(i) for i in range(1, bracket + 1)]
+    else:
+        slots = list(entries.order_by("player__name"))
     return render(
         request,
         "msa/tournament_draw.html",
-        {"tournament": tournament, "matches": matches},
+        {"tournament": tournament, "slots": slots},
     )
 
 
