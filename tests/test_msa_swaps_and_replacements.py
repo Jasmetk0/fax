@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.contrib.messages import get_messages
 from django.test import TestCase
 from django.urls import reverse
 
@@ -143,3 +144,39 @@ class SwapReplaceTests(TestCase):
         self.assertEqual(alt.position, slot)
         self.assertEqual(match.player1, current.player)
         self.assertEqual(match.player2, partner.player)
+
+    def test_replace_rejects_entry_with_position(self):
+        t = self._create_tournament()
+        slot = 5
+        current = TournamentEntry.objects.get(tournament=t, position=slot)
+        alt = TournamentEntry.objects.create(
+            tournament=t,
+            player=self.players[50],
+            entry_type=TournamentEntry.EntryType.ALT,
+            status=TournamentEntry.Status.ACTIVE,
+            position=30,
+        )
+        ok = replace_slot(t, slot, alt.pk)
+        self.assertFalse(ok)
+        current.refresh_from_db()
+        alt.refresh_from_db()
+        self.assertEqual(current.status, TournamentEntry.Status.ACTIVE)
+        self.assertEqual(current.position, slot)
+        self.assertEqual(alt.position, 30)
+
+    def test_swap_with_empty_slot_fails(self):
+        t = self._create_tournament()
+        url = reverse("msa:tournament-draw", args=[t.slug])
+        empty_entry = TournamentEntry.objects.get(tournament=t, position=7)
+        empty_entry.position = None
+        empty_entry.save(update_fields=["position"])
+        e8 = TournamentEntry.objects.get(tournament=t, position=8)
+        response = self.client.post(
+            url,
+            {"action": "swap", "slot_a": 7, "slot_b": 8},
+            follow=True,
+        )
+        e8.refresh_from_db()
+        messages = [m.message for m in get_messages(response.wsgi_request)]
+        self.assertIn("Cannot swap with empty/BYE slot", messages)
+        self.assertEqual(e8.position, 8)

@@ -92,51 +92,53 @@ def _generate_draw_v1(tournament, force: bool = False):
     seeds_default = DEFAULT_SEEDS.get(draw_size, 0)
     seeds_count = min(tournament.seeds_count or seeds_default, seeds_default)
 
-    if force:
-        if has_completed_main_matches(tournament) and not tournament.flex_mode:
-            return None
-        tournament.matches.all().delete()
-        qs.update(position=None)
-    else:
-        if tournament.matches.exists():
-            return None
+    with transaction.atomic():
+        if force:
+            if has_completed_main_matches(tournament) and not tournament.flex_mode:
+                return None
+            tournament.matches.all().delete()
+            qs.update(position=None)
+        else:
+            if tournament.matches.exists():
+                return None
 
-    entries = list(qs)
-    entries = _sort_entries(entries, tournament.seeding_method)
-    seed_map, _, playable = _seed_map_for_draw(draw_size, seeds_count)
+        entries = list(qs)
+        entries = _sort_entries(entries, tournament.seeding_method)
+        seeds_count = min(seeds_count, len(entries))
+        seed_map, _, playable = _seed_map_for_draw(draw_size, seeds_count)
 
-    used = set()
-    for idx, entry in enumerate(entries[:seeds_count], start=1):
-        pos = seed_map.get(idx)
-        if pos is None:
-            break
-        entry.position = pos
-        entry.save(update_fields=["position"])
-        used.add(pos)
+        used = set()
+        for idx, entry in enumerate(entries[:seeds_count], start=1):
+            pos = seed_map.get(idx)
+            if pos is None:
+                break
+            entry.position = pos
+            entry.save(update_fields=["position"])
+            used.add(pos)
 
-    available = [p for p in playable if p not in used]
-    for entry, pos in zip(entries[seeds_count:], available):
-        entry.position = pos
-        entry.save(update_fields=["position"])
+        available = [p for p in playable if p not in used]
+        for entry, pos in zip(entries[seeds_count:], available):
+            entry.position = pos
+            entry.save(update_fields=["position"])
 
-    bracket = 1 << (draw_size - 1).bit_length()
-    by_pos = {e.position: e for e in entries if e.position}
-    for a, b in pair_first_round_slots(bracket):
-        ea = by_pos.get(a)
-        eb = by_pos.get(b)
-        if ea and eb:
-            Match.objects.create(
-                tournament=tournament,
-                player1=ea.player,
-                player2=eb.player,
-                round=f"R{draw_size}",
-                section="",
-                best_of=5,
-            )
+        bracket = 1 << (draw_size - 1).bit_length()
+        by_pos = {e.position: e for e in entries if e.position}
+        for a, b in pair_first_round_slots(bracket):
+            ea = by_pos.get(a)
+            eb = by_pos.get(b)
+            if ea and eb:
+                Match.objects.create(
+                    tournament=tournament,
+                    player1=ea.player,
+                    player2=eb.player,
+                    round=f"R{draw_size}",
+                    section="",
+                    best_of=5,
+                )
 
-    if tournament.state != tournament.State.DRAWN:
-        tournament.state = tournament.State.DRAWN
-        tournament.save(update_fields=["state"])
+        if tournament.state != tournament.State.DRAWN:
+            tournament.state = tournament.State.DRAWN
+            tournament.save(update_fields=["state"])
     return None
 
 
@@ -167,6 +169,8 @@ def replace_slot(
             replacement = entries.get(pk=replacement_entry_id)
         except TournamentEntry.DoesNotExist:
             return False
+        if replacement.position is not None:
+            return False
         if replacement.status not in {
             "active",
             "withdrawn",
@@ -188,6 +192,7 @@ def replace_slot(
                 .filter(
                     player1__in=[current.player, mate.player],
                     player2__in=[current.player, mate.player],
+                    round=f"R{tournament.draw_size}",
                 )
                 .first()
             )
