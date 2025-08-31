@@ -21,6 +21,21 @@ urlpatterns = [
         name="tournament-draw",
     ),
     path(
+        "tournaments/<slug:slug>/qualifying/",
+        views.tournament_qualifying,
+        name="tournament-qualifying",
+    ),
+    path(
+        "tournaments/<slug:slug>/draw.json",
+        views.tournament_draw_json,
+        name="tournament-draw-json",
+    ),
+    path(
+        "tournaments/<slug:slug>/qualifying.json",
+        views.tournament_qualifying_json,
+        name="tournament-qualifying-json",
+    ),
+    path(
         "tournaments/<slug:slug>/results/",
         views.tournament_results,
         name="tournament-results",

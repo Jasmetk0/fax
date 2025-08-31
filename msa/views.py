@@ -109,6 +109,33 @@ def _admin_required(view_func):
     return wrapper
 
 
+def _get_seeds_map(tournament, entries=None):
+    if entries is None:
+        entries = tournament.entries.filter(seed__isnull=False).only(
+            "player_id", "seed"
+        )
+    return {e.player_id: e.seed for e in entries if e.seed}
+
+
+def _group_matches_by_round(matches, *, round_order=None, qualifying=False):
+    grouped = OrderedDict()
+    for m in matches:
+        grouped.setdefault(m.round, []).append(m)
+    if round_order is not None:
+        order = [r for r in round_order if r in grouped]
+    else:
+        if qualifying:
+
+            def key(rc):
+                return int(rc[1:]) if rc[1:].isdigit() else 99
+
+            order = sorted(grouped.keys(), key=key)
+        else:
+            order = sorted(grouped.keys())
+    items = [(code, grouped[code]) for code in order]
+    return grouped, order, items
+
+
 def _handle_match_result(request, tournament):
     try:
         match_id = int(request.POST.get("match_id"))
@@ -809,72 +836,11 @@ def tournament_draw(request, slug):
                 request.user.id,
                 tournament.id,
             )
-    elif action == "qual_generate":
-        if generate_qualifying(tournament, user=request.user):
-            messages.success(request, "Qualifying generated")
-            logger.info(
-                "qual_generate success user=%s tournament=%s",
-                request.user.id,
-                tournament.id,
-            )
-        else:
-            messages.warning(request, "Nothing to generate")
-            logger.info(
-                "qual_generate fail user=%s tournament=%s",
-                request.user.id,
-                tournament.id,
-            )
-    elif action == "qual_regenerate":
-        if generate_qualifying(tournament, force=True, user=request.user):
-            messages.success(request, "Qualifying regenerated")
-            logger.info(
-                "qual_regenerate success user=%s tournament=%s",
-                request.user.id,
-                tournament.id,
-            )
-        else:
-            messages.warning(request, "Nothing to regenerate")
-            logger.info(
-                "qual_regenerate fail user=%s tournament=%s",
-                request.user.id,
-                tournament.id,
-            )
-    elif action == "qual_progress":
-        if progress_qualifying(tournament, user=request.user):
-            messages.success(request, "Qualifying progressed")
-            logger.info(
-                "qual_progress success user=%s tournament=%s",
-                request.user.id,
-                tournament.id,
-            )
-        else:
-            messages.warning(request, "Nothing to progress")
-            logger.info(
-                "qual_progress fail user=%s tournament=%s",
-                request.user.id,
-                tournament.id,
-            )
-    elif action == "promote_qualifiers":
-        if promote_qualifiers(tournament, user=request.user):
-            messages.success(request, "Qualifiers promoted")
-            logger.info(
-                "promote_qualifiers success user=%s tournament=%s",
-                request.user.id,
-                tournament.id,
-            )
-        else:
-            messages.warning(request, "Promotion failed")
-            logger.info(
-                "promote_qualifiers fail user=%s tournament=%s",
-                request.user.id,
-                tournament.id,
-            )
 
     entries = tournament.entries.filter(status="active").select_related(
         "player", "origin_match"
     )
     by_player_id = {e.player_id: e for e in entries}
-    seeds_by_player_id = {e.player_id: e.seed for e in entries if e.seed}
     by_pos = {e.position: e for e in entries if e.position}
 
     round_order = ["R128", "R96", "R64", "R32", "R16", "QF", "SF", "F"]
@@ -981,21 +947,6 @@ def tournament_draw(request, slug):
     round_order = [r for r in round_order if bracket.get(r)]
     bracket_items = [(r, bracket[r]) for r in round_order]
 
-    qual_matches_by_round = {}
-    for m in (
-        tournament.matches.filter(round__startswith="Q")
-        .select_related("player1", "player2", "winner")
-        .order_by("id")
-    ):
-        qual_matches_by_round.setdefault(m.round, []).append(m)
-    qual_matches_by_round = dict(
-        sorted(
-            qual_matches_by_round.items(),
-            key=lambda x: int(x[0][1:]) if x[0][1:].isdigit() else 0,
-            reverse=True,
-        )
-    )
-
     print_mode = request.GET.get("print") == "1"
     template_name = (
         "msa/tournament_draw_print.html" if print_mode else "msa/tournament_draw.html"
@@ -1010,12 +961,217 @@ def tournament_draw(request, slug):
             "round_order": round_order,
             "bracket_items": bracket_items,
             "entries_by_player_id": by_player_id,
-            "seeds_by_player_id": seeds_by_player_id,
+            "seeds_by_player_id": _get_seeds_map(tournament, entries),
             "is_admin": _is_admin(request),
             "print_mode": print_mode,
-            "qual_matches_by_round": qual_matches_by_round,
         },
     )
+
+
+def tournament_qualifying(request, slug):
+    tournament = get_object_or_404(Tournament, slug=slug)
+    if request.method == "POST":
+        action = request.POST.get("action")
+        if action == "match_result":
+            if not _is_admin(request):
+                return HttpResponseForbidden()
+            return _handle_match_result(request, tournament)
+        if not _is_admin(request):
+            return HttpResponseForbidden()
+        if action == "qual_generate":
+            ok = generate_qualifying(tournament, user=request.user)
+            messages.success(
+                request, "Qualifying generated" if ok else "Nothing to generate"
+            )
+            return redirect(request.path)
+        if action == "qual_regenerate":
+            ok = generate_qualifying(tournament, force=True, user=request.user)
+            messages.success(
+                request, "Qualifying regenerated" if ok else "Nothing to regenerate"
+            )
+            return redirect(request.path)
+        if action == "qual_progress":
+            ok = progress_qualifying(tournament, user=request.user)
+            messages.success(
+                request, "Qualifying progressed" if ok else "Nothing to progress"
+            )
+            return redirect(request.path)
+        if action == "promote_qualifiers":
+            ok = promote_qualifiers(tournament, user=request.user)
+            messages.success(
+                request, "Qualifiers promoted" if ok else "Promotion failed"
+            )
+            return redirect(request.path)
+    entries = {
+        e.player_id: e
+        for e in tournament.entries.filter(status="active").select_related(
+            "player", "origin_match"
+        )
+    }
+    matches = list(
+        tournament.matches.filter(round__startswith="Q")
+        .select_related("player1", "player2", "winner")
+        .order_by("round", "id")
+    )
+    grouped, round_order, _ = _group_matches_by_round(matches, qualifying=True)
+    bracket = OrderedDict()
+    for code, ms in grouped.items():
+        bracket[code] = [
+            {
+                "match": m,
+                "p1": m.player1,
+                "p2": m.player2,
+                "p1_entry": entries.get(m.player1_id),
+                "p2_entry": entries.get(m.player2_id),
+            }
+            for m in ms
+        ]
+    bracket_items = [(code, bracket[code]) for code in round_order]
+
+    print_mode = request.GET.get("print") == "1"
+    template_name = (
+        "msa/tournament_draw_print.html"
+        if print_mode
+        else "msa/tournament_qualifying.html"
+    )
+
+    return render(
+        request,
+        template_name,
+        {
+            "tournament": tournament,
+            "bracket": bracket,
+            "round_order_q": round_order,
+            "bracket_items": bracket_items,
+            "entries_by_player_id": entries,
+            "seeds_by_player_id": _get_seeds_map(tournament, entries.values()),
+            "is_admin": _is_admin(request),
+            "print_mode": print_mode,
+        },
+    )
+
+
+def tournament_draw_json(request, slug):
+    tournament = get_object_or_404(Tournament, slug=slug)
+    entries = {
+        e.player_id: e
+        for e in tournament.entries.filter(status="active").select_related("player")
+    }
+    seeds = _get_seeds_map(tournament, entries.values())
+    order = ["R128", "R96", "R64", "R32", "R16", "QF", "SF", "F"]
+    matches = list(
+        tournament.matches.filter(round__in=order)
+        .select_related("player1", "player2", "winner")
+        .order_by("round", "id")
+    )
+    grouped, round_order, _ = _group_matches_by_round(matches, round_order=order)
+    rounds_json = []
+    for code in round_order:
+        ms = grouped[code]
+        rounds_json.append(
+            {
+                "code": code,
+                "matches": [
+                    {
+                        "id": m.id,
+                        "p1": {
+                            "id": m.player1_id,
+                            "name": m.player1.name,
+                            "seed": seeds.get(m.player1_id),
+                            "tag": (
+                                entries.get(m.player1_id).entry_type
+                                if entries.get(m.player1_id)
+                                else None
+                            ),
+                        },
+                        "p2": {
+                            "id": m.player2_id,
+                            "name": m.player2.name,
+                            "seed": seeds.get(m.player2_id),
+                            "tag": (
+                                entries.get(m.player2_id).entry_type
+                                if entries.get(m.player2_id)
+                                else None
+                            ),
+                        },
+                        "winner_id": m.winner_id,
+                        "score": m.scoreline or None,
+                    }
+                    for m in ms
+                ],
+            }
+        )
+    data = {
+        "tournament": {
+            "slug": tournament.slug,
+            "name": tournament.name,
+            "draw_size": tournament.draw_size,
+            "seeds_count": tournament.seeds_count,
+        },
+        "rounds": rounds_json,
+    }
+    return JsonResponse(data)
+
+
+def tournament_qualifying_json(request, slug):
+    tournament = get_object_or_404(Tournament, slug=slug)
+    entries = {
+        e.player_id: e
+        for e in tournament.entries.filter(status="active").select_related("player")
+    }
+    seeds = _get_seeds_map(tournament, entries.values())
+    matches = list(
+        tournament.matches.filter(round__startswith="Q")
+        .select_related("player1", "player2", "winner")
+        .order_by("round", "id")
+    )
+    grouped, round_order, _ = _group_matches_by_round(matches, qualifying=True)
+    rounds_json = []
+    for code in round_order:
+        ms = grouped[code]
+        rounds_json.append(
+            {
+                "code": code,
+                "matches": [
+                    {
+                        "id": m.id,
+                        "p1": {
+                            "id": m.player1_id,
+                            "name": m.player1.name,
+                            "seed": seeds.get(m.player1_id),
+                            "tag": (
+                                entries.get(m.player1_id).entry_type
+                                if entries.get(m.player1_id)
+                                else None
+                            ),
+                        },
+                        "p2": {
+                            "id": m.player2_id,
+                            "name": m.player2.name,
+                            "seed": seeds.get(m.player2_id),
+                            "tag": (
+                                entries.get(m.player2_id).entry_type
+                                if entries.get(m.player2_id)
+                                else None
+                            ),
+                        },
+                        "winner_id": m.winner_id,
+                        "score": m.scoreline or None,
+                    }
+                    for m in ms
+                ],
+            }
+        )
+    data = {
+        "tournament": {
+            "slug": tournament.slug,
+            "name": tournament.name,
+            "draw_size": tournament.draw_size,
+            "seeds_count": tournament.seeds_count,
+        },
+        "rounds": rounds_json,
+    }
+    return JsonResponse(data)
 
 
 def tournament_results(request, slug):
