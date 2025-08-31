@@ -51,6 +51,7 @@ from .forms import (
     EntryUpdateTypeForm,
     SeedUpdateForm,
     SeedsBulkForm,
+    ScheduleBulkSlotsForm,
 )
 from .services.entries import (
     add_entry,
@@ -64,6 +65,12 @@ from .services.entries import (
     set_seed,
     bulk_set_seeds,
     export_entries_csv,
+)
+from .services.scheduling import (
+    parse_bulk_schedule_slots,
+    apply_bulk_schedule_slots,
+    find_conflicts_slots,
+    generate_tournament_ics_date_only,
 )
 import json
 from .utils import filter_by_tour  # MSA-REDESIGN
@@ -935,6 +942,36 @@ def tournament_results(request, slug):
                 tournament.id,
             )
             return redirect(request.path)
+        elif action == "schedule_bulk_slots":
+            if not _is_admin(request):
+                return HttpResponseForbidden()
+            form = ScheduleBulkSlotsForm(request.POST)
+            if form.is_valid():
+                try:
+                    rows = parse_bulk_schedule_slots(form.cleaned_data["rows"])
+                except ValueError as e:
+                    messages.error(request, str(e))
+                else:
+                    result = apply_bulk_schedule_slots(
+                        tournament, rows, user=request.user
+                    )
+                    if result["updated"]:
+                        messages.success(
+                            request, f"Scheduled {result['updated']} matches"
+                        )
+                    if result["not_found"]:
+                        messages.warning(request, f"Not found: {result['not_found']}")
+                    if result["foreign"]:
+                        messages.warning(request, f"Foreign: {result['foreign']}")
+                    logger.info(
+                        "schedule_bulk_slots user=%s tournament=%s updated=%s",
+                        request.user.id,
+                        tournament.id,
+                        result["updated"],
+                    )
+            else:
+                messages.error(request, "Invalid input")
+            return redirect(request.path)
         action = request.GET.get("action")
     if action == "progress":
         if progress_bracket(tournament):
@@ -951,11 +988,24 @@ def tournament_results(request, slug):
                 request.user.id,
                 tournament.id,
             )
+    if action == "export_ics_date_only":
+        ics = generate_tournament_ics_date_only(tournament)
+        resp = HttpResponse(ics, content_type="text/calendar")
+        resp["Content-Disposition"] = f'attachment; filename="{tournament.slug}.ics"'
+        return resp
     matches_by_round = {}
+    scheduled = []
     for m in tournament.matches.select_related("player1", "player2", "winner").order_by(
         "id"
     ):
         matches_by_round.setdefault(m.round, []).append(m)
+        try:
+            data = json.loads(m.section) if m.section else None
+            sched = data.get("schedule") if data else None
+        except json.JSONDecodeError:  # pragma: no cover - invalid JSON
+            sched = None
+        if sched:
+            scheduled.append((m, sched))
     matches_by_round = dict(
         sorted(
             matches_by_round.items(),
@@ -963,6 +1013,17 @@ def tournament_results(request, slug):
             reverse=True,
         )
     )
+    oop = {}
+    for match, sched in scheduled:
+        date = sched["date"]
+        session = sched["session"]
+        slot = sched["slot"]
+        court = sched.get("court") or ""
+        oop.setdefault(date, {}).setdefault(session, {}).setdefault(
+            slot, {}
+        ).setdefault(court, []).append(match)
+    conflicts_slots = find_conflicts_slots(tournament)
+    schedule_form = ScheduleBulkSlotsForm()
     return render(
         request,
         "msa/tournament_results.html",
@@ -970,6 +1031,9 @@ def tournament_results(request, slug):
             "tournament": tournament,
             "matches_by_round": matches_by_round,
             "is_admin": _is_admin(request),
+            "schedule_form": schedule_form,
+            "oop_slots": oop,
+            "conflicts_slots": conflicts_slots,
         },
     )
 

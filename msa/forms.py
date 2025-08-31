@@ -197,6 +197,13 @@ class EntryBulkForm(forms.Form):
     )
 
 
+class ScheduleBulkSlotsForm(forms.Form):
+    rows = forms.CharField(
+        widget=forms.Textarea,
+        help_text="CSV: match_id,YYYY-MM-DD,SESSION,slot[,court]",
+    )
+
+
 class EntryUpdateTypeForm(forms.Form):
     entry_id = forms.IntegerField(widget=forms.HiddenInput())
     entry_type = forms.ChoiceField(choices=TournamentEntry.EntryType.choices)
