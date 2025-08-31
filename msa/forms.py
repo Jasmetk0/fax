@@ -6,6 +6,7 @@ from .models import (
     Match,
     NewsPost,
     Player,
+    TournamentEntry,
     RankingEntry,
     RankingSnapshot,
     Tournament,
@@ -167,3 +168,23 @@ class EventEditionForm(forms.ModelForm):
             "start_date": WoorldAdminDateWidget(),
             "end_date": WoorldAdminDateWidget(),
         }
+
+
+class EntryAddForm(forms.Form):
+    player = forms.ModelChoiceField(queryset=Player.objects.all())
+    entry_type = forms.ChoiceField(
+        choices=TournamentEntry.EntryType.choices,
+        initial=TournamentEntry.EntryType.DA,
+    )
+
+
+class EntryBulkForm(forms.Form):
+    rows = forms.CharField(
+        widget=forms.Textarea,
+        help_text="CSV format: player_id[,entry_type]",
+    )
+
+
+class EntryUpdateTypeForm(forms.Form):
+    entry_id = forms.IntegerField(widget=forms.HiddenInput())
+    entry_type = forms.ChoiceField(choices=TournamentEntry.EntryType.choices)

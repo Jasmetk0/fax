@@ -1,18 +1,41 @@
 {% extends 'msa/tournament_base.html' %}
 {% block tournament_content %}
-<ul class="mt-4 list-disc list-inside">
-  {% for entry in entries %}
-    <li>
-      {{ entry.player.name }}
-      {% if entry.entry_type == 'Q' or entry.entry_type == 'LL' %}
-        <span class="ml-1 text-xs">{{ entry.origin_note }}</span>
-        {% if entry.origin_match %}
-          <a href="{% url 'msa:match-edit' entry.origin_match.pk %}" class="ml-1 text-xs underline">Qualifying match</a>
+{% if is_admin %}
+  <h2 class="mt-4 text-lg">Entries</h2>
+  <form method="post" class="mt-2">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="entry_add" />
+    {{ add_form.player }}
+    {{ add_form.entry_type }}
+    <button type="submit">Add</button>
+  </form>
+  <form method="post" class="mt-4">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="entry_bulk_add" />
+    {{ bulk_form.rows }}
+    <button type="submit">Bulk import</button>
+  </form>
+  <p class="mt-4">
+    Active main: {{ capacity.active_main }}/{{ capacity.draw_size }} |
+    ALT: {{ capacity.alt }} |
+    Withdrawn: {{ capacity.withdrawn }}
+  </p>
+  {% include 'msa/partials/_entries_table.html' %}
+{% else %}
+  <ul class="mt-4 list-disc list-inside">
+    {% for entry in entries %}
+      <li>
+        {{ entry.player.name }}
+        {% if entry.entry_type == 'Q' or entry.entry_type == 'LL' %}
+          <span class="ml-1 text-xs">{{ entry.origin_note }}</span>
+          {% if entry.origin_match %}
+            <a href="{% url 'msa:match-edit' entry.origin_match.pk %}" class="ml-1 text-xs underline">Qualifying match</a>
+          {% endif %}
         {% endif %}
-      {% endif %}
-    </li>
-  {% empty %}
-    <li>No players registered.</li>
-  {% endfor %}
-</ul>
+      </li>
+    {% empty %}
+      <li>No players registered.</li>
+    {% endfor %}
+  </ul>
+{% endif %}
 {% endblock %}
