@@ -8,7 +8,6 @@ urlpatterns = [
     path("", views.home, name="home"),
     path("tournaments/", views.tournaments, name="tournament-list"),
     path("tournaments/<int:pk>/", views.tournament_detail, name="tournament-detail"),
-    path("admin-mode", views.admin_mode_toggle, name="admin-mode-toggle"),
     path("live/", views.live, name="live"),  # MSA-REDESIGN: redirect to scores
     path("scores/", views.scores, name="scores"),  # MSA-REDESIGN
     path("search/", views.msa_search, name="search"),  # MSA-REDESIGN
