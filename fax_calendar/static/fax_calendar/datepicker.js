@@ -1,31 +1,77 @@
-import {
+const {
   monthLengths,
   yearLength,
   toOrdinal,
   fromOrdinal,
   weekday,
-} from "/static/fax_calendar/core.js";
-import { seasonSegments, seasonOf } from "/static/fax_calendar/astro.js";
+} = window.woorldCore;
+const { seasonSegments, seasonOf } = window.woorldAstro;
 
-const WEEKDAY_NAMES = [
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-  "Sunday",
-];
+const L10N = {
+  en: {
+    date: "Date",
+    weekday: "Weekday",
+    season: "Season",
+    dayInYear: "Day in year",
+    reset: "Reset",
+    confirm: "Confirm",
+    month: "Month",
+    daysOne: "day",
+    daysMany: "days",
+    firstDay: "First Day",
+    lastDay: "Last Day",
+    seasons: {
+      Winter: "Winter",
+      Spring: "Spring",
+      Summer: "Summer",
+      Autumn: "Autumn",
+    },
+    weekdays: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+  },
+  cs: {
+    date: "Datum",
+    weekday: "Den v týdnu",
+    season: "Roční období",
+    dayInYear: "Den v roce",
+    reset: "Reset",
+    confirm: "Potvrdit",
+    month: "Měsíc",
+    daysOne: "den",
+    daysMany: "dnů",
+    firstDay: "První den",
+    lastDay: "Poslední den",
+    seasons: {
+      Winter: "Zima",
+      Spring: "Jaro",
+      Summer: "Léto",
+      Autumn: "Podzim",
+    },
+    weekdays: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+  },
+};
 
-  function format(day, month, year) {
-    return (
-      String(day).padStart(2, "0") +
-      "-" +
-      String(month).padStart(2, "0") +
-      "-" +
-      String(year).padStart(4, "0")
-    );
-  }
+function parseDate(text) {
+  const m = text.trim().match(/^(\d{1,2})[-.](\d{1,2})[-.](\d{1,4})$/);
+  if (!m) return null;
+  const day = parseInt(m[1], 10);
+  const month = parseInt(m[2], 10);
+  const year = parseInt(m[3], 10);
+  const months = monthLengths(year);
+  if (month < 1 || month > months.length) return null;
+  const max = months[month - 1];
+  if (day < 1 || day > max) return null;
+  return { day, month, year };
+}
+
+function formatDate({ day, month, year }) {
+  return (
+    String(day).padStart(2, "0") +
+    "-" +
+    String(month).padStart(2, "0") +
+    "-" +
+    String(year).padStart(4, "0")
+  );
+}
 
   function buildBtn(label, handler, cls = "") {
     const btn = document.createElement("button");
@@ -61,9 +107,13 @@ const WEEKDAY_NAMES = [
     return wrap;
   }
 
-  function attachWoorldCalendar(input) {
-    if (input.dataset.woorldDateEnhanced) return;
-    input.dataset.woorldDateEnhanced = "1";
+  function attachDatepicker(input, options = {}) {
+    if (input.dataset.faxDate === "off") return;
+    if (input.dataset.faxDatepicker === "on") return;
+    input.dataset.faxDatepicker = "on";
+
+    const locale = options.locale || "en";
+    const t = L10N[locale] || L10N.en;
 
     const btn = document.createElement("button");
     btn.type = "button";
@@ -79,15 +129,20 @@ const WEEKDAY_NAMES = [
       overlay.appendChild(card);
       document.body.appendChild(overlay);
 
-      const match = input.value.match(/(\d{2})[-.](\d{2})[-.](\d{1,4})/);
-      let y = match ? parseInt(match[3], 10) : 2020;
-      let m = match ? parseInt(match[2], 10) : 1;
-      let d = match ? parseInt(match[1], 10) : 1;
-      if (!match && Array.isArray(window.WOORLD_TODAY)) {
+      const parsed = parseDate(input.value);
+      let y, m, d;
+      if (parsed) {
+        ({ year: y, month: m, day: d } = { year: parsed.year, month: parsed.month, day: parsed.day });
+      } else if (Array.isArray(window.WOORLD_TODAY)) {
         y = window.WOORLD_TODAY[0];
         m = window.WOORLD_TODAY[1];
         d = window.WOORLD_TODAY[2];
+      } else {
+        y = 2020;
+        m = 1;
+        d = 1;
       }
+      const init = { y, m, d };
 
       function close() {
         overlay.remove();
@@ -104,7 +159,24 @@ const WEEKDAY_NAMES = [
       });
 
       function choose(yy, mm, dd) {
-        input.value = format(dd, mm, yy);
+        const value = formatDate({ day: dd, month: mm, year: yy });
+        input.value = value;
+        const ord = toOrdinal(yy, mm, dd);
+        const wday = weekday(yy, mm, dd);
+        const season = seasonOf(yy, ord);
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+        input.dispatchEvent(
+          new CustomEvent("fax:date-confirm", {
+            detail: {
+              year: yy,
+              month: mm,
+              day: dd,
+              ordinal: ord,
+              weekday: L10N.en.weekdays[wday],
+              season: season.charAt(0).toUpperCase() + season.slice(1),
+            },
+          })
+        );
         close();
       }
 
@@ -126,19 +198,19 @@ const WEEKDAY_NAMES = [
       monthCtrl.className = "wc-month-ctrl";
       const monthSel = document.createElement("select");
       monthSel.className = "wc-select wc-select--badged";
-      monthSel.setAttribute("aria-label", "Month");
+      monthSel.setAttribute("aria-label", t.month);
 
-        function populateMonthSelect(year) {
-          monthSel.innerHTML = "";
-          monthLengths(year).forEach((days, idx) => {
-            const opt = document.createElement("option");
-            opt.value = idx + 1;
-            opt.textContent = `Měsíc ${idx + 1}`;
-            opt.dataset.days = days;
-            opt.className = "wc-badge";
-            monthSel.appendChild(opt);
-          });
-        }
+      function populateMonthSelect(year) {
+        monthSel.innerHTML = "";
+        monthLengths(year).forEach((days, idx) => {
+          const opt = document.createElement("option");
+          opt.value = idx + 1;
+          opt.textContent = `${t.month} ${idx + 1}`;
+          opt.dataset.days = days;
+          opt.className = "wc-badge";
+          monthSel.appendChild(opt);
+        });
+      }
       const mArrows = document.createElement("div");
       mArrows.className = "wc-vert-arrows";
       const mUp = document.createElement("button");
@@ -217,15 +289,15 @@ const WEEKDAY_NAMES = [
       const monthHead = document.createElement("div");
       monthHead.className = "wc-month__head";
       const monthTitle = document.createElement("h3");
-      monthTitle.innerHTML = "Měsíc <span class=\"js-month\"></span>";
+      monthTitle.innerHTML = `${t.month} <span class="js-month"></span>`;
       const monthDays = document.createElement("div");
       monthDays.className = "wc-month__days";
-      monthDays.innerHTML = '<span class="js-monthlen"></span> day';
+      monthDays.innerHTML = `<span class="js-monthlen"></span> ${t.daysMany}`;
       monthHead.append(monthTitle, monthDays);
       monthSection.appendChild(monthHead);
       const wHead = document.createElement("div");
       wHead.className = "wc-weekdays";
-      ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].forEach((nm) => {
+      t.weekdays.forEach((nm) => {
         const sp = document.createElement("span");
         sp.textContent = nm;
         wHead.appendChild(sp);
@@ -241,17 +313,17 @@ const WEEKDAY_NAMES = [
       const footerInfo = document.createElement("div");
       footerInfo.className = "wc-footer-info";
       footerInfo.innerHTML =
-        '<div><strong>Date:</strong> <span class="js-date"></span></div>' +
-        '<div><strong>Weekday:</strong> <span class="js-weekday"></span></div>' +
-        '<div><strong>Season:</strong> <span class="js-season"></span></div>' +
-        '<div><strong>Day in year:</strong> <span class="js-doy"></span> / <span class="js-yearlen2"></span></div>';
+        `<div><strong>${t.date}:</strong> <span class="js-date"></span></div>` +
+        `<div><strong>${t.weekday}:</strong> <span class="js-weekday"></span></div>` +
+        `<div><strong>${t.season}:</strong> <span class="js-season"></span></div>` +
+        `<div><strong>${t.dayInYear}:</strong> <span class="js-doy"></span> / <span class="js-yearlen2"></span></div>`;
       const resetBtn = buildBtn(
-        "Reset",
-        () => selectDate(2020, 1, 1),
+        t.reset,
+        () => selectDate(init.y, init.m, init.d),
         "wc-btn--ghost",
       );
       resetBtn.dataset.act = "reset";
-      const confirmBtn = buildBtn("Confirm", () => choose(y, m, d), "wc-btn--primary");
+      const confirmBtn = buildBtn(t.confirm, () => choose(y, m, d), "wc-btn--primary");
       confirmBtn.dataset.act = "confirm";
       footer.append(footerInfo, resetBtn, confirmBtn);
 
@@ -270,9 +342,9 @@ const WEEKDAY_NAMES = [
           populateMonthSelect(y);
           const months = monthLengths(y);
           monthSel.value = String(m);
-          monthPill.textContent = `${months[m - 1]} days`;
+          monthPill.textContent = `${months[m - 1]} ${t.daysMany}`;
           yearSel.value = String(y);
-          yearPill.textContent = `${yearLength(y)} days`;
+          yearPill.textContent = `${yearLength(y)} ${t.daysMany}`;
         }
 
       function renderDoyTrack(yy) {
@@ -311,22 +383,23 @@ const WEEKDAY_NAMES = [
 
       function renderJumpButtons(yy) {
         const yl = yearLength(yy);
-        const { marks } = seasonSegments(yy);
-        let items = [{ label: "First Day", kind: "first", doy: 1 }];
-        marks.forEach((mark) => {
-          items.push({
-            label: mark.kind.charAt(0).toUpperCase() + mark.kind.slice(1),
-            kind: mark.kind,
-            doy: mark.doy,
-          });
+        const { segs } = seasonSegments(yy);
+        const items = [{ label: t.firstDay, kind: "first", doy: 1 }];
+        const order = ["spring", "summer", "autumn", "winter"];
+        order.forEach((kind) => {
+          segs
+            .filter((s) => s.kind === kind)
+            .forEach((s) => {
+              const cap = kind.charAt(0).toUpperCase() + kind.slice(1);
+              items.push({
+                label: t.seasons[cap] || cap,
+                kind,
+                doy: s.startDoy,
+              });
+            });
         });
-        items.push({ label: "Last Day", kind: "last", doy: yl });
-        const mids = items
-          .filter((x) => x.kind !== "first" && x.kind !== "last")
-          .sort((a, b) => a.doy - b.doy);
-        items = [items[0], ...mids, items[items.length - 1]];
+        items.push({ label: t.lastDay, kind: "last", doy: yl });
         jumpsEl.innerHTML = "";
-        const counts = {};
         items.forEach((item) => {
           const btn = buildBtn(item.label, () => {
             scrubRange.value = String(item.doy);
@@ -336,13 +409,7 @@ const WEEKDAY_NAMES = [
             btn.dataset.season = item.kind;
           }
           const [_, mm, dd] = fromOrdinal(yy, item.doy);
-          btn.title = `${item.label} — DOY ${item.doy} (${format(dd, mm, yy)})`;
-          const count = (counts[item.label] = (counts[item.label] || 0) + 1);
-          if (count > 1) {
-            const badge = document.createElement("sup");
-            badge.textContent = count;
-            btn.appendChild(badge);
-          }
+          btn.title = `${item.label} — DOY ${item.doy} (${formatDate({ day: dd, month: mm, year: yy })})`;
           jumpsEl.appendChild(btn);
         });
       }
@@ -399,9 +466,15 @@ const WEEKDAY_NAMES = [
         const doy = toOrdinal(y, m, d);
         const w = weekday(y, m, d);
         const season = seasonOf(y, doy);
-        footer.querySelector(".js-date").textContent = format(d, m, y);
-        footer.querySelector(".js-weekday").textContent = WEEKDAY_NAMES[w];
-        footer.querySelector(".js-season").textContent = season;
+        footer.querySelector(".js-date").textContent = formatDate({
+          day: d,
+          month: m,
+          year: y,
+        });
+        footer.querySelector(".js-weekday").textContent = t.weekdays[w];
+        const seasonCap = season.charAt(0).toUpperCase() + season.slice(1);
+        footer.querySelector(".js-season").textContent =
+          t.seasons[seasonCap] || seasonCap;
         footer.querySelector(".js-doy").textContent = doy;
         footer.querySelector(".js-yearlen2").textContent = yearLength(y);
         scrubRange.value = doy;
@@ -466,17 +539,32 @@ const WEEKDAY_NAMES = [
     btn.addEventListener("click", open);
   }
 
-  function enhanceAllWoorldDateInputs(root) {
-    (root || document)
-      .querySelectorAll("input.woorld-date-input")
-      .forEach((el) => attachWoorldCalendar(el));
+  function attach(selector = "input.woorld-date-input,[data-fax-date]", options = {}) {
+    if (!selector) selector = "input.woorld-date-input,[data-fax-date]";
+    let els = [];
+    if (typeof selector === "string") els = document.querySelectorAll(selector);
+    else if (selector instanceof Element) els = [selector];
+    else els = selector;
+    els.forEach((el) => attachDatepicker(el, options));
+    return els;
   }
 
-  window.attachWoorldCalendar = attachWoorldCalendar;
-  window.enhanceAllWoorldDateInputs = enhanceAllWoorldDateInputs;
-  document.addEventListener("DOMContentLoaded", () =>
-    enhanceAllWoorldDateInputs(document)
-  );
-  document.addEventListener("htmx:afterSwap", (e) =>
-    enhanceAllWoorldDateInputs(e.target)
-  );
+  function enhanceAll(options = {}) {
+    return attach(undefined, options);
+  }
+
+  window.FaxDatepicker = {
+    attach,
+    enhanceAll,
+    parseDate,
+    formatDate,
+  };
+
+  document.addEventListener("DOMContentLoaded", () => {
+    window.FaxDatepicker.enhanceAll();
+  });
+  document.addEventListener("htmx:afterSwap", (e) => {
+    window.FaxDatepicker.attach(
+      e.target.querySelectorAll("input.woorld-date-input,[data-fax-date]"),
+    );
+  });
