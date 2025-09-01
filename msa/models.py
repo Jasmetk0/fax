@@ -4,6 +4,8 @@ from django.conf import settings
 from django.db import models
 from django.utils.text import slugify
 
+from .services.rounds import round_label
+
 from fax_calendar.fields import WoorldDateField
 
 
@@ -355,16 +357,7 @@ class BracketPolicy(AuditModel):
         n = self.draw_size
         order = 1
         while True:
-            if n > 8:
-                label = f"Round of {n}"
-            elif n == 8:
-                label = "Quarter Final"
-            elif n == 4:
-                label = "Semi Final"
-            elif n == 2:
-                label = "Final"
-            elif n == 1:
-                label = "Winner"
+            label = round_label(n)
             rounds.append((order, label))
             if n <= 1:
                 break

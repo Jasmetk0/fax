@@ -8,18 +8,7 @@ from ..models import (
     EventPhase,
     PhaseRound,
 )
-
-ROUND_LABELS = {
-    "R128": "Round of 128",
-    "R96": "Round of 96",
-    "R64": "Round of 64",
-    "R32": "Round of 32",
-    "R16": "Round of 16",
-    "QF": "Quarter-final",
-    "SF": "Semi-final",
-    "F": "Final",
-    "3P": "3rd place",
-}
+from .rounds import round_label
 
 
 def _round_code(size: int) -> str:
@@ -41,7 +30,7 @@ def _mk_rounds_for_single_elim(phase: EventPhase, draw: int, best_of_map: dict):
     default_best = best_of_map.get("default", phase.config.get("best_of", 5))
     while size >= 2:
         code = _round_code(size)
-        label = ROUND_LABELS.get(code, code)
+        label = round_label(size)
         matches = size // 2
         best_of = best_of_map.get(code, default_best)
         rnd = PhaseRound.objects.create(
@@ -64,7 +53,7 @@ def _mk_rounds_for_single_elim(phase: EventPhase, draw: int, best_of_map: dict):
             phase=phase,
             order=order,
             code="3P",
-            label=ROUND_LABELS["3P"],
+            label="3rd place",
             entrants=2,
             matches=1,
             best_of=third.get("best_of", default_best),

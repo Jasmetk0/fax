@@ -80,6 +80,17 @@ class TournamentForm(forms.ModelForm):
             "entry_deadline": WoorldAdminDateWidget(),
         }
 
+    def clean(self):
+        cleaned = super().clean()
+        draw = cleaned.get("draw_size") or 0
+        seeds = cleaned.get("seeds_count") or 0
+        quals = cleaned.get("qualifiers_count") or 0
+        if seeds > draw:
+            raise forms.ValidationError("Seeds exceed draw size")
+        if seeds + quals > draw:
+            raise forms.ValidationError("Seeds+qualifiers exceed draw size")
+        return cleaned
+
 
 class MatchForm(forms.ModelForm):
     class Meta:
