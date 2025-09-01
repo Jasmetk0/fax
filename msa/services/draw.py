@@ -266,16 +266,21 @@ def replace_slot(
             )
             .update(position=slot, status=TournamentEntry.Status.ACTIVE)
         )
-        if updated == 0:
-            # Možná to mezitím nastavil druhý thread; nebo slot znovu obsadil někdo jiný.
+                if updated == 0:
             alt.refresh_from_db(fields=["position", "status"])
             if alt.position != slot:
                 # Poslední pokus: znovu uvolni případného držitele a nastav ALT.
                 TournamentEntry.objects.filter(
                     tournament=tournament, position=slot
-                ).exclude(pk=alt.pk).update(position=None, status=TournamentEntry.Status.REPLACED)
-               TournamentEntry.objects.filter(pk=alt.pk, tournament=tournament).update(
-                    position=slot, status=TournamentEntry.Status.ACTIVE
+                ).exclude(pk=alt.pk).update(
+                    position=None,
+                    status=TournamentEntry.Status.REPLACED,
+                )
+                TournamentEntry.objects.filter(
+                    pk=alt.pk, tournament=tournament
+                ).update(
+                    position=slot,
+                    status=TournamentEntry.Status.ACTIVE,
                 )
                 alt.refresh_from_db(fields=["position"])
 
