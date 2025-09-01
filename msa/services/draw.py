@@ -293,14 +293,16 @@ def progress_bracket(tournament) -> bool:
         rounds.append(r)
         r //= 2
 
+    matches_qs = tournament.matches.select_for_update()
+
     current_round = None
     for r in rounds:
-        if not tournament.matches.filter(round=f"R{r}").exists():
+        if not matches_qs.filter(round=f"R{r}").exists():
             continue
-        if tournament.matches.filter(round=f"R{r}", winner__isnull=True).exists():
+        if matches_qs.filter(round=f"R{r}", winner__isnull=True).exists():
             continue
         next_round = r // 2
-        if tournament.matches.filter(round=f"R{next_round}").exists():
+        if matches_qs.filter(round=f"R{next_round}").exists():
             continue
         current_round = r
         break
@@ -312,9 +314,11 @@ def progress_bracket(tournament) -> bool:
         next_round = 64
     else:
         next_round = current_round // 2
-    entries = tournament.entries.filter(
-        position__isnull=False, status="active"
-    ).select_related("player")
+    entries = (
+        tournament.entries.select_for_update()
+        .filter(position__isnull=False, status="active")
+        .select_related("player")
+    )
     by_pos = {e.position: e for e in entries}
     pairs = pair_first_round_slots(bracket)
     winners: List[TournamentEntry | None] = []
@@ -324,7 +328,7 @@ def progress_bracket(tournament) -> bool:
         eb = by_pos.get(b)
         winner_entry = None
         if ea and eb:
-            match = tournament.matches.filter(
+            match = matches_qs.filter(
                 round=f"R{current_round}",
                 player1__in=[ea.player, eb.player],
                 player2__in=[ea.player, eb.player],
@@ -344,7 +348,7 @@ def progress_bracket(tournament) -> bool:
         w2 = winners[i + 1] if i + 1 < len(winners) else None
         if not w1 or not w2:
             continue
-        exists = tournament.matches.filter(
+        exists = matches_qs.filter(
             round=f"R{next_round}",
             player1__in=[w1.player, w2.player],
             player2__in=[w1.player, w2.player],

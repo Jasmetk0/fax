@@ -3,14 +3,9 @@ from django.db import transaction
 
 from ..models import Match, TournamentEntry, Tournament
 from .draw import pair_first_round_slots
+from .rounds import next_power_of_two
 
 logger = logging.getLogger(__name__)
-
-
-def _prev_pow2(n: int) -> int:
-    if n < 1:
-        return 0
-    return 1 << (n.bit_length() - 1)
 
 
 @transaction.atomic
@@ -26,27 +21,29 @@ def generate_qualifying(tournament: Tournament, force: bool = False, user=None) 
         return False
     entries = list(entries_qs.order_by("player__name"))
     n = len(entries)
-    start = _prev_pow2(n)
+    start = next_power_of_two(n)
     if start < 2:
         return False
-    round_code = f"Q{start}"
+    round_size = n if n & (n - 1) == 0 else start // 2
+    round_code = f"Q{round_size}"
     created = False
-    for a, b in pair_first_round_slots(n):
-        if a <= n and b <= n:
-            e1 = entries[a - 1]
-            e2 = entries[b - 1]
-            m = Match(
-                tournament=tournament,
-                player1=e1.player,
-                player2=e2.player,
-                round=round_code,
-                section="",
-                best_of=5,
-            )
-            if user:
-                m.updated_by = user
-            m.save()
-            created = True
+    for a, b in pair_first_round_slots(round_size):
+        if a > n or b > n:
+            continue
+        e1 = entries[a - 1]
+        e2 = entries[b - 1]
+        m = Match(
+            tournament=tournament,
+            player1=e1.player,
+            player2=e2.player,
+            round=round_code,
+            section="",
+            best_of=5,
+        )
+        if user:
+            m.updated_by = user
+        m.save()
+        created = True
     return created
 
 
@@ -69,8 +66,18 @@ def progress_qualifying(tournament: Tournament, user=None) -> bool:
         break
     if not current:
         return False
-    matches = list(qs.filter(round=f"Q{current}").select_related("winner"))
+    matches = list(
+        qs.filter(round=f"Q{current}").select_related("winner", "player1", "player2")
+    )
     winners = [m.winner for m in matches if m.winner]
+    all_played = {m.player1_id for m in qs} | {m.player2_id for m in qs}
+    extra_entries = (
+        tournament.entries.select_for_update()
+        .filter(entry_type=TournamentEntry.EntryType.Q, status="active")
+        .exclude(player_id__in=all_played)
+        .select_related("player")
+    )
+    winners.extend(e.player for e in extra_entries)
     if len(winners) < 2:
         return False
     next_code = f"Q{current // 2}"
