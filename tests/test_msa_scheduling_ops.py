@@ -74,10 +74,12 @@ class SchedulingOpsTests(TestCase):
             user=self.user,
         )
         self.assertTrue(ok)
+        m1.refresh_from_db()
+        m2.refresh_from_db()
+        self.assertEqual(self._sched(m2)["slot"], 1)
+        self.assertEqual(self._sched(m1)["slot"], 3)
         conflicts = find_conflicts_slots(self.t)
-        self.assertTrue(
-            any(m2.id in c["match_ids"] for c in conflicts["court_double_booked"])
-        )
+        self.assertFalse(conflicts["court_double_booked"])
 
     def test_bulk_import_is_atomic(self):
         m1 = self._match(self.players[0], self.players[1])

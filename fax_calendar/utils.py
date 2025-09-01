@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import re
-from typing import Tuple
+from datetime import date, datetime
+from typing import Iterable, Tuple, Union
 
 from . import core
 
@@ -55,22 +56,56 @@ def to_storage(year: int, month: int, day: int) -> str:
     return f"{year:04d}-{month:02d}-{day:02d}"
 
 
-def from_storage(value: str) -> Tuple[int, int, int]:
-    """Parse storage format ``YYYY-MM-DD`` (optionally suffixed with ``w``)."""
+def from_storage(
+    value: Union[str, bytes, date, datetime, Iterable[int]],
+) -> Tuple[int | None, int | None, int | None]:
+    """Parse storage format ``YYYY-MM-DD``.
 
-    if not value:
-        raise ValueError("Prázdná hodnota")
-    if value.endswith("w"):
-        value = value[:-1]
-    try:
-        year_s, month_s, day_s = value.split("-")
-        y, m, d = int(year_s), int(month_s), int(day_s)
-    except Exception as exc:  # pragma: no cover - defensive
-        raise ValueError("Neplatný formát Woorld datum") from exc
-    days_in_month(y, m)
-    if not 1 <= d <= days_in_month(y, m):
-        raise ValueError("Neplatný den")
-    return y, m, d
+    Gracefully handles ``None`` and various input types. Returns a
+    ``(year, month, day)`` tuple or ``(None, None, None)`` when parsing fails.
+    """
+
+    # Empty / nullish values -------------------------------------------------
+    if value is None or value in ("", b"", "None"):
+        return (None, None, None)
+
+    # ``date`` / ``datetime`` instances --------------------------------------
+    if isinstance(value, (date, datetime)):
+        return value.year, value.month, value.day
+
+    # Raw tuple/list of components -------------------------------------------
+    if isinstance(value, (list, tuple)) and len(value) == 3:
+        try:
+            y, m, d = [int(v) for v in value]
+            days_in_month(y, m)
+            if 1 <= d <= days_in_month(y, m):
+                return y, m, d
+        except Exception:  # pragma: no cover - fail soft
+            return (None, None, None)
+        return (None, None, None)
+
+    # Bytes -> decode to str --------------------------------------------------
+    if isinstance(value, bytes):
+        try:
+            value = value.decode()
+        except Exception:  # pragma: no cover - fail soft
+            return (None, None, None)
+
+    # String in storage format -----------------------------------------------
+    if isinstance(value, str):
+        if value.endswith("w"):
+            value = value[:-1]
+        try:
+            year_s, month_s, day_s = value.split("-")
+            y, m, d = int(year_s), int(month_s), int(day_s)
+            days_in_month(y, m)
+            if 1 <= d <= days_in_month(y, m):
+                return y, m, d
+        except Exception:  # pragma: no cover - fail soft
+            return (None, None, None)
+        return (None, None, None)
+
+    return (None, None, None)
 
 
 def season_name(year: int, month: int, day: int) -> str:

@@ -26,8 +26,13 @@ class WoorldDateFormField(forms.CharField):
 
     def prepare_value(self, value):
         if isinstance(value, str):
-            year, month, day = from_storage(value)
-            return format_woorld_date(year, month, day)
+            try:
+                year, month, day = from_storage(value)
+                if None in (year, month, day):
+                    return (None, None, None)
+                return format_woorld_date(year, month, day)
+            except Exception:  # pragma: no cover - defensive
+                return (None, None, None)
         return super().prepare_value(value)
 
 
