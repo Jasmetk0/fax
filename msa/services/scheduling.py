@@ -261,8 +261,9 @@ def generate_tournament_ics_date_only(tournament) -> str:
 
 
 def swap_scheduled_matches(tournament, match_id_a, match_id_b, *, user=None) -> bool:
+    ids = sorted([match_id_a, match_id_b])
     with transaction.atomic():
-        qs = Match.objects.filter(id__in=[match_id_a, match_id_b])
+        qs = Match.objects.filter(id__in=ids).order_by("id")
         if connection.features.has_select_for_update:
             qs = qs.select_for_update()
         matches = list(qs)
@@ -271,7 +272,12 @@ def swap_scheduled_matches(tournament, match_id_a, match_id_b, *, user=None) -> 
         m_map = {m.id: m for m in matches}
         a = m_map.get(match_id_a)
         b = m_map.get(match_id_b)
-        if a.tournament_id != tournament.id or b.tournament_id != tournament.id:
+        if (
+            not a
+            or not b
+            or a.tournament_id != tournament.id
+            or b.tournament_id != tournament.id
+        ):
             return False
         sched_a = _extract_schedule(a)
         sched_b = _extract_schedule(b)
@@ -303,17 +309,38 @@ def move_scheduled_match(
     }
     if new_schedule.get("court"):
         schedule["court"] = new_schedule["court"]
+
     with transaction.atomic():
-        try:
-            qs = Match.objects
-            if connection.features.has_select_for_update:
-                qs = qs.select_for_update()
-            match = qs.get(id=match_id)
-        except Match.DoesNotExist:
+        qs = Match.objects.filter(tournament=tournament).order_by("id")
+        if connection.features.has_select_for_update:
+            qs = qs.select_for_update()
+        matches = list(qs)
+        match_map = {m.id: m for m in matches}
+        match = match_map.get(match_id)
+        if not match:
             return False
-        if match.tournament_id != tournament.id:
-            return False
-        put_schedule(match, schedule, user=user)
+        current = _extract_schedule(match)
+        if current == schedule:
+            return True
+        # find conflict
+        conflict = None
+        for m in matches:
+            if m.id != match.id and _extract_schedule(m) == schedule:
+                conflict = m
+                break
+        if conflict:
+            a, b = (match, conflict)
+            if a.id > b.id:
+                a, b = b, a
+            sched_a = _extract_schedule(a)
+            sched_b = _extract_schedule(b)
+            if not sched_a or not sched_b:
+                return False
+            put_schedule(a, sched_b, user=user)
+            put_schedule(b, sched_a, user=user)
+        else:
+            put_schedule(match, schedule, user=user)
+
     conflicts = find_conflicts_slots(tournament)
     for c in conflicts.get("court_double_booked", []):
         if match_id in c.get("match_ids", []):

@@ -3,7 +3,7 @@ from math import ceil, log2
 from typing import Dict, List
 
 from django.conf import settings
-from django.db import connection, transaction
+from django.db import connection, transaction, IntegrityError
 
 from ..models import Match, RankingSnapshot, TournamentEntry
 from .rounds import next_power_of_two
@@ -267,9 +267,12 @@ def replace_slot(
             ).update(position=None, status=TournamentEntry.Status.REPLACED)
 
         # 5) Pokus o přidělení slotu ALT – podmíněně (jen když ALT zatím nemá position)
-        updated = TournamentEntry.objects.filter(
-            pk=alt.pk, tournament=tournament, position__isnull=True
-        ).update(position=slot, status=TournamentEntry.Status.ACTIVE)
+        try:
+            updated = TournamentEntry.objects.filter(
+                pk=alt.pk, tournament=tournament, position__isnull=True
+            ).update(position=slot, status=TournamentEntry.Status.ACTIVE)
+        except IntegrityError:
+            updated = 0
 
         if updated == 0:
             # Možná to mezitím nastavil druhý thread; nebo slot znovu obsadil někdo jiný.
@@ -282,10 +285,12 @@ def replace_slot(
                     position=None,
                     status=TournamentEntry.Status.REPLACED,
                 )
-                TournamentEntry.objects.filter(pk=alt.pk, tournament=tournament).update(
-                    position=slot,
-                    status=TournamentEntry.Status.ACTIVE,
-                )
+                try:
+                    TournamentEntry.objects.filter(
+                        pk=alt.pk, tournament=tournament
+                    ).update(position=slot, status=TournamentEntry.Status.ACTIVE)
+                except IntegrityError:  # pragma: no cover - unique race
+                    pass
                 alt.refresh_from_db(fields=["position"])
 
         # 6) Aktualizuj párování v 1. kole, pokud zápas existuje a není uzavřen
