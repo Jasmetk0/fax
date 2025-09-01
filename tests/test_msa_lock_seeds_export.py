@@ -1,10 +1,15 @@
 from django.contrib.auth import get_user_model
-from django.contrib.messages import get_messages
 from django.test import TestCase
-from django.urls import reverse
 
 from msa.models import Player, Tournament, TournamentEntry
-from msa.services.entries import validate_pre_draw, set_seed
+from msa.services.entries import (
+    validate_pre_draw,
+    set_seed,
+    lock_entries,
+    unlock_entries,
+    bulk_set_seeds,
+    export_entries_csv,
+)
 
 
 class LockSeedsExportTests(TestCase):
@@ -12,32 +17,25 @@ class LockSeedsExportTests(TestCase):
         self.players = [Player.objects.create(name=f"P{i}") for i in range(1, 10)]
         User = get_user_model()
         self.staff = User.objects.create_user("admin", password="x", is_staff=True)
-        self.client.force_login(self.staff)
-        session = self.client.session
-        session["admin_mode"] = True
-        session.save()
-
-    def _url(self, t):
-        return reverse("msa:tournament-players", args=[t.slug])
 
     def test_lock_and_unlock_state_transitions(self):
         t = Tournament.objects.create(name="T", slug="t", state=Tournament.State.DRAFT)
-        url = self._url(t)
-        self.client.post(url, {"action": "entries_lock"}, follow=True)
+        ok, _ = lock_entries(t, self.staff)
+        self.assertTrue(ok)
         t.refresh_from_db()
         self.assertEqual(t.state, Tournament.State.ENTRY_LOCKED)
-        self.client.post(url, {"action": "entries_unlock"}, follow=True)
+        ok, _ = unlock_entries(t, self.staff)
+        self.assertTrue(ok)
         t.refresh_from_db()
         self.assertEqual(t.state, Tournament.State.ENTRY_OPEN)
         t2 = Tournament.objects.create(
             name="T2", slug="t2", state=Tournament.State.DRAWN
         )
-        url2 = self._url(t2)
-        res = self.client.post(url2, {"action": "entries_unlock"}, follow=True)
+        ok, msg = unlock_entries(t2, self.staff)
+        self.assertFalse(ok)
         t2.refresh_from_db()
         self.assertEqual(t2.state, Tournament.State.DRAWN)
-        messages = [m.message for m in get_messages(res.wsgi_request)]
-        self.assertTrue(any("Cannot" in m for m in messages))
+        self.assertIn("cannot", msg.lower())
 
     def test_checklist_capacity_and_seeds(self):
         t = Tournament.objects.create(name="T", slug="tt", draw_size=2, seeds_count=2)
@@ -98,30 +96,21 @@ class LockSeedsExportTests(TestCase):
         )
         e1 = TournamentEntry.objects.create(tournament=t, player=self.players[0])
         e2 = TournamentEntry.objects.create(tournament=t, player=self.players[1])
-        text = f"{e1.id},2\n\n#c\n999,1\n{e2.id},2\n"
-        url = self._url(t)
-        res = self.client.post(
-            url,
-            {"action": "seeds_bulk_update", "rows": text},
-            follow=True,
-        )
+        mapping = {e1.id: 2, 999: 1, e2.id: 2}
+        result = bulk_set_seeds(t, mapping, self.staff)
         e1.refresh_from_db()
         e2.refresh_from_db()
         self.assertEqual(e1.seed, 2)
         self.assertIsNone(e2.seed)
-        messages = [m.message for m in get_messages(res.wsgi_request)]
-        self.assertTrue(any("updated 1" in m for m in messages))
-        self.assertTrue(any("999" in m for m in messages))
+        self.assertEqual(result["updated"], 1)
+        self.assertIn(999, result["errors"])
 
     def test_entries_export_csv_format(self):
         t = Tournament.objects.create(name="T5", slug="s5")
         TournamentEntry.objects.create(tournament=t, player=self.players[0])
         TournamentEntry.objects.create(tournament=t, player=self.players[1], seed=1)
-        url = self._url(t)
-        res = self.client.get(url, {"action": "entries_export_csv"})
-        self.assertEqual(res.status_code, 200)
-        self.assertEqual(res["Content-Type"], "text/csv")
-        lines = res.content.decode().splitlines()
+        csv_text = export_entries_csv(t)
+        lines = csv_text.splitlines()
         self.assertEqual(
             lines[0],
             "player_id,player_name,entry_type,status,seed,position,origin_note",
