@@ -200,81 +200,105 @@ def replace_slot(
     user=None,
 ) -> bool:
     """
-    Vrátí True při úspěchu. Najde current entry v `position=slot` (ACTIVE),
-    označí ho `replaced`, replacement (ALT/LL) nastaví `ACTIVE` + `position=slot`.
-    Pokud existuje ne-completed zápas 1. kola pro tento slot, přepiš p1/p2.
-    Pokud je zápas completed a `allow_over_completed` False → return False.
+    Bezpečně (souběh-safe) nahradí držitele `slot` alternativou (ALT/LL).
+    - Funguje i když je slot PRÁZDNÝ (žádný current).
+    - Atomické, idempotentní, vendor-aware (SQLite bez FOR UPDATE).
+    - Pokud je 1. kolo již completed a `allow_over_completed` je False, nic nemění.
+    Vrací True, pokud ALT/LL skončí v daném slotu.
     """
-
     with transaction.atomic():
-        entries = tournament.entries.all()
+        # 1) Zamkni (pokud lze) ALT/LL – deterministické pořadí zámků: ALT -> HOLDER
+        alt_qs = TournamentEntry.objects.filter(pk=replacement_entry_id, tournament=tournament)
         if connection.features.has_select_for_update:
-            entries = entries.select_for_update()
-        current = (
-            entries.filter(position=slot, status="active")
-            .select_related("player")
-            .first()
-        )
-        if not current:
-            return False
+            alt_qs = alt_qs.select_for_update()
         try:
-            replacement = entries.get(pk=replacement_entry_id)
+            alt = alt_qs.select_related("player").get()
         except TournamentEntry.DoesNotExist:
             return False
-        if replacement.position is not None:
+
+        # Idempotentní no-op: ALT už je ve slotu
+        if alt.position == slot:
+            return True
+
+        # Musí být ALT/LL a ve stavu active/withdrawn (aby šel aktivovat)
+        if alt.entry_type not in {"ALT", "LL"} or alt.status not in {"active", "withdrawn"}:
             return False
-        if replacement.status not in {
-            "active",
-            "withdrawn",
-        } or replacement.entry_type not in {
-            "ALT",
-            "LL",
-        }:
-            return False
-        mate_slot = slot + 1 if slot % 2 else slot - 1
-        mate = (
-            entries.filter(position=mate_slot, status="active")
-            .select_related("player")
-            .first()
-        )
+
+        # 2) Zamkni (pokud lze) aktuálního držitele slotu, pokud existuje
+        holder_qs = TournamentEntry.objects.filter(tournament=tournament, position=slot)
+        if connection.features.has_select_for_update:
+            holder_qs = holder_qs.select_for_update()
+        holder = holder_qs.select_related("player").first()
+
+        # 3) Pokud existuje nespárovaný první zápas a je completed, bez override končíme
         match = None
-        if mate:
-            match_qs = tournament.matches.all()
-            if connection.features.has_select_for_update:
-                match_qs = match_qs.select_for_update()
-            match = match_qs.filter(
-                player1__in=[current.player, mate.player],
-                player2__in=[current.player, mate.player],
-                round=f"R{tournament.draw_size}",
-            ).first()
-            if match and match.winner_id and not allow_over_completed:
-                return False
-        current.status = TournamentEntry.Status.REPLACED
-        current.position = None
-        if user:
-            current.updated_by = user
-            current.save(update_fields=["status", "position", "updated_by"])
-        else:
-            current.save(update_fields=["status", "position"])
-        replacement.status = TournamentEntry.Status.ACTIVE
-        replacement.position = slot
-        if user:
-            replacement.updated_by = user
-            replacement.save(update_fields=["status", "position", "updated_by"])
-        else:
-            replacement.save(update_fields=["status", "position"])
-        if match and not match.winner_id:
-            entries_by_pos = {slot: replacement}
+        mate_slot = slot + 1 if (slot % 2) else slot - 1
+        if holder:
+            mate = (
+                TournamentEntry.objects.filter(
+                    tournament=tournament, position=mate_slot, status="active"
+                )
+                .select_related("player")
+                .first()
+            )
             if mate:
-                entries_by_pos[mate_slot] = mate
+                match_qs = tournament.matches.all()
+                if connection.features.has_select_for_update:
+                    match_qs = match_qs.select_for_update()
+                match = match_qs.filter(
+                    player1__in=[holder.player, mate.player],
+                    player2__in=[holder.player, mate.player],
+                    round=f"R{tournament.draw_size}",
+                ).first()
+                if match and match.winner_id and not allow_over_completed:
+                    return False
+
+        # 4) Uvolni slot, pokud ho drží někdo jiný než ALT (podmíněným UPDATE)
+        if holder and holder.pk != alt.pk:
+            TournamentEntry.objects.filter(
+                pk=holder.pk, tournament=tournament, position=slot
+            ).update(position=None, status=TournamentEntry.Status.REPLACED)
+
+        # 5) Pokus o přidělení slotu ALT – podmíněně (jen pokud alt.position IS NULL)
+        updated = (
+            TournamentEntry.objects.filter(
+                pk=alt.pk, tournament=tournament, position__isnull=True
+            )
+            .update(position=slot, status=TournamentEntry.Status.ACTIVE)
+        )
+        if updated == 0:
+            # Možná to mezitím nastavil druhý thread; nebo slot znovu obsadil někdo jiný.
+            alt.refresh_from_db(fields=["position", "status"])
+            if alt.position != slot:
+                # Poslední pokus: znovu uvolni případného držitele a nastav ALT.
+                TournamentEntry.objects.filter(
+                    tournament=tournament, position=slot
+                ).exclude(pk=alt.pk).update(position=None, status=TournamentEntry.Status.REPLACED)
+               TournamentEntry.objects.filter(pk=alt.pk, tournament=tournament).update(
+                    position=slot, status=TournamentEntry.Status.ACTIVE
+                )
+                alt.refresh_from_db(fields=["position"])
+
+        # 6) Pokud máme match a není completed, srovnej párování podle aktuálních držitelů slotů
+        if match and not match.winner_id:
             low, high = sorted([slot, mate_slot])
-            e_low = entries_by_pos.get(low)
-            e_high = entries_by_pos.get(high)
+            e_low = (
+                TournamentEntry.objects.filter(tournament=tournament, position=low)
+                .select_related("player")
+                .first()
+            )
+            e_high = (
+                TournamentEntry.objects.filter(tournament=tournament, position=high)
+                .select_related("player")
+                .first()
+            )
             if e_low and e_high:
                 match.player1 = e_low.player
                 match.player2 = e_high.player
                 match.save(update_fields=["player1", "player2"])
-        return True
+
+        # Úspěch, jen pokud ALT skutečně skončil ve slotu
+        return alt.position == slot
 
 
 def has_completed_main_matches(tournament) -> bool:
