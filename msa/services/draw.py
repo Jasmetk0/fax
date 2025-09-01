@@ -12,6 +12,14 @@ from .rounds import next_power_of_two
 logger = logging.getLogger(__name__)
 
 
+def _for_update(qs):
+    return (
+        qs.select_for_update()
+        if getattr(connection.features, "supports_select_for_update", False)
+        else qs
+    )
+
+
 def _generate_draw_legacy(tournament, force: bool = False):
     """Placeholder for legacy draw generation."""
     return None
@@ -206,41 +214,35 @@ def replace_slot(
     Vrací True, pokud ALT/LL skončí v daném slotu.
     """
     with transaction.atomic():
-        # 1) Zamkni (pokud lze) ALT/LL – deterministické pořadí: ALT -> HOLDER
-        alt_qs = TournamentEntry.objects.filter(
-            pk=replacement_entry_id, tournament=tournament
-        )
-        if connection.features.has_select_for_update:
-            alt_qs = alt_qs.select_for_update()
+        occupant = _for_update(
+            TournamentEntry.objects.filter(tournament=tournament, position=slot)
+        ).first()
         try:
-            alt = alt_qs.select_related("player").get()
+            alt = (
+                _for_update(
+                    TournamentEntry.objects.filter(
+                        pk=replacement_entry_id, tournament=tournament
+                    )
+                )
+                .select_related("player")
+                .get()
+            )
         except TournamentEntry.DoesNotExist:
             return False
 
-        # Idempotentní no-op
         if alt.position == slot:
-            return True
-        # ALT už někde leží → zamítnout (povolíme jen případ výše – stejný slot)
+            return False
         if alt.position is not None:
             return False
-
-        # Musí být ALT/LL a v akceptovatelném stavu
         if alt.entry_type not in {"ALT", "LL"} or alt.status not in {
             "active",
             "withdrawn",
         }:
             return False
 
-        # 2) Zamkni (pokud lze) aktuálního držitele slotu (může neexistovat)
-        holder_qs = TournamentEntry.objects.filter(tournament=tournament, position=slot)
-        if connection.features.has_select_for_update:
-            holder_qs = holder_qs.select_for_update()
-        holder = holder_qs.select_related("player").first()
-
-        # 3) Nechej průchod jen pokud 1. kolo není completed (pokud to neignorujeme)
         match = None
         mate_slot = slot + 1 if (slot % 2) else slot - 1
-        if holder:
+        if occupant:
             mate = (
                 TournamentEntry.objects.filter(
                     tournament=tournament, position=mate_slot, status="active"
@@ -250,51 +252,46 @@ def replace_slot(
             )
             if mate:
                 match_qs = tournament.matches.all()
-                if connection.features.has_select_for_update:
-                    match_qs = match_qs.select_for_update()
+                match_qs = _for_update(match_qs)
                 match = match_qs.filter(
-                    player1__in=[holder.player, mate.player],
-                    player2__in=[holder.player, mate.player],
+                    player1__in=[occupant.player, mate.player],
+                    player2__in=[occupant.player, mate.player],
                     round=f"R{tournament.draw_size}",
                 ).first()
                 if match and match.winner_id and not allow_over_completed:
                     return False
 
-        # 4) Uvolni slot, pokud ho drží někdo jiný než ALT (podmíněný update)
-        if holder and holder.pk != alt.pk:
-            TournamentEntry.objects.filter(
-                pk=holder.pk, tournament=tournament, position=slot
-            ).update(position=None, status=TournamentEntry.Status.REPLACED)
+        if occupant and occupant.pk != alt.pk:
+            updates = {"position": None}
+            status_enum = getattr(TournamentEntry, "Status", None)
+            replaced = getattr(status_enum, "REPLACED", None) if status_enum else None
+            if replaced is not None and getattr(occupant, "status", None) != replaced:
+                updates["status"] = replaced
+            TournamentEntry.objects.filter(pk=occupant.pk).update(**updates)
 
-        # 5) Pokus o přidělení slotu ALT – podmíněně (jen když ALT zatím nemá position)
+        assigned = False
         try:
-            updated = TournamentEntry.objects.filter(
-                pk=alt.pk, tournament=tournament, position__isnull=True
-            ).update(position=slot, status=TournamentEntry.Status.ACTIVE)
+            updated = TournamentEntry.objects.filter(pk=alt.pk).update(
+                position=slot, status=TournamentEntry.Status.ACTIVE
+            )
+            if updated:
+                assigned = True
         except IntegrityError:
-            updated = 0
+            pass
 
-        if updated == 0:
-            # Možná to mezitím nastavil druhý thread; nebo slot znovu obsadil někdo jiný.
-            alt.refresh_from_db(fields=["position", "status"])
-            if alt.position != slot:
-                # Poslední pokus: znovu uvolni případného držitele a nastav ALT
-                TournamentEntry.objects.filter(
-                    tournament=tournament, position=slot
-                ).exclude(pk=alt.pk).update(
-                    position=None,
-                    status=TournamentEntry.Status.REPLACED,
+        if not assigned:
+            again = TournamentEntry.objects.filter(
+                tournament=tournament, position=slot
+            ).first()
+            if again and again.pk == alt.pk:
+                assigned = True
+            elif again is None:
+                TournamentEntry.objects.filter(pk=alt.pk).update(
+                    position=slot, status=TournamentEntry.Status.ACTIVE
                 )
-                try:
-                    TournamentEntry.objects.filter(
-                        pk=alt.pk, tournament=tournament
-                    ).update(position=slot, status=TournamentEntry.Status.ACTIVE)
-                except IntegrityError:  # pragma: no cover - unique race
-                    pass
-                alt.refresh_from_db(fields=["position"])
+                assigned = True
 
-        # 6) Aktualizuj párování v 1. kole, pokud zápas existuje a není uzavřen
-        if match and not match.winner_id:
+        if match and not match.winner_id and assigned:
             low, high = sorted([slot, mate_slot])
             e_low = (
                 TournamentEntry.objects.filter(tournament=tournament, position=low)
@@ -310,9 +307,8 @@ def replace_slot(
                 match.player1 = e_low.player
                 match.player2 = e_high.player
                 match.save(update_fields=["player1", "player2"])
-        return TournamentEntry.objects.filter(
-            pk=alt.pk, tournament=tournament, position=slot
-        ).exists()
+
+        return assigned
 
 
 def has_completed_main_matches(tournament) -> bool:
