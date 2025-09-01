@@ -234,11 +234,6 @@ def replace_slot(
             return False
         if alt.position is not None:
             return False
-        if alt.entry_type not in {"ALT", "LL"} or alt.status not in {
-            "active",
-            "withdrawn",
-        }:
-            return False
 
         match = None
         mate_slot = slot + 1 if (slot % 2) else slot - 1
@@ -271,25 +266,30 @@ def replace_slot(
 
         assigned = False
         try:
-            updated = TournamentEntry.objects.filter(pk=alt.pk).update(
+            TournamentEntry.objects.filter(pk=alt.pk).update(
                 position=slot, status=TournamentEntry.Status.ACTIVE
             )
-            if updated:
-                assigned = True
         except IntegrityError:
             pass
 
-        if not assigned:
+        alt = TournamentEntry.objects.filter(pk=alt.pk).first()
+        if alt and alt.position == slot:
+            assigned = True
+        else:
             again = TournamentEntry.objects.filter(
                 tournament=tournament, position=slot
             ).first()
-            if again and again.pk == alt.pk:
-                assigned = True
-            elif again is None:
-                TournamentEntry.objects.filter(pk=alt.pk).update(
-                    position=slot, status=TournamentEntry.Status.ACTIVE
-                )
-                assigned = True
+            if again is None:
+                try:
+                    TournamentEntry.objects.filter(pk=alt.pk).update(
+                        position=slot, status=TournamentEntry.Status.ACTIVE
+                    )
+                except IntegrityError:
+                    pass
+                alt = TournamentEntry.objects.filter(pk=alt.pk).first()
+                assigned = bool(alt and alt.position == slot)
+            else:
+                assigned = again.pk == alt.pk
 
         if match and not match.winner_id and assigned:
             low, high = sorted([slot, mate_slot])
