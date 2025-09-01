@@ -207,7 +207,9 @@ def replace_slot(
     """
     with transaction.atomic():
         # 1) Zamkni (pokud lze) ALT/LL – deterministické pořadí: ALT -> HOLDER
-        alt_qs = TournamentEntry.objects.filter(pk=replacement_entry_id, tournament=tournament)
+        alt_qs = TournamentEntry.objects.filter(
+            pk=replacement_entry_id, tournament=tournament
+        )
         if connection.features.has_select_for_update:
             alt_qs = alt_qs.select_for_update()
         try:
@@ -218,9 +220,15 @@ def replace_slot(
         # Idempotentní no-op
         if alt.position == slot:
             return True
+        # ALT už někde leží → zamítnout (povolíme jen případ výše – stejný slot)
+        if alt.position is not None:
+            return False
 
         # Musí být ALT/LL a v akceptovatelném stavu
-        if alt.entry_type not in {"ALT", "LL"} or alt.status not in {"active", "withdrawn"}:
+        if alt.entry_type not in {"ALT", "LL"} or alt.status not in {
+            "active",
+            "withdrawn",
+        }:
             return False
 
         # 2) Zamkni (pokud lze) aktuálního držitele slotu (může neexistovat)
@@ -259,11 +267,9 @@ def replace_slot(
             ).update(position=None, status=TournamentEntry.Status.REPLACED)
 
         # 5) Pokus o přidělení slotu ALT – podmíněně (jen když ALT zatím nemá position)
-        updated = (
-            TournamentEntry.objects.filter(
-                pk=alt.pk, tournament=tournament, position__isnull=True
-            ).update(position=slot, status=TournamentEntry.Status.ACTIVE)
-        )
+        updated = TournamentEntry.objects.filter(
+            pk=alt.pk, tournament=tournament, position__isnull=True
+        ).update(position=slot, status=TournamentEntry.Status.ACTIVE)
 
         if updated == 0:
             # Možná to mezitím nastavil druhý thread; nebo slot znovu obsadil někdo jiný.
@@ -276,9 +282,7 @@ def replace_slot(
                     position=None,
                     status=TournamentEntry.Status.REPLACED,
                 )
-                TournamentEntry.objects.filter(
-                    pk=alt.pk, tournament=tournament
-                ).update(
+                TournamentEntry.objects.filter(pk=alt.pk, tournament=tournament).update(
                     position=slot,
                     status=TournamentEntry.Status.ACTIVE,
                 )
@@ -301,8 +305,9 @@ def replace_slot(
                 match.player1 = e_low.player
                 match.player2 = e_high.player
                 match.save(update_fields=["player1", "player2"])
-
-        return alt.position == slot
+        return TournamentEntry.objects.filter(
+            pk=alt.pk, tournament=tournament, position=slot
+        ).exists()
 
 
 def has_completed_main_matches(tournament) -> bool:
