@@ -20,6 +20,8 @@ def woorld_calendar_meta(request):
     date_str = request.session.get("woorld_current_date", "")
     try:
         year, _, _ = parse_woorld_date(date_str)
+        if year is None:
+            raise ValueError
     except Exception:
         year = 1
     meta = {

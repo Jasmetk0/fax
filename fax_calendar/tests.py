@@ -7,6 +7,8 @@ from .utils import (
     to_storage,
     from_storage,
 )
+from datetime import date
+
 from .fields import WoorldDateFormField
 
 
@@ -59,7 +61,7 @@ def test_parse_and_format():
 def test_formfield_clean_and_prepare():
     field = WoorldDateFormField()
     stored = field.clean("07-01-2035")
-    assert stored == "2035-01-07"
+    assert stored == date(2035, 1, 7)
     assert field.prepare_value("2035-01-07w") == "07-01-2035"
 
 

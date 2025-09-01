@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import re
 from datetime import date, datetime
-from typing import Iterable, Tuple, Union
+from typing import Iterable, Tuple, Union, Any
+
+from django.core.exceptions import ValidationError
 
 from . import core
 
@@ -21,25 +23,77 @@ def days_in_month(year: int, month: int) -> int:
 _SEP_RE = r"[-./]"
 
 
-def parse_woorld_date(value: str) -> Tuple[int, int, int]:
-    """Parse ``DD-MM-YYYY`` (also ``DD.MM.YYYY``) string.
+def parse_woorld_date(value: Any) -> Tuple[int | None, int | None, int | None]:
+    """Tolerant parser for Woorld calendar dates.
 
-    Separators ``-``, ``.`` and ``/`` are accepted for backwards
-    compatibility.
+    Accepts multiple input types:
+
+    * ``None``/``""``/``b""`` → ``(None, None, None)``
+    * ``date``/``datetime`` → components
+    * ``tuple``/``list`` of three items → components (strings allowed)
+    * ``bytes`` → decoded as UTF-8
+    * ``str`` in formats ``DD-MM-YYYY``, ``YYYY-MM-DD``, ``DD.MM.YYYY`` or ``DD/MM/YYYY``
+
+    Raises :class:`django.core.exceptions.ValidationError` on invalid input.
     """
 
-    match = re.fullmatch(
-        rf"(\d{{1,2}}){_SEP_RE}(\d{{1,2}}){_SEP_RE}(\d{{1,4}})", value or ""
-    )
-    if not match:
-        raise ValueError("Datum musí být ve formátu DD-MM-YYYY")
-    day, month, year = map(int, match.groups())
-    if year <= 0:
-        raise ValueError("Rok musí být větší než 0")
-    max_day = days_in_month(year, month)
-    if not 1 <= day <= max_day:
-        raise ValueError(f"Den pro měsíc {month} musí být 1–{max_day}")
-    return year, month, day
+    err_msg = "Datum musí být ve formátu DD-MM-YYYY nebo YYYY-MM-DD"
+
+    # Empty values ------------------------------------------------------
+    if value in (None, "", b""):
+        return (None, None, None)
+
+    # ``date`` / ``datetime`` instances --------------------------------
+    if isinstance(value, (date, datetime)):
+        return value.year, value.month, value.day
+
+    # Tuple/list of components -----------------------------------------
+    if isinstance(value, (list, tuple)) and len(value) == 3:
+        if all(v in (None, "", b"") for v in value):
+            return (None, None, None)
+        try:
+            y, m, d = [int(v) for v in value]
+            max_day = days_in_month(y, m)
+            if not 1 <= d <= max_day:
+                raise ValidationError(err_msg)
+            return y, m, d
+        except Exception as exc:  # pragma: no cover - defensive
+            raise ValidationError(err_msg) from exc
+
+    # Bytes -------------------------------------------------------------
+    if isinstance(value, bytes):
+        try:
+            value = value.decode("utf-8")
+        except Exception as exc:  # pragma: no cover - defensive
+            raise ValidationError(err_msg) from exc
+
+    # Strings -----------------------------------------------------------
+    if isinstance(value, str):
+        value = value.strip()
+        if not value:
+            return (None, None, None)
+
+        iso = re.fullmatch(r"(\d{4})-(\d{1,2})-(\d{1,2})", value)
+        if iso:
+            y, m, d = map(int, iso.groups())
+        else:
+            dmy = re.fullmatch(
+                rf"(\d{{1,2}}){_SEP_RE}(\d{{1,2}}){_SEP_RE}(\d{{4}})", value
+            )
+            if not dmy:
+                raise ValidationError(err_msg)
+            d, m, y = map(int, dmy.groups())
+
+        try:
+            max_day = days_in_month(y, m)
+            if not 1 <= d <= max_day:
+                raise ValidationError(err_msg)
+        except Exception as exc:
+            raise ValidationError(err_msg) from exc
+        return y, m, d
+
+    # Fallback ----------------------------------------------------------
+    raise ValidationError(err_msg)
 
 
 def format_woorld_date(year: int, month: int, day: int) -> str:
