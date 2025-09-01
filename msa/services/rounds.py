@@ -17,6 +17,8 @@ ROUND_LABELS = {
     1: "Winner",
 }
 
+CODE_SIZE_MAP = {"QF": 8, "SF": 4, "F": 2}
+
 
 def next_power_of_two(n: int) -> int:
     """Return the next power of two greater than or equal to n."""
@@ -44,3 +46,24 @@ def round_label(
     if size > 8:
         return f"Round of {size}"
     return ROUND_LABELS.get(size, f"R{size}")
+
+
+def code_to_size(code: str) -> int:
+    """Return numeric size for a round ``code``."""
+
+    if code.startswith("R") and code[1:].isdigit():
+        return int(code[1:])
+    if code.startswith("Q") and code[1:].isdigit():
+        return int(code[1:])
+    return CODE_SIZE_MAP.get(code, 0)
+
+
+def label_from_code(code: str) -> str:
+    """Return human label for a round ``code``."""
+
+    size = code_to_size(code)
+    if size:
+        return round_label(size)
+    if code == "3P":
+        return "3rd place"
+    return code

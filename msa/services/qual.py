@@ -27,23 +27,28 @@ def generate_qualifying(tournament: Tournament, force: bool = False, user=None) 
     round_size = n if n & (n - 1) == 0 else start // 2
     round_code = f"Q{round_size}"
     created = False
-    for a, b in pair_first_round_slots(round_size):
+    pairs = pair_first_round_slots(round_size)
+    for a, b in pairs:
+        if a > n and b > n:
+            continue
         if a > n or b > n:
+            # BYE – player in position ``a`` advances automatically
             continue
         e1 = entries[a - 1]
         e2 = entries[b - 1]
-        m = Match(
+        m, was_created = Match.objects.get_or_create(
             tournament=tournament,
             player1=e1.player,
             player2=e2.player,
             round=round_code,
-            section="",
-            best_of=5,
+            defaults=(
+                {"section": "", "best_of": 5, "updated_by": user}
+                if user
+                else {"section": "", "best_of": 5}
+            ),
         )
-        if user:
-            m.updated_by = user
-        m.save()
-        created = True
+        if was_created:
+            created = True
     return created
 
 

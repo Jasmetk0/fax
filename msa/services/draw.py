@@ -3,9 +3,10 @@ from math import ceil, log2
 from typing import Dict, List
 
 from django.conf import settings
-from django.db import transaction
+from django.db import connection, transaction
 
 from ..models import Match, RankingSnapshot, TournamentEntry
+from .rounds import next_power_of_two
 
 
 logger = logging.getLogger(__name__)
@@ -36,7 +37,7 @@ SEED_POSITIONS: Dict[int, Dict[int, int]] = {
 }
 
 
-DEFAULT_SEEDS = {32: 8, 64: 16, 96: 32, 128: 32}
+DEFAULT_SEEDS = {32: 8, 48: 16, 56: 16, 64: 16, 96: 32, 128: 32}
 
 
 def pair_first_round_slots(bracket_size: int) -> list[tuple[int, int]]:
@@ -92,6 +93,13 @@ def _seed_map_for_draw(
         mapping_128 = SEED_POSITIONS[128]
         slots = list(range(1, 129))
         seed_map = {s: mapping_128[s] for s in range(1, seeds_count + 1)}
+        byes = {(p + 1) if p % 2 else (p - 1) for p in seed_map.values()}
+        playable = [p for p in slots if p not in byes and p not in seed_map.values()]
+        return seed_map, slots, playable
+    if draw_size in {48, 56}:
+        mapping_64 = SEED_POSITIONS[64]
+        slots = list(range(1, 65))
+        seed_map = {s: mapping_64[s] for s in range(1, seeds_count + 1)}
         byes = {(p + 1) if p % 2 else (p - 1) for p in seed_map.values()}
         playable = [p for p in slots if p not in byes and p not in seed_map.values()]
         return seed_map, slots, playable
@@ -199,7 +207,9 @@ def replace_slot(
     """
 
     with transaction.atomic():
-        entries = tournament.entries.select_for_update()
+        entries = tournament.entries.all()
+        if connection.features.has_select_for_update:
+            entries = entries.select_for_update()
         current = (
             entries.filter(position=slot, status="active")
             .select_related("player")
@@ -229,15 +239,14 @@ def replace_slot(
         )
         match = None
         if mate:
-            match = (
-                tournament.matches.select_for_update()
-                .filter(
-                    player1__in=[current.player, mate.player],
-                    player2__in=[current.player, mate.player],
-                    round=f"R{tournament.draw_size}",
-                )
-                .first()
-            )
+            match_qs = tournament.matches.all()
+            if connection.features.has_select_for_update:
+                match_qs = match_qs.select_for_update()
+            match = match_qs.filter(
+                player1__in=[current.player, mate.player],
+                player2__in=[current.player, mate.player],
+                round=f"R{tournament.draw_size}",
+            ).first()
             if match and match.winner_id and not allow_over_completed:
                 return False
         current.status = TournamentEntry.Status.REPLACED
@@ -284,56 +293,47 @@ def generate_draw(tournament, force: bool = False, user=None):
 
 @transaction.atomic
 def progress_bracket(tournament) -> bool:
-    draw_size = tournament.draw_size or 32
-    bracket = 1 << (draw_size - 1).bit_length()
+    order = ["R128", "R96", "R64", "R56", "R48", "R32", "R16", "QF", "SF", "F"]
+    matches_qs = tournament.matches.all()
+    if connection.features.has_select_for_update:
+        matches_qs = matches_qs.select_for_update()
 
-    rounds = [draw_size]
-    r = bracket // 2
-    while r >= 2:
-        rounds.append(r)
-        r //= 2
-
-    matches_qs = tournament.matches.select_for_update()
-
-    current_round = None
-    for r in rounds:
-        if not matches_qs.filter(round=f"R{r}").exists():
+    current_code = None
+    next_code = None
+    for i, code in enumerate(order):
+        if not matches_qs.filter(round=code).exists():
             continue
-        if matches_qs.filter(round=f"R{r}", winner__isnull=True).exists():
+        if matches_qs.filter(round=code, winner__isnull=True).exists():
             continue
-        next_round = r // 2
-        if matches_qs.filter(round=f"R{next_round}").exists():
+        if i + 1 >= len(order):
+            return False
+        nxt = order[i + 1]
+        if matches_qs.filter(round=nxt).exists():
             continue
-        current_round = r
+        current_code = code
+        next_code = nxt
         break
-
-    if not current_round:
+    if not current_code or not next_code:
         return False
 
-    if current_round == 96:
-        next_round = 64
-    else:
-        next_round = current_round // 2
-    entries = (
-        tournament.entries.select_for_update()
-        .filter(position__isnull=False, status="active")
-        .select_related("player")
-    )
-    by_pos = {e.position: e for e in entries}
-    pairs = pair_first_round_slots(bracket)
-    winners: List[TournamentEntry | None] = []
+    bracket = next_power_of_two(tournament.draw_size or 0)
 
-    for a, b in pairs:
+    entries_qs = tournament.entries.filter(position__isnull=False, status="active")
+    if connection.features.has_select_for_update:
+        entries_qs = entries_qs.select_for_update()
+    by_pos = {e.position: e for e in entries_qs.select_related("player")}
+    winners: List[TournamentEntry | None] = []
+    for a, b in pair_first_round_slots(bracket):
         ea = by_pos.get(a)
         eb = by_pos.get(b)
         winner_entry = None
         if ea and eb:
             match = matches_qs.filter(
-                round=f"R{current_round}",
+                round=current_code,
                 player1__in=[ea.player, eb.player],
                 player2__in=[ea.player, eb.player],
             ).first()
-            if match and match.winner_id:
+            if match and match.winner_id is not None:
                 winner_entry = ea if match.winner_id == ea.player_id else eb
             else:
                 winners.append(None)
@@ -342,27 +342,18 @@ def progress_bracket(tournament) -> bool:
             winner_entry = ea or eb
         winners.append(winner_entry)
 
-    created = 0
+    created = False
     for i in range(0, len(winners), 2):
         w1 = winners[i]
         w2 = winners[i + 1] if i + 1 < len(winners) else None
         if not w1 or not w2:
             continue
-        exists = matches_qs.filter(
-            round=f"R{next_round}",
-            player1__in=[w1.player, w2.player],
-            player2__in=[w1.player, w2.player],
-        ).exists()
-        if exists:
-            continue
-        Match.objects.create(
+        _, was_created = Match.objects.get_or_create(
             tournament=tournament,
+            round=next_code,
             player1=w1.player,
             player2=w2.player,
-            round=f"R{next_round}",
-            section="",
-            best_of=5,
+            defaults={"section": "", "best_of": 5},
         )
-        created += 1
-
-    return created > 0
+        created = created or was_created
+    return created

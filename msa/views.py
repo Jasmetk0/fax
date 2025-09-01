@@ -38,6 +38,7 @@ from .services.qual import (
     promote_qualifiers,
 )
 from .services.points import rebuild_season_live_points
+from .services.rounds import label_from_code
 from .services.snapshot import create_ranking_snapshot
 from .services.alt_ll import (
     auto_fill_with_alternates,
@@ -1222,6 +1223,7 @@ def tournament_draw_json(request, slug):
         rounds_json.append(
             {
                 "code": code,
+                "round_label": label_from_code(code),
                 "matches": [
                     {
                         "id": m.id,
@@ -1302,6 +1304,7 @@ def tournament_qualifying_json(request, slug):
         rounds_json.append(
             {
                 "code": code,
+                "round_label": label_from_code(code),
                 "matches": [
                     {
                         "id": m.id,
