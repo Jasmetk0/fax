@@ -21,6 +21,14 @@ SESSION_MAP = {
 ALLOWED_SESSIONS = set(SESSION_MAP.values())
 
 
+def _for_update(qs):
+    return (
+        qs.select_for_update()
+        if getattr(connection.features, "supports_select_for_update", False)
+        else qs
+    )
+
+
 def _normalize_session(value: str) -> str:
     key = value.strip().upper()
     session = SESSION_MAP.get(key)
@@ -263,10 +271,7 @@ def generate_tournament_ics_date_only(tournament) -> str:
 def swap_scheduled_matches(tournament, match_id_a, match_id_b, *, user=None) -> bool:
     ids = sorted([match_id_a, match_id_b])
     with transaction.atomic():
-        qs = Match.objects.filter(id__in=ids).order_by("id")
-        if connection.features.has_select_for_update:
-            qs = qs.select_for_update()
-        matches = list(qs)
+        matches = list(_for_update(Match.objects.filter(id__in=ids).order_by("id")))
         if len(matches) != 2:
             return False
         m_map = {m.id: m for m in matches}
@@ -302,44 +307,45 @@ def move_scheduled_match(
         session = _normalize_session(new_schedule["session"])
     except ValueError:
         return False
-    schedule = {
+    target = {
         "date": new_schedule["date"],
         "session": session,
         "slot": new_schedule["slot"],
     }
     if new_schedule.get("court"):
-        schedule["court"] = new_schedule["court"]
+        target["court"] = new_schedule["court"]
+
+    section_payload = json.dumps({"schedule": target})
 
     with transaction.atomic():
-        qs = Match.objects.filter(tournament=tournament).order_by("id")
-        if connection.features.has_select_for_update:
-            qs = qs.select_for_update()
-        matches = list(qs)
-        match_map = {m.id: m for m in matches}
-        match = match_map.get(match_id)
-        if not match:
+        occ_id = (
+            Match.objects.filter(tournament=tournament, section=section_payload)
+            .exclude(pk=match_id)
+            .values_list("pk", flat=True)
+            .first()
+        )
+        ids = [match_id]
+        if occ_id:
+            ids.append(occ_id)
+        matches = list(_for_update(Match.objects.filter(pk__in=ids).order_by("pk")))
+        m_map = {m.pk: m for m in matches}
+        m = m_map.get(match_id)
+        if not m:
             return False
-        current = _extract_schedule(match)
-        if current == schedule:
-            return True
-        # find conflict
-        conflict = None
-        for m in matches:
-            if m.id != match.id and _extract_schedule(m) == schedule:
-                conflict = m
-                break
-        if conflict:
-            a, b = (match, conflict)
-            if a.id > b.id:
-                a, b = b, a
-            sched_a = _extract_schedule(a)
-            sched_b = _extract_schedule(b)
-            if not sched_a or not sched_b:
-                return False
-            put_schedule(a, sched_b, user=user)
-            put_schedule(b, sched_a, user=user)
+        occ = m_map.get(occ_id) if occ_id else None
+        cur = _extract_schedule(m)
+        if cur == target:
+            return False
+        if occ and _extract_schedule(occ) != target:
+            occ = None
+
+        if occ:
+            s_m = cur
+            s_o = _extract_schedule(occ)
+            put_schedule(m, s_o, user=user)
+            put_schedule(occ, s_m, user=user)
         else:
-            put_schedule(match, schedule, user=user)
+            put_schedule(m, target, user=user)
 
     conflicts = find_conflicts_slots(tournament)
     for c in conflicts.get("court_double_booked", []):
