@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import re
-from typing import Tuple
+from datetime import date, datetime
+from typing import Tuple, Union
 
 from . import core
 
@@ -55,22 +56,51 @@ def to_storage(year: int, month: int, day: int) -> str:
     return f"{year:04d}-{month:02d}-{day:02d}"
 
 
-def from_storage(value: str) -> Tuple[int, int, int]:
-    """Parse storage format ``YYYY-MM-DD`` (optionally suffixed with ``w``)."""
+def _normalize_part(part: Union[str, int, None]) -> Union[int, None]:
+    if part in (None, "", b"", "None"):
+        return None
+    return int(part)
 
-    if not value:
-        raise ValueError("Prázdná hodnota")
-    if value.endswith("w"):
-        value = value[:-1]
+
+def from_storage(
+    value: object,
+) -> Tuple[Union[int, None], Union[int, None], Union[int, None]]:
+    """Parse various representations of a Woorld date.
+
+    Accepts ``YYYY-MM-DD`` strings (optionally suffixed with ``w``), ``date`` or
+    ``datetime`` objects, ``(y, m, d)`` tuples/lists and tolerates empty values.
+    Unknown formats fail softly by returning ``(None, None, None)``.
+    """
+
+    if value in (None, "", b"", "None"):
+        return (None, None, None)
+
     try:
-        year_s, month_s, day_s = value.split("-")
-        y, m, d = int(year_s), int(month_s), int(day_s)
-    except Exception as exc:  # pragma: no cover - defensive
-        raise ValueError("Neplatný formát Woorld datum") from exc
-    days_in_month(y, m)
-    if not 1 <= d <= days_in_month(y, m):
-        raise ValueError("Neplatný den")
-    return y, m, d
+        if isinstance(value, (date, datetime)):
+            y, m, d = value.year, value.month, value.day
+        elif isinstance(value, (tuple, list)):
+            y, m, d = (_normalize_part(p) for p in value[:3])
+        else:
+            if isinstance(value, (bytes, bytearray)):
+                value = value.decode()
+            if isinstance(value, str):
+                value = value.strip()
+                if not value or value.lower() == "none":
+                    return (None, None, None)
+                if value.endswith("w"):
+                    value = value[:-1]
+                y, m, d = (_normalize_part(part) for part in value.split("-"))
+            else:
+                return (None, None, None)
+
+        if None in (y, m, d):
+            return (y, m, d)
+        days_in_month(y, m)
+        if not 1 <= d <= days_in_month(y, m):
+            return (None, None, None)
+        return (int(y), int(m), int(d))
+    except Exception:  # pragma: no cover - defensive
+        return (None, None, None)
 
 
 def season_name(year: int, month: int, day: int) -> str:
