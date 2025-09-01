@@ -1,7 +1,7 @@
 import logging
 from typing import List, Tuple, Dict
 
-from django.db import transaction
+from django.db import transaction, connection, IntegrityError
 from django.db.models import Q
 
 from ..models import (
