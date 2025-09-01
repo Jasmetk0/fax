@@ -1,49 +1,90 @@
 {% extends 'msa/tournament_base.html' %}
+{% load static %}
+{% block extra_head %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'msa/players.css' %}">
+{% endblock %}
 {% block tournament_content %}
-<div class="flex items-center mt-4">
-  <h2 class="text-lg flex-1">Registered Players</h2>
-  {% if is_admin %}
-  <a href="{% url 'msa:tournament-players-add' tournament.slug %}" target="_blank" class="ml-2 underline">Add Players</a>
-  {% endif %}
-</div>
-<p class="text-sm text-gray-600">{{ ordering_label }}</p>
-<table class="mt-4 w-full">
-  <thead>
-    <tr>
-      <th class="text-left">#</th>
-      <th class="text-left">Player</th>
-      <th class="text-left">Rank</th>
-      <th class="text-left">Points</th>
-      {% if is_admin %}<th></th>{% endif %}
-    </tr>
-  </thead>
-  <tbody>
-    {% for entry in entries %}
-    <tr>
-      <td>{{ forloop.counter }}</td>
-      <td>
-        {{ entry.player.name }}
-        {% if entry.entry_type == 'Q' or entry.entry_type == 'LL' %}
-          <span class="ml-1 text-xs">{{ entry.origin_note }}</span>
-          {% if entry.origin_match %}
-            <a href="{% url 'msa:match-edit' entry.origin_match.pk %}" class="ml-1 text-xs underline">Qualifying match</a>
-          {% endif %}
+<div class="players-grid">
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">Registered Players ({{ registered_entries|length }})</h2>
+      <div class="badges">
+        <span class="muted">Ordering: {{ ordering_registered_label }}</span>
+        {% if is_admin %}
+        <a href="{% url 'msa:tournament-players-add' tournament.slug %}" target="_blank" class="btn btn-primary btn-sm">Add Players</a>
         {% endif %}
-      </td>
-      <td>{% if entry.rank %}{{ entry.rank }}{% endif %}</td>
-      <td>{% if entry.points %}{{ entry.points }}{% endif %}</td>
-      {% if is_admin %}
-      <td>
-        <form method="post" action="{% url 'msa:tournament-player-remove' tournament.slug entry.id %}">
-          {% csrf_token %}
-          <button type="submit" class="underline">Remove</button>
-        </form>
-      </td>
-      {% endif %}
-    </tr>
-    {% empty %}
-    <tr><td colspan="5" class="text-center">No players registered.</td></tr>
-    {% endfor %}
-  </tbody>
-</table>
+      </div>
+    </div>
+    <div class="card-body">
+      {% for entry in registered_entries %}
+      <div class="row">
+        <div class="who">
+          <span class="name">{{ entry.player.name }}</span>
+          <div class="badges">
+            {% if entry.seed %}<span class="badge badge-seed">Seed {{ entry.seed }}</span>{% endif %}
+            {% if entry.entry_type %}<span class="badge badge-type">{{ entry.entry_type }}</span>{% endif %}
+          </div>
+          {% if entry.entry_type == 'Q' or entry.entry_type == 'LL' %}
+            <span class="sub">{{ entry.origin_note }}</span>
+            {% if entry.origin_match %}<a href="{% url 'msa:match-edit' entry.origin_match.pk %}" class="sub">Qualifying match</a>{% endif %}
+          {% endif %}
+        </div>
+        <div class="badges">
+          {% if entry.rank or entry.points %}
+          <span class="sub">{% if entry.rank %}#{{ entry.rank }}{% endif %}{% if entry.points %} · {{ entry.points }} pts{% endif %}</span>
+          {% endif %}
+          {% if is_admin and entry.id %}
+          <form method="post" action="{% url 'msa:tournament-player-remove' tournament.slug entry.id %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger btn-sm">Remove</button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+      {% empty %}
+      <p class="muted">No players registered.</p>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">Accepted Players ({{ accepted_entries|length }})</h2>
+      <div class="badges">
+        <span class="muted">Ordering: {{ ordering_accepted_label }}</span>
+        {% if seeds_count %}<span class="muted">Top {{ seeds_count }} seeded</span>{% endif %}
+      </div>
+    </div>
+    <div class="card-body">
+      {% for entry in accepted_entries %}
+      <div class="row">
+        <div class="who">
+          <span class="name">{{ entry.player.name }}</span>
+          <div class="badges">
+            {% if entry.seed %}<span class="badge badge-seed">Seed {{ entry.seed }}</span>{% endif %}
+            <span class="badge badge-type">{{ entry.entry_type }}</span>
+          </div>
+          {% if entry.entry_type == 'Q' or entry.entry_type == 'LL' %}
+            <span class="sub">{{ entry.origin_note }}</span>
+            {% if entry.origin_match %}<a href="{% url 'msa:match-edit' entry.origin_match.pk %}" class="sub">Qualifying match</a>{% endif %}
+          {% endif %}
+        </div>
+        <div class="badges">
+          {% if entry.rank or entry.points %}
+          <span class="sub">{% if entry.rank %}#{{ entry.rank }}{% endif %}{% if entry.points %} · {{ entry.points }} pts{% endif %}</span>
+          {% endif %}
+          {% if is_admin %}
+          <form method="post" action="{% url 'msa:tournament-player-remove' tournament.slug entry.id %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger btn-sm">Remove</button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+      {% empty %}
+      <p class="muted">No players accepted.</p>
+      {% endfor %}
+    </div>
+  </div>
+</div>
 {% endblock %}

@@ -4,6 +4,7 @@ from typing import Dict, List, Tuple
 from django.db import IntegrityError, transaction
 from django.db.models import Q
 from ..models import Player, Tournament, TournamentEntry
+from ..utils import resolve_ranking_snapshot
 
 
 logger = logging.getLogger(__name__)
@@ -13,6 +14,14 @@ MAIN_TYPES = {
     TournamentEntry.EntryType.DA,
     TournamentEntry.EntryType.WC,
     TournamentEntry.EntryType.Q,
+}
+
+
+ACCEPTED_TYPES = {
+    TournamentEntry.EntryType.DA,
+    TournamentEntry.EntryType.WC,
+    TournamentEntry.EntryType.Q,
+    TournamentEntry.EntryType.LL,
 }
 
 
@@ -562,3 +571,72 @@ def export_entries_csv(tournament: Tournament) -> str:
             ]
         )
     return output.getvalue()
+
+
+def get_registered_entries_sorted(tournament: Tournament):
+    entries_qs = tournament.entries.filter(
+        status=TournamentEntry.Status.ACTIVE
+    ).select_related("player")
+    ordering_label = "A→Z"
+    ranks: dict[int, tuple[int, int]] = {}
+    snapshot = None
+    if tournament.seeding_rank_date:
+        snapshot = resolve_ranking_snapshot(tournament.seeding_rank_date)
+    if snapshot:
+        ordering_label = f"Ranking {snapshot.as_of}"
+        for r in snapshot.entries.select_related("player"):
+            ranks[r.player_id] = (r.rank, r.points)
+        entries = list(entries_qs)
+        entries.sort(
+            key=lambda e: (
+                ranks.get(e.player_id) is None,
+                ranks.get(e.player_id, (0, 0))[0],
+                e.player.name,
+            )
+        )
+    else:
+        entries = list(entries_qs.order_by("player__name"))
+    for e in entries:
+        rp = ranks.get(e.player_id)
+        e.rank = rp[0] if rp else None
+        e.points = rp[1] if rp else None
+    return entries, ordering_label
+
+
+def get_accepted_entries_sorted(tournament: Tournament):
+    qs = (
+        TournamentEntry.objects.filter(
+            tournament=tournament,
+            status=TournamentEntry.Status.ACTIVE,
+            entry_type__in=ACCEPTED_TYPES,
+        )
+        .select_related("player")
+        .all()
+    )
+    seeded = [e for e in qs if e.seed]
+    non_seeded = [e for e in qs if not e.seed]
+    seeded.sort(key=lambda e: e.seed)
+    ranks: dict[int, tuple[int, int]] = {}
+    ordering_label = "Seeding + A→Z"
+    snapshot = None
+    if tournament.seeding_rank_date:
+        snapshot = resolve_ranking_snapshot(tournament.seeding_rank_date)
+    if snapshot:
+        ordering_label = f"Seeding + Ranking {snapshot.as_of}"
+        for r in snapshot.entries.select_related("player"):
+            ranks[r.player_id] = (r.rank, r.points)
+        non_seeded.sort(
+            key=lambda e: (
+                ranks.get(e.player_id) is None,
+                ranks.get(e.player_id, (0, 0))[0],
+                e.player.name,
+            )
+        )
+    else:
+        non_seeded.sort(key=lambda e: e.player.name)
+    ordered = seeded + non_seeded
+    for e in ordered:
+        rp = ranks.get(e.player_id)
+        e.rank = rp[0] if rp else None
+        e.points = rp[1] if rp else None
+    return ordered, ordering_label

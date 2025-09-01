@@ -47,7 +47,12 @@ from .services.alt_ll import (
 )
 from .services.seeding_service import preview_seeding, apply_seeding
 from .forms import ScheduleBulkSlotsForm, ScheduleSwapForm, ScheduleMoveForm
-from .services.entries import bulk_add_entries, remove_entry
+from .services.entries import (
+    bulk_add_entries,
+    get_accepted_entries_sorted,
+    get_registered_entries_sorted,
+    remove_entry,
+)
 from .services.scheduling import (
     parse_bulk_schedule_slots,
     apply_bulk_schedule_slots,
@@ -60,7 +65,7 @@ from .services.scheduling import (
 from .services.match_results import record_match_result
 from .services.share import make_share_token, verify_share_token
 import json
-from .utils import filter_by_tour, resolve_ranking_snapshot  # MSA-REDESIGN
+from .utils import filter_by_tour  # MSA-REDESIGN
 
 
 logger = logging.getLogger(__name__)
@@ -235,32 +240,12 @@ def tournament_overview(request, slug):
 def tournament_players(request, slug):
     tournament = get_object_or_404(Tournament, slug=slug)
 
-    entries_qs = tournament.entries.filter(
-        status=TournamentEntry.Status.ACTIVE
-    ).select_related("player")
-    entries = list(entries_qs)
-    ordering_label = "A→Z"
-    ranks: dict[int, tuple[int, int]] = {}
+    registered_entries, ordering_registered_label = get_registered_entries_sorted(
+        tournament
+    )
+    accepted_entries, ordering_accepted_label = get_accepted_entries_sorted(tournament)
 
-    if tournament.seeding_rank_date:
-        snapshot = resolve_ranking_snapshot(tournament.seeding_rank_date)
-        if snapshot:
-            for r in snapshot.entries.select_related("player"):
-                ranks[r.player_id] = (r.rank, r.points)
-            entries.sort(
-                key=lambda e: (
-                    ranks.get(e.player_id) is None,
-                    ranks.get(e.player_id, (0, 0))[0],
-                    e.player.name,
-                )
-            )
-            ordering_label = f"Ranking {snapshot.as_of}"
-        else:
-            entries.sort(key=lambda e: e.player.name)
-    else:
-        entries.sort(key=lambda e: e.player.name)
-
-    if not entries:
+    if not registered_entries:
         players = (
             Player.objects.filter(
                 Q(matches_as_player1__tournament=tournament)
@@ -271,26 +256,23 @@ def tournament_players(request, slug):
         )
         from types import SimpleNamespace
 
-        entries = [
-            SimpleNamespace(player=p, rank=None, points=None, entry_type=None)
+        registered_entries = [
+            SimpleNamespace(
+                player=p, rank=None, points=None, entry_type=None, id=None, seed=None
+            )
             for p in players
         ]
-    else:
-        for e in entries:
-            rp = ranks.get(e.player_id)
-            e.rank = rp[0] if rp else None
-            e.points = rp[1] if rp else None
 
-    return render(
-        request,
-        "msa/tournament_players.html",
-        {
-            "tournament": tournament,
-            "entries": entries,
-            "is_admin": _is_admin(request),
-            "ordering_label": ordering_label,
-        },
-    )
+    context = {
+        "tournament": tournament,
+        "registered_entries": registered_entries,
+        "accepted_entries": accepted_entries,
+        "ordering_registered_label": ordering_registered_label,
+        "ordering_accepted_label": ordering_accepted_label,
+        "is_admin": _is_admin(request),
+        "seeds_count": tournament.seeds_count,
+    }
+    return render(request, "msa/tournament_players.html", context)
 
 
 def tournament_players_add(request, slug):
