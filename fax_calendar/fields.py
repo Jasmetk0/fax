@@ -2,14 +2,14 @@
 
 from django import forms
 from django.db import models
+from datetime import date as date_cls
+
 from .widgets import WoorldDateWidget
 from .utils import (
     parse_woorld_date,
     format_woorld_date,
-    to_storage,
     from_storage,
 )
-from .validators import validate_woorld_date_parts
 
 
 class WoorldDateFormField(forms.CharField):
@@ -18,11 +18,12 @@ class WoorldDateFormField(forms.CharField):
     widget = WoorldDateWidget
 
     def to_python(self, value):
-        if not value:
-            return ""
+        if value in self.empty_values:
+            return None
         year, month, day = parse_woorld_date(value)
-        validate_woorld_date_parts(year, month, day)
-        return to_storage(year, month, day)
+        if (year, month, day) == (None, None, None):
+            return None
+        return date_cls(year, month, day)
 
     def prepare_value(self, value):
         if isinstance(value, str):
@@ -46,6 +47,6 @@ class WoorldDateField(models.CharField):
         super().__init__(*args, **kwargs)
 
     def formfield(self, **kwargs):
-        defaults = {"form_class": WoorldDateFormField}
+        defaults = {"form_class": WoorldDateFormField, "max_length": None}
         defaults.update(kwargs)
         return super().formfield(**defaults)
