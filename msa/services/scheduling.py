@@ -3,7 +3,7 @@ import logging
 from datetime import datetime
 from collections import defaultdict
 
-from django.db import transaction
+from django.db import connection, transaction
 
 from ..models import Match
 
@@ -262,9 +262,10 @@ def generate_tournament_ics_date_only(tournament) -> str:
 
 def swap_scheduled_matches(tournament, match_id_a, match_id_b, *, user=None) -> bool:
     with transaction.atomic():
-        matches = list(
-            Match.objects.select_for_update().filter(id__in=[match_id_a, match_id_b])
-        )
+        qs = Match.objects.filter(id__in=[match_id_a, match_id_b])
+        if connection.features.has_select_for_update:
+            qs = qs.select_for_update()
+        matches = list(qs)
         if len(matches) != 2:
             return False
         m_map = {m.id: m for m in matches}
@@ -304,7 +305,10 @@ def move_scheduled_match(
         schedule["court"] = new_schedule["court"]
     with transaction.atomic():
         try:
-            match = Match.objects.select_for_update().get(id=match_id)
+            qs = Match.objects
+            if connection.features.has_select_for_update:
+                qs = qs.select_for_update()
+            match = qs.get(id=match_id)
         except Match.DoesNotExist:
             return False
         if match.tournament_id != tournament.id:

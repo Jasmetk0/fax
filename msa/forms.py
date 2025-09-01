@@ -83,8 +83,10 @@ class TournamentForm(forms.ModelForm):
     def clean(self):
         cleaned = super().clean()
         draw = cleaned.get("draw_size") or 0
-        seeds = cleaned.get("seeds_count") or 0
-        quals = cleaned.get("qualifiers_count") or 0
+        seeds = max(cleaned.get("seeds_count") or 0, 0)
+        quals = max(cleaned.get("qualifiers_count") or 0, 0)
+        cleaned["seeds_count"] = seeds
+        cleaned["qualifiers_count"] = quals
         if seeds > draw:
             raise forms.ValidationError("Seeds exceed draw size")
         if seeds + quals > draw:

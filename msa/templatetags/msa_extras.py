@@ -1,6 +1,6 @@
 from django import template
 
-from ..services.rounds import round_label as _round_label
+from ..services.rounds import label_from_code
 
 
 def _round_size_from_template(event):
@@ -45,12 +45,4 @@ def get_draw_label(event):
 
 @register.filter
 def round_label(code: str) -> str:
-    if code.startswith("R") and code[1:].isdigit():
-        return _round_label(int(code[1:]))
-    mapping = {"QF": 8, "SF": 4, "F": 2}
-    size = mapping.get(code)
-    if size:
-        return _round_label(size)
-    if code == "3P":
-        return "3rd place"
-    return code
+    return label_from_code(code)

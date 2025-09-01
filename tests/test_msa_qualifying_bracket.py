@@ -32,8 +32,8 @@ class QualifyingBracketTests(TestCase):
             m.save(update_fields=["winner"])
         progress_qualifying(t)
         resp = self.client.get(reverse("msa:tournament-qualifying", args=[t.slug]))
-        self.assertContains(resp, "Q8")
-        self.assertContains(resp, "Q4")
+        self.assertContains(resp, "Quarter Final")
+        self.assertContains(resp, "Semi Final")
         self.assertContains(resp, self.players[0].name)
 
     def test_print_mode_no_forms_qualifying(self):

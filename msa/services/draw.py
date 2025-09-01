@@ -3,9 +3,10 @@ from math import ceil, log2
 from typing import Dict, List
 
 from django.conf import settings
-from django.db import transaction
+from django.db import connection, transaction
 
 from ..models import Match, RankingSnapshot, TournamentEntry
+from .rounds import next_power_of_two
 
 
 logger = logging.getLogger(__name__)
@@ -36,7 +37,7 @@ SEED_POSITIONS: Dict[int, Dict[int, int]] = {
 }
 
 
-DEFAULT_SEEDS = {32: 8, 64: 16, 96: 32, 128: 32}
+DEFAULT_SEEDS = {32: 8, 48: 16, 56: 16, 64: 16, 96: 32, 128: 32}
 
 
 def pair_first_round_slots(bracket_size: int) -> list[tuple[int, int]]:
@@ -92,6 +93,13 @@ def _seed_map_for_draw(
         mapping_128 = SEED_POSITIONS[128]
         slots = list(range(1, 129))
         seed_map = {s: mapping_128[s] for s in range(1, seeds_count + 1)}
+        byes = {(p + 1) if p % 2 else (p - 1) for p in seed_map.values()}
+        playable = [p for p in slots if p not in byes and p not in seed_map.values()]
+        return seed_map, slots, playable
+    if draw_size in {48, 56}:
+        mapping_64 = SEED_POSITIONS[64]
+        slots = list(range(1, 65))
+        seed_map = {s: mapping_64[s] for s in range(1, seeds_count + 1)}
         byes = {(p + 1) if p % 2 else (p - 1) for p in seed_map.values()}
         playable = [p for p in slots if p not in byes and p not in seed_map.values()]
         return seed_map, slots, playable
@@ -192,80 +200,114 @@ def replace_slot(
     user=None,
 ) -> bool:
     """
-    Vrátí True při úspěchu. Najde current entry v `position=slot` (ACTIVE),
-    označí ho `replaced`, replacement (ALT/LL) nastaví `ACTIVE` + `position=slot`.
-    Pokud existuje ne-completed zápas 1. kola pro tento slot, přepiš p1/p2.
-    Pokud je zápas completed a `allow_over_completed` False → return False.
+    Bezpečně (souběh-safe) nahradí držitele `slot` alternativou (ALT/LL).
+    Funguje i když je slot prázdný. Atomické, idempotentní, vendor-aware.
+    Pokud je 1. kolo už completed a `allow_over_completed` je False, nic nemění.
+    Vrací True, pokud ALT/LL skončí v daném slotu.
     """
-
     with transaction.atomic():
-        entries = tournament.entries.select_for_update()
-        current = (
-            entries.filter(position=slot, status="active")
-            .select_related("player")
-            .first()
+        # 1) Zamkni (pokud lze) ALT/LL – deterministické pořadí: ALT -> HOLDER
+        alt_qs = TournamentEntry.objects.filter(
+            pk=replacement_entry_id, tournament=tournament
         )
-        if not current:
-            return False
+        if connection.features.has_select_for_update:
+            alt_qs = alt_qs.select_for_update()
         try:
-            replacement = entries.get(pk=replacement_entry_id)
+            alt = alt_qs.select_related("player").get()
         except TournamentEntry.DoesNotExist:
             return False
-        if replacement.position is not None:
+
+        # Idempotentní no-op
+        if alt.position == slot:
+            return True
+        # ALT už někde leží → zamítnout (povolíme jen případ výše – stejný slot)
+        if alt.position is not None:
             return False
-        if replacement.status not in {
+
+        # Musí být ALT/LL a v akceptovatelném stavu
+        if alt.entry_type not in {"ALT", "LL"} or alt.status not in {
             "active",
             "withdrawn",
-        } or replacement.entry_type not in {
-            "ALT",
-            "LL",
         }:
             return False
-        mate_slot = slot + 1 if slot % 2 else slot - 1
-        mate = (
-            entries.filter(position=mate_slot, status="active")
-            .select_related("player")
-            .first()
-        )
+
+        # 2) Zamkni (pokud lze) aktuálního držitele slotu (může neexistovat)
+        holder_qs = TournamentEntry.objects.filter(tournament=tournament, position=slot)
+        if connection.features.has_select_for_update:
+            holder_qs = holder_qs.select_for_update()
+        holder = holder_qs.select_related("player").first()
+
+        # 3) Nechej průchod jen pokud 1. kolo není completed (pokud to neignorujeme)
         match = None
-        if mate:
-            match = (
-                tournament.matches.select_for_update()
-                .filter(
-                    player1__in=[current.player, mate.player],
-                    player2__in=[current.player, mate.player],
-                    round=f"R{tournament.draw_size}",
+        mate_slot = slot + 1 if (slot % 2) else slot - 1
+        if holder:
+            mate = (
+                TournamentEntry.objects.filter(
+                    tournament=tournament, position=mate_slot, status="active"
                 )
+                .select_related("player")
                 .first()
             )
-            if match and match.winner_id and not allow_over_completed:
-                return False
-        current.status = TournamentEntry.Status.REPLACED
-        current.position = None
-        if user:
-            current.updated_by = user
-            current.save(update_fields=["status", "position", "updated_by"])
-        else:
-            current.save(update_fields=["status", "position"])
-        replacement.status = TournamentEntry.Status.ACTIVE
-        replacement.position = slot
-        if user:
-            replacement.updated_by = user
-            replacement.save(update_fields=["status", "position", "updated_by"])
-        else:
-            replacement.save(update_fields=["status", "position"])
-        if match and not match.winner_id:
-            entries_by_pos = {slot: replacement}
             if mate:
-                entries_by_pos[mate_slot] = mate
+                match_qs = tournament.matches.all()
+                if connection.features.has_select_for_update:
+                    match_qs = match_qs.select_for_update()
+                match = match_qs.filter(
+                    player1__in=[holder.player, mate.player],
+                    player2__in=[holder.player, mate.player],
+                    round=f"R{tournament.draw_size}",
+                ).first()
+                if match and match.winner_id and not allow_over_completed:
+                    return False
+
+        # 4) Uvolni slot, pokud ho drží někdo jiný než ALT (podmíněný update)
+        if holder and holder.pk != alt.pk:
+            TournamentEntry.objects.filter(
+                pk=holder.pk, tournament=tournament, position=slot
+            ).update(position=None, status=TournamentEntry.Status.REPLACED)
+
+        # 5) Pokus o přidělení slotu ALT – podmíněně (jen když ALT zatím nemá position)
+        updated = TournamentEntry.objects.filter(
+            pk=alt.pk, tournament=tournament, position__isnull=True
+        ).update(position=slot, status=TournamentEntry.Status.ACTIVE)
+
+        if updated == 0:
+            # Možná to mezitím nastavil druhý thread; nebo slot znovu obsadil někdo jiný.
+            alt.refresh_from_db(fields=["position", "status"])
+            if alt.position != slot:
+                # Poslední pokus: znovu uvolni případného držitele a nastav ALT
+                TournamentEntry.objects.filter(
+                    tournament=tournament, position=slot
+                ).exclude(pk=alt.pk).update(
+                    position=None,
+                    status=TournamentEntry.Status.REPLACED,
+                )
+                TournamentEntry.objects.filter(pk=alt.pk, tournament=tournament).update(
+                    position=slot,
+                    status=TournamentEntry.Status.ACTIVE,
+                )
+                alt.refresh_from_db(fields=["position"])
+
+        # 6) Aktualizuj párování v 1. kole, pokud zápas existuje a není uzavřen
+        if match and not match.winner_id:
             low, high = sorted([slot, mate_slot])
-            e_low = entries_by_pos.get(low)
-            e_high = entries_by_pos.get(high)
+            e_low = (
+                TournamentEntry.objects.filter(tournament=tournament, position=low)
+                .select_related("player")
+                .first()
+            )
+            e_high = (
+                TournamentEntry.objects.filter(tournament=tournament, position=high)
+                .select_related("player")
+                .first()
+            )
             if e_low and e_high:
                 match.player1 = e_low.player
                 match.player2 = e_high.player
                 match.save(update_fields=["player1", "player2"])
-        return True
+        return TournamentEntry.objects.filter(
+            pk=alt.pk, tournament=tournament, position=slot
+        ).exists()
 
 
 def has_completed_main_matches(tournament) -> bool:
@@ -284,56 +326,47 @@ def generate_draw(tournament, force: bool = False, user=None):
 
 @transaction.atomic
 def progress_bracket(tournament) -> bool:
-    draw_size = tournament.draw_size or 32
-    bracket = 1 << (draw_size - 1).bit_length()
+    order = ["R128", "R96", "R64", "R56", "R48", "R32", "R16", "QF", "SF", "F"]
+    matches_qs = tournament.matches.all()
+    if connection.features.has_select_for_update:
+        matches_qs = matches_qs.select_for_update()
 
-    rounds = [draw_size]
-    r = bracket // 2
-    while r >= 2:
-        rounds.append(r)
-        r //= 2
-
-    matches_qs = tournament.matches.select_for_update()
-
-    current_round = None
-    for r in rounds:
-        if not matches_qs.filter(round=f"R{r}").exists():
+    current_code = None
+    next_code = None
+    for i, code in enumerate(order):
+        if not matches_qs.filter(round=code).exists():
             continue
-        if matches_qs.filter(round=f"R{r}", winner__isnull=True).exists():
+        if matches_qs.filter(round=code, winner__isnull=True).exists():
             continue
-        next_round = r // 2
-        if matches_qs.filter(round=f"R{next_round}").exists():
+        if i + 1 >= len(order):
+            return False
+        nxt = order[i + 1]
+        if matches_qs.filter(round=nxt).exists():
             continue
-        current_round = r
+        current_code = code
+        next_code = nxt
         break
-
-    if not current_round:
+    if not current_code or not next_code:
         return False
 
-    if current_round == 96:
-        next_round = 64
-    else:
-        next_round = current_round // 2
-    entries = (
-        tournament.entries.select_for_update()
-        .filter(position__isnull=False, status="active")
-        .select_related("player")
-    )
-    by_pos = {e.position: e for e in entries}
-    pairs = pair_first_round_slots(bracket)
-    winners: List[TournamentEntry | None] = []
+    bracket = next_power_of_two(tournament.draw_size or 0)
 
-    for a, b in pairs:
+    entries_qs = tournament.entries.filter(position__isnull=False, status="active")
+    if connection.features.has_select_for_update:
+        entries_qs = entries_qs.select_for_update()
+    by_pos = {e.position: e for e in entries_qs.select_related("player")}
+    winners: List[TournamentEntry | None] = []
+    for a, b in pair_first_round_slots(bracket):
         ea = by_pos.get(a)
         eb = by_pos.get(b)
         winner_entry = None
         if ea and eb:
             match = matches_qs.filter(
-                round=f"R{current_round}",
+                round=current_code,
                 player1__in=[ea.player, eb.player],
                 player2__in=[ea.player, eb.player],
             ).first()
-            if match and match.winner_id:
+            if match and match.winner_id is not None:
                 winner_entry = ea if match.winner_id == ea.player_id else eb
             else:
                 winners.append(None)
@@ -342,27 +375,18 @@ def progress_bracket(tournament) -> bool:
             winner_entry = ea or eb
         winners.append(winner_entry)
 
-    created = 0
+    created = False
     for i in range(0, len(winners), 2):
         w1 = winners[i]
         w2 = winners[i + 1] if i + 1 < len(winners) else None
         if not w1 or not w2:
             continue
-        exists = matches_qs.filter(
-            round=f"R{next_round}",
-            player1__in=[w1.player, w2.player],
-            player2__in=[w1.player, w2.player],
-        ).exists()
-        if exists:
-            continue
-        Match.objects.create(
+        _, was_created = Match.objects.get_or_create(
             tournament=tournament,
+            round=next_code,
             player1=w1.player,
             player2=w2.player,
-            round=f"R{next_round}",
-            section="",
-            best_of=5,
+            defaults={"section": "", "best_of": 5},
         )
-        created += 1
-
-    return created > 0
+        created = created or was_created
+    return created
