@@ -25,10 +25,13 @@ class WoorldDateFormField(forms.CharField):
         return to_storage(year, month, day)
 
     def prepare_value(self, value):
-        if isinstance(value, str):
+        try:
             year, month, day = from_storage(value)
-            return format_woorld_date(year, month, day)
-        return super().prepare_value(value)
+        except Exception:
+            return (None, None, None)
+        if None in (year, month, day):
+            return (None, None, None)
+        return format_woorld_date(year, month, day)
 
 
 class WoorldDateField(models.CharField):
