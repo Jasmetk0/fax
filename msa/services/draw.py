@@ -201,13 +201,12 @@ def replace_slot(
 ) -> bool:
     """
     Bezpečně (souběh-safe) nahradí držitele `slot` alternativou (ALT/LL).
-    - Funguje i když je slot PRÁZDNÝ (žádný current).
-    - Atomické, idempotentní, vendor-aware (SQLite bez FOR UPDATE).
-    - Pokud je 1. kolo již completed a `allow_over_completed` je False, nic nemění.
+    Funguje i když je slot prázdný. Atomické, idempotentní, vendor-aware.
+    Pokud je 1. kolo už completed a `allow_over_completed` je False, nic nemění.
     Vrací True, pokud ALT/LL skončí v daném slotu.
     """
     with transaction.atomic():
-        # 1) Zamkni (pokud lze) ALT/LL – deterministické pořadí zámků: ALT -> HOLDER
+        # 1) Zamkni (pokud lze) ALT/LL – deterministické pořadí: ALT -> HOLDER
         alt_qs = TournamentEntry.objects.filter(pk=replacement_entry_id, tournament=tournament)
         if connection.features.has_select_for_update:
             alt_qs = alt_qs.select_for_update()
@@ -216,21 +215,21 @@ def replace_slot(
         except TournamentEntry.DoesNotExist:
             return False
 
-        # Idempotentní no-op: ALT už je ve slotu
+        # Idempotentní no-op
         if alt.position == slot:
             return True
 
-        # Musí být ALT/LL a ve stavu active/withdrawn (aby šel aktivovat)
+        # Musí být ALT/LL a v akceptovatelném stavu
         if alt.entry_type not in {"ALT", "LL"} or alt.status not in {"active", "withdrawn"}:
             return False
 
-        # 2) Zamkni (pokud lze) aktuálního držitele slotu, pokud existuje
+        # 2) Zamkni (pokud lze) aktuálního držitele slotu (může neexistovat)
         holder_qs = TournamentEntry.objects.filter(tournament=tournament, position=slot)
         if connection.features.has_select_for_update:
             holder_qs = holder_qs.select_for_update()
         holder = holder_qs.select_related("player").first()
 
-        # 3) Pokud existuje nespárovaný první zápas a je completed, bez override končíme
+        # 3) Nechej průchod jen pokud 1. kolo není completed (pokud to neignorujeme)
         match = None
         mate_slot = slot + 1 if (slot % 2) else slot - 1
         if holder:
@@ -253,23 +252,24 @@ def replace_slot(
                 if match and match.winner_id and not allow_over_completed:
                     return False
 
-        # 4) Uvolni slot, pokud ho drží někdo jiný než ALT (podmíněným UPDATE)
+        # 4) Uvolni slot, pokud ho drží někdo jiný než ALT (podmíněný update)
         if holder and holder.pk != alt.pk:
             TournamentEntry.objects.filter(
                 pk=holder.pk, tournament=tournament, position=slot
             ).update(position=None, status=TournamentEntry.Status.REPLACED)
 
-        # 5) Pokus o přidělení slotu ALT – podmíněně (jen pokud alt.position IS NULL)
+        # 5) Pokus o přidělení slotu ALT – podmíněně (jen když ALT zatím nemá position)
         updated = (
             TournamentEntry.objects.filter(
                 pk=alt.pk, tournament=tournament, position__isnull=True
-            )
-            .update(position=slot, status=TournamentEntry.Status.ACTIVE)
+            ).update(position=slot, status=TournamentEntry.Status.ACTIVE)
         )
-                if updated == 0:
+
+        if updated == 0:
+            # Možná to mezitím nastavil druhý thread; nebo slot znovu obsadil někdo jiný.
             alt.refresh_from_db(fields=["position", "status"])
             if alt.position != slot:
-                # Poslední pokus: znovu uvolni případného držitele a nastav ALT.
+                # Poslední pokus: znovu uvolni případného držitele a nastav ALT
                 TournamentEntry.objects.filter(
                     tournament=tournament, position=slot
                 ).exclude(pk=alt.pk).update(
@@ -284,7 +284,7 @@ def replace_slot(
                 )
                 alt.refresh_from_db(fields=["position"])
 
-        # 6) Pokud máme match a není completed, srovnej párování podle aktuálních držitelů slotů
+        # 6) Aktualizuj párování v 1. kole, pokud zápas existuje a není uzavřen
         if match and not match.winner_id:
             low, high = sorted([slot, mate_slot])
             e_low = (
@@ -302,7 +302,6 @@ def replace_slot(
                 match.player2 = e_high.player
                 match.save(update_fields=["player1", "player2"])
 
-        # Úspěch, jen pokud ALT skutečně skončil ve slotu
         return alt.position == slot
 
 
