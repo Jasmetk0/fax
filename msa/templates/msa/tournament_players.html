@@ -1,67 +1,27 @@
 {% extends 'msa/tournament_base.html' %}
 {% block tournament_content %}
-{% if is_admin %}
-  <h2 class="mt-4 text-lg">Entries</h2>
-  {% if tournament.state == 'draft' or tournament.state == 'entry_open' %}
-  <form method="post" class="mt-2">
-    {% csrf_token %}
-    <input type="hidden" name="action" value="entries_lock" />
-    <button type="submit">Lock entries</button>
-  </form>
-  {% elif tournament.state == 'entry_locked' %}
-  <form method="post" class="mt-2">
-    {% csrf_token %}
-    <input type="hidden" name="action" value="entries_unlock" />
-    <button type="submit">Unlock entries</button>
-  </form>
+<div class="flex items-center mt-4">
+  <h2 class="text-lg flex-1">Registered Players</h2>
+  {% if is_admin %}
+  <a href="{% url 'msa:tournament-players-add' tournament.slug %}" target="_blank" class="ml-2 underline">Add Players</a>
   {% endif %}
-  <form method="get" class="mt-2">
-    <input type="hidden" name="action" value="entries_export_csv" />
-    <button type="submit">Export CSV</button>
-  </form>
-  <form method="post" class="mt-2">
-    {% csrf_token %}
-    <input type="hidden" name="action" value="entry_add" />
-    {{ add_form.player }}
-    {{ add_form.entry_type }}
-    <button type="submit">Add</button>
-  </form>
-  <form method="post" class="mt-4">
-    {% csrf_token %}
-    <input type="hidden" name="action" value="entry_bulk_add" />
-    {{ bulk_form.rows }}
-    <button type="submit">Bulk import</button>
-  </form>
-  <p class="mt-4">
-    Active main: {{ capacity.active_main }}/{{ capacity.draw_size }} |
-    ALT: {{ capacity.alt }} |
-    Withdrawn: {{ capacity.withdrawn }}
-  </p>
-  {% if pre_draw.errors or pre_draw.warnings %}
-  <div class="mt-4">
-    <h3>Pre-draw checklist</h3>
-    {% if pre_draw.errors %}
-    <ul>
-      {% for e in pre_draw.errors %}<li>{{ e }}</li>{% endfor %}
-    </ul>
-    {% endif %}
-    {% if pre_draw.warnings %}
-    <ul>
-      {% for w in pre_draw.warnings %}<li>{{ w }}</li>{% endfor %}
-    </ul>
-    {% endif %}
-  </div>
-  {% endif %}
-  {% include 'msa/partials/_entries_table.html' %}
-  {% if seed_editor_allowed %}
-    {% include 'msa/partials/_entries_seed_editor.html' %}
-  {% else %}
-    <p class="mt-4">Seed editor unavailable.</p>
-  {% endif %}
-{% else %}
-  <ul class="mt-4 list-disc list-inside">
+</div>
+<p class="text-sm text-gray-600">{{ ordering_label }}</p>
+<table class="mt-4 w-full">
+  <thead>
+    <tr>
+      <th class="text-left">#</th>
+      <th class="text-left">Player</th>
+      <th class="text-left">Rank</th>
+      <th class="text-left">Points</th>
+      {% if is_admin %}<th></th>{% endif %}
+    </tr>
+  </thead>
+  <tbody>
     {% for entry in entries %}
-      <li>
+    <tr>
+      <td>{{ forloop.counter }}</td>
+      <td>
         {{ entry.player.name }}
         {% if entry.entry_type == 'Q' or entry.entry_type == 'LL' %}
           <span class="ml-1 text-xs">{{ entry.origin_note }}</span>
@@ -69,10 +29,21 @@
             <a href="{% url 'msa:match-edit' entry.origin_match.pk %}" class="ml-1 text-xs underline">Qualifying match</a>
           {% endif %}
         {% endif %}
-      </li>
+      </td>
+      <td>{% if entry.rank %}{{ entry.rank }}{% endif %}</td>
+      <td>{% if entry.points %}{{ entry.points }}{% endif %}</td>
+      {% if is_admin %}
+      <td>
+        <form method="post" action="{% url 'msa:tournament-player-remove' tournament.slug entry.id %}">
+          {% csrf_token %}
+          <button type="submit" class="underline">Remove</button>
+        </form>
+      </td>
+      {% endif %}
+    </tr>
     {% empty %}
-      <li>No players registered.</li>
+    <tr><td colspan="5" class="text-center">No players registered.</td></tr>
     {% endfor %}
-  </ul>
-{% endif %}
+  </tbody>
+</table>
 {% endblock %}

@@ -16,6 +16,16 @@ urlpatterns = [
         name="tournament-players",
     ),
     path(
+        "tournaments/<slug:slug>/players/add/",
+        views.tournament_players_add,
+        name="tournament-players-add",
+    ),
+    path(
+        "tournaments/<slug:slug>/players/<int:entry_id>/remove/",
+        views.tournament_player_remove,
+        name="tournament-player-remove",
+    ),
+    path(
         "tournaments/<slug:slug>/draw/",
         views.tournament_draw,
         name="tournament-draw",

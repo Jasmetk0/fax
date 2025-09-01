@@ -1,0 +1,21 @@
+{% extends 'msa/manage_base.html' %}
+{% block popup_content %}
+<h1 class="text-xl mb-4">Add Players</h1>
+<form method="get" class="mb-4">
+  <input type="text" name="q" value="{{ q }}" placeholder="Search" class="text-black"/>
+  <button type="submit" class="underline">Filter</button>
+</form>
+<form method="post">
+  {% csrf_token %}
+  <ul class="mb-4">
+    {% for player in players %}
+    <li>
+      <label><input type="checkbox" name="player_ids" value="{{ player.id }}"/> {{ player.name }}</label>
+    </li>
+    {% empty %}
+    <li>No players available.</li>
+    {% endfor %}
+  </ul>
+  <button type="submit" class="underline">Done</button>
+</form>
+{% endblock %}

@@ -1,3 +1,6 @@
+from .models import RankingSnapshot
+
+
 TOUR_MAP = {"world": "world", "elite": "elite", "challenger": "challenger"}
 
 
@@ -18,3 +21,19 @@ def filter_by_tour(qs, tour_field="category__name", tour=None):
         return qs.filter(**{f"{tour_field}__iexact": t})
     except Exception:  # pragma: no cover - safety
         return qs
+
+
+def resolve_ranking_snapshot(date):
+    """Return ranking snapshot for given date.
+
+    Prefer the latest snapshot with ``as_of`` less than or equal to ``date``.
+    If none exists, attempt to find a snapshot with the exact date. When no
+    snapshot is found, return ``None``.
+    """
+
+    if not date:
+        return None
+    snap = RankingSnapshot.objects.filter(as_of__lte=date).order_by("-as_of").first()
+    if snap:
+        return snap
+    return RankingSnapshot.objects.filter(as_of=date).first()

@@ -108,7 +108,9 @@ def add_entry(
         return True, message
 
 
-def bulk_add_entries(tournament: Tournament, csv_text: str, user) -> Dict[str, object]:
+def bulk_add_entries_csv(
+    tournament: Tournament, csv_text: str, user
+) -> Dict[str, object]:
     """Bulk import entries from CSV text."""
 
     added = skipped = errors = 0
@@ -155,6 +157,45 @@ def bulk_add_entries(tournament: Tournament, csv_text: str, user) -> Dict[str, o
         result=summary,
     )
     return summary
+
+
+def bulk_add_entries(tournament: Tournament, player_ids: List[int]) -> int:
+    """Add multiple players to a tournament.
+
+    Existing entries are ignored. Returns the number of newly created entries.
+    """
+
+    existing = set(
+        TournamentEntry.objects.filter(tournament=tournament).values_list(
+            "player_id", flat=True
+        )
+    )
+    to_add = [pid for pid in player_ids if pid not in existing]
+    players = list(Player.objects.filter(id__in=to_add))
+    created = 0
+    for player in players:
+        TournamentEntry.objects.create(
+            tournament=tournament,
+            player=player,
+            entry_type=TournamentEntry.EntryType.DA,
+            status=TournamentEntry.Status.ACTIVE,
+        )
+        created += 1
+    return created
+
+
+def remove_entry(entry: TournamentEntry, *, user=None) -> None:
+    """Withdraw a tournament entry."""
+
+    with transaction.atomic():
+        e = TournamentEntry.objects.select_for_update().get(pk=entry.pk)
+        e.status = TournamentEntry.Status.WITHDRAWN
+        e.position = None
+        if user:
+            e.updated_by = user
+            e.save(update_fields=["status", "position", "updated_by"])
+        else:
+            e.save(update_fields=["status", "position"])
 
 
 def update_entry_type(entry: TournamentEntry, new_type: str, user) -> Tuple[bool, str]:
