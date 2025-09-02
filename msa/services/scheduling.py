@@ -320,28 +320,34 @@ def move_scheduled_match(
     section_payload = json.dumps({"schedule": target})
 
     with transaction.atomic():
+        try:
+            m = _for_update(
+                Match.objects.filter(pk=match_id, tournament=tournament)
+            ).get()
+        except Match.DoesNotExist:
+            return False
+        cur = _extract_schedule(m)
+        if cur == target:
+            return False
         occ_id = (
             Match.objects.filter(tournament=tournament, section=section_payload)
             .exclude(pk=match_id)
             .values_list("pk", flat=True)
             .first()
         )
-        ids = [match_id]
+        occ = None
         if occ_id:
-            ids.append(occ_id)
-        ids.sort()
-        matches = list(_for_update(Match.objects.filter(pk__in=ids).order_by("pk")))
-        m_map = {m.pk: m for m in matches}
-        m = m_map.get(match_id)
-        if not m:
-            return False
-        occ = m_map.get(occ_id) if occ_id else None
-        cur = _extract_schedule(m)
-        if cur == target:
-            return False
-        if occ and _extract_schedule(occ) != target:
-            occ = None
-
+            ids = [match_id, occ_id]
+            ids.sort()
+            matches = list(_for_update(Match.objects.filter(pk__in=ids).order_by("pk")))
+            m_map = {mm.pk: mm for mm in matches}
+            m = m_map[match_id]
+            cur = _extract_schedule(m)
+            if cur == target:
+                return False
+            occ = m_map.get(occ_id)
+            if occ and _extract_schedule(occ) != target:
+                occ = None
         if occ:
             s_m = cur
             s_o = _extract_schedule(occ)

@@ -11,7 +11,8 @@ logger = logging.getLogger(__name__)
 @transaction.atomic
 def generate_qualifying(tournament: Tournament, force: bool = False, user=None) -> bool:
     entries_qs = tournament.entries.filter(
-        entry_type=TournamentEntry.EntryType.Q, status="active"
+        entry_type=TournamentEntry.EntryType.Q,
+        status=TournamentEntry.Status.ACTIVE,
     ).select_related("player")
     if not entries_qs.exists():
         return False
@@ -78,7 +79,10 @@ def progress_qualifying(tournament: Tournament, user=None) -> bool:
     all_played = {m.player1_id for m in qs} | {m.player2_id for m in qs}
     extra_entries = (
         tournament.entries.select_for_update()
-        .filter(entry_type=TournamentEntry.EntryType.Q, status="active")
+        .filter(
+            entry_type=TournamentEntry.EntryType.Q,
+            status=TournamentEntry.Status.ACTIVE,
+        )
         .exclude(player_id__in=all_played)
         .select_related("player")
     )
@@ -116,7 +120,8 @@ def promote_qualifiers(tournament: Tournament, user=None) -> bool:
     entries_map = {
         e.player_id: e
         for e in tournament.entries.select_for_update().filter(
-            entry_type=TournamentEntry.EntryType.Q, status="active"
+            entry_type=TournamentEntry.EntryType.Q,
+            status=TournamentEntry.Status.ACTIVE,
         )
     }
     to_place = []
@@ -137,9 +142,9 @@ def promote_qualifiers(tournament: Tournament, user=None) -> bool:
     if not to_place:
         return False
     occupied = set(
-        tournament.entries.filter(status="active", position__isnull=False).values_list(
-            "position", flat=True
-        )
+        tournament.entries.filter(
+            status=TournamentEntry.Status.ACTIVE, position__isnull=False
+        ).values_list("position", flat=True)
     )
     draw_size = tournament.draw_size or 0
     free = sorted(p for p in range(1, draw_size + 1) if p not in occupied)

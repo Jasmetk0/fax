@@ -205,7 +205,21 @@ class PlayersPageTests(TestCase):
         c = self._admin_client()
         c.post(url)
         entry.refresh_from_db()
-        self.assertEqual(entry.status, TournamentEntry.Status.WITHDRAWN)
+        self.assertEqual(entry.status, TournamentEntry.Status.REMOVED)
+
+    def test_remove_and_restore(self):
+        t = Tournament.objects.create(name="T8", slug="t8")
+        p = Player.objects.create(name="P")
+        entry = TournamentEntry.objects.create(tournament=t, player=p)
+        c = self._admin_client()
+        remove_url = reverse("msa:tournament-player-remove", args=[t.slug, entry.id])
+        c.post(remove_url)
+        entry.refresh_from_db()
+        self.assertEqual(entry.status, TournamentEntry.Status.REMOVED)
+        add_url = reverse("msa:tournament-players-add", args=[t.slug])
+        c.post(add_url, {"player_ids": [p.id]})
+        entry.refresh_from_db()
+        self.assertEqual(entry.status, TournamentEntry.Status.ACTIVE)
 
     def test_ui_elements(self):
         t = Tournament.objects.create(name="T6", slug="t6")
