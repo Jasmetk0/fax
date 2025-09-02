@@ -384,8 +384,6 @@ def progress_bracket(tournament) -> bool:
             )
         )
     )
-    if any(m.winner_id is None for m in cur_qs):
-        return False
 
     for idx, m in enumerate(cur_qs, start=1):
         if m.position is None:
