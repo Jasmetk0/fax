@@ -253,6 +253,7 @@ class Match(AuditModel):
     )
     round = models.CharField(max_length=50)
     section = models.CharField(max_length=50, blank=True)
+    position = models.IntegerField(null=True, blank=True)
     best_of = models.IntegerField(default=5)
     scheduled_at = models.DateTimeField(null=True, blank=True)
     player1 = models.ForeignKey(
@@ -282,7 +283,12 @@ class Match(AuditModel):
                 fields=["tournament", "round", "section"],
                 name="match_unique_round_section",
                 condition=Q(section__gt="") & ~Q(section__contains='"'),
-            )
+            ),
+            models.UniqueConstraint(
+                fields=["tournament", "round", "position"],
+                condition=Q(position__isnull=False),
+                name="match_unique_round_position",
+            ),
         ]
 
 
