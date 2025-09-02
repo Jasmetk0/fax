@@ -369,75 +369,88 @@ def _find_highest_complete_round_code(tournament) -> Optional[str]:
 
 @transaction.atomic
 def progress_bracket(tournament) -> bool:
-    current_code = _find_highest_complete_round_code(tournament)
-    if not current_code:
-        return False
-    next_code = _next_round_code(current_code)
-    if not next_code:
-        return False
+    with transaction.atomic():
+        current_code = _find_highest_complete_round_code(tournament)
+        if not current_code:
+            return False
+        next_code = _next_round_code(current_code)
+        if not next_code:
+            return False
 
-    if Match.objects.filter(tournament=tournament, round=next_code).exists():
-        return False
+        next_qs = Match.objects.filter(tournament=tournament, round=next_code)
+        if next_qs.exists():
+            return False
 
-    cur_qs = _for_update(
-        Match.objects.filter(tournament=tournament, round=current_code).order_by("id")
-    )
-
-    if Match.objects.filter(tournament=tournament, round=next_code).exists():
-        return False
-
-    if cur_qs.filter(winner__isnull=True).exists():
-        return False
-
-    bracket = next_power_of_two(tournament.draw_size or 0)
-    entries_qs = _for_update(
-        tournament.entries.filter(
-            position__isnull=False, status="active"
-        ).select_related("player")
-    )
-    by_pos = {e.position: e for e in entries_qs}
-
-    winners: List[Optional[TournamentEntry]] = []
-    for a, b in pair_first_round_slots(bracket):
-        ea = by_pos.get(a)
-        eb = by_pos.get(b)
-        winner_entry = None
-        if ea and eb:
-            match = cur_qs.filter(
-                player1__in=[ea.player, eb.player],
-                player2__in=[ea.player, eb.player],
-            ).first()
-            if match and match.winner_id is not None:
-                winner_entry = ea if match.winner_id == ea.player_id else eb
-            else:
-                winners.append(None)
-                continue
-        elif ea or eb:
-            winner_entry = ea or eb
-        winners.append(winner_entry)
-
-    created_any = False
-    for i in range(0, len(winners), 2):
-        w1 = winners[i]
-        w2 = winners[i + 1] if i + 1 < len(winners) else None
-        if not w1 or not w2:
-            continue
-        match, created = Match.objects.get_or_create(
-            tournament=tournament,
-            round=next_code,
-            section=str(i // 2),
-            defaults={
-                "player1": w1.player,
-                "player2": w2.player,
-                "best_of": 5,
-            },
+        cur_qs = list(
+            _for_update(
+                Match.objects.filter(
+                    tournament=tournament, round=current_code
+                ).order_by("id")
+            )
         )
-        if not created and (
-            match.player1_id != w1.player_id or match.player2_id != w2.player_id
-        ):
-            match.player1 = w1.player
-            match.player2 = w2.player
-            match.save(update_fields=["player1", "player2"])
-        created_any = created_any or created
 
-    return created_any
+        if next_qs.exists():
+            return False
+
+        if any(m.winner_id is None for m in cur_qs):
+            return False
+
+        bracket = next_power_of_two(tournament.draw_size or 0)
+        entries = list(
+            _for_update(
+                tournament.entries.filter(
+                    position__isnull=False, status="active"
+                ).select_related("player")
+            )
+        )
+        by_pos = {e.position: e for e in entries}
+
+        winners: List[Optional[TournamentEntry]] = []
+        for a, b in pair_first_round_slots(bracket):
+            ea = by_pos.get(a)
+            eb = by_pos.get(b)
+            winner_entry = None
+            if ea and eb:
+                match = next(
+                    (
+                        m
+                        for m in cur_qs
+                        if set([m.player1_id, m.player2_id])
+                        == set([ea.player_id, eb.player_id])
+                    ),
+                    None,
+                )
+                if match and match.winner_id is not None:
+                    winner_entry = ea if match.winner_id == ea.player_id else eb
+                else:
+                    winners.append(None)
+                    continue
+            elif ea or eb:
+                winner_entry = ea or eb
+            winners.append(winner_entry)
+
+        created_any = False
+        for i in range(0, len(winners), 2):
+            w1 = winners[i]
+            w2 = winners[i + 1] if i + 1 < len(winners) else None
+            if not w1 or not w2:
+                continue
+            match, created = Match.objects.get_or_create(
+                tournament=tournament,
+                round=next_code,
+                section=str(i // 2),
+                defaults={
+                    "player1": w1.player,
+                    "player2": w2.player,
+                    "best_of": 5,
+                },
+            )
+            if not created and (
+                match.player1_id != w1.player_id or match.player2_id != w2.player_id
+            ):
+                match.player1 = w1.player
+                match.player2 = w2.player
+                match.save(update_fields=["player1", "player2"])
+            created_any = created_any or created
+
+        return created_any
