@@ -23,9 +23,9 @@
 <form method="post" class="card-body">
   {% csrf_token %}
   <ul class="mb-4">
-    {% for player in players %}
+    {% for item in players %}
     <li>
-      <label><input type="checkbox" name="player_ids" value="{{ player.id }}"/> {{ player.name }}</label>
+      <label><input type="checkbox" name="player_ids" value="{{ item.player.id }}"/> {{ item.player.name }}{% if item.restore %} (Restore){% endif %}</label>
     </li>
     {% empty %}
     <li>No players available.</li>

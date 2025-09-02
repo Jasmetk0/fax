@@ -203,6 +203,7 @@ class TournamentEntry(AuditModel):
         ACTIVE = "active", "Active"
         WITHDRAWN = "withdrawn", "Withdrawn"
         REPLACED = "replaced", "Replaced"
+        REMOVED = "removed", "Removed"
 
     tournament = models.ForeignKey(
         Tournament, on_delete=models.CASCADE, related_name="entries"
@@ -227,8 +228,14 @@ class TournamentEntry(AuditModel):
     )
 
     class Meta:
-        unique_together = ("tournament", "player")
         ordering = ["seed", "player__name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["tournament", "player"],
+                condition=Q(status="active"),
+                name="unique_active_entry",
+            )
+        ]
 
     def __str__(self) -> str:  # pragma: no cover - trivial
         return f"{self.player} in {self.tournament}"
