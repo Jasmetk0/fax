@@ -4,6 +4,7 @@ from typing import Dict, List, Optional
 
 from django.conf import settings
 from django.db import connection, transaction, IntegrityError
+from django.db.models import Q
 
 from ..models import Match, RankingSnapshot, TournamentEntry
 from .rounds import code_to_size, next_power_of_two
@@ -215,21 +216,24 @@ def replace_slot(
     Vrací True, pokud ALT/LL skončí v daném slotu.
     """
     with transaction.atomic():
-        occupant = _for_update(
-            TournamentEntry.objects.filter(tournament=tournament, position=slot)
-        ).first()
-        try:
-            alt = (
-                _for_update(
-                    TournamentEntry.objects.filter(
-                        pk=replacement_entry_id, tournament=tournament
-                    )
+        entries = list(
+            _for_update(
+                TournamentEntry.objects.filter(tournament=tournament)
+                .filter(
+                    Q(pk=replacement_entry_id)
+                    | Q(position=slot, status=TournamentEntry.Status.ACTIVE)
                 )
                 .select_related("player")
-                .get()
+                .order_by("id")
             )
-        except TournamentEntry.DoesNotExist:
+        )
+        try:
+            alt = next(e for e in entries if e.pk == replacement_entry_id)
+        except StopIteration:
             return False
+        occupant = next(
+            (e for e in entries if e.position == slot and e.pk != alt.pk), None
+        )
 
         if alt.position == slot:
             return False
@@ -247,12 +251,14 @@ def replace_slot(
                 .first()
             )
             if mate:
-                match_qs = tournament.matches.all()
-                match_qs = _for_update(match_qs)
+                match_qs = _for_update(
+                    Match.objects.filter(
+                        tournament=tournament, round=f"R{tournament.draw_size}"
+                    )
+                )
                 match = match_qs.filter(
                     player1__in=[occupant.player, mate.player],
                     player2__in=[occupant.player, mate.player],
-                    round=f"R{tournament.draw_size}",
                 ).first()
                 if match and match.winner_id and not allow_over_completed:
                     return False
@@ -265,34 +271,26 @@ def replace_slot(
                 updates["status"] = replaced
             TournamentEntry.objects.filter(pk=occupant.pk).update(**updates)
 
-        assigned = False
         try:
             TournamentEntry.objects.filter(pk=alt.pk).update(
                 position=slot, status=TournamentEntry.Status.ACTIVE
             )
         except IntegrityError:
-            pass
+            TournamentEntry.objects.filter(
+                tournament=tournament, position=slot, status="active"
+            ).exclude(pk=alt.pk).update(position=None)
+            try:
+                TournamentEntry.objects.filter(pk=alt.pk).update(
+                    position=slot, status=TournamentEntry.Status.ACTIVE
+                )
+            except IntegrityError:
+                pass
 
-        alt = TournamentEntry.objects.filter(pk=alt.pk).first()
-        if alt and alt.position == slot:
-            assigned = True
-        else:
-            again = TournamentEntry.objects.filter(
-                tournament=tournament, position=slot
-            ).first()
-            if again is None:
-                try:
-                    TournamentEntry.objects.filter(pk=alt.pk).update(
-                        position=slot, status=TournamentEntry.Status.ACTIVE
-                    )
-                except IntegrityError:
-                    pass
-                alt = TournamentEntry.objects.filter(pk=alt.pk).first()
-                assigned = bool(alt and alt.position == slot)
-            else:
-                assigned = again.pk == alt.pk
+        alt.refresh_from_db()
+        if alt.position != slot:
+            return False
 
-        if match and not match.winner_id and assigned:
+        if match and not match.winner_id:
             low, high = sorted([slot, mate_slot])
             e_low = (
                 TournamentEntry.objects.filter(tournament=tournament, position=low)
@@ -309,7 +307,7 @@ def replace_slot(
                 match.player2 = e_high.player
                 match.save(update_fields=["player1", "player2"])
 
-        return assigned
+        return True
 
 
 def has_completed_main_matches(tournament) -> bool:

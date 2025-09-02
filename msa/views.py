@@ -561,11 +561,15 @@ def tournament_draw(request, slug):
                         slot_b,
                     )
                     return redirect(request.path)
-                entry_a.position, entry_b.position = entry_b.position, entry_a.position
                 entry_a.updated_by = request.user
                 entry_b.updated_by = request.user
+                original_a, original_b = entry_a.position, entry_b.position
+                entry_a.position = None
                 entry_a.save(update_fields=["position", "updated_by"])
+                entry_b.position = original_a
                 entry_b.save(update_fields=["position", "updated_by"])
+                entry_a.position = original_b
+                entry_a.save(update_fields=["position"])
                 by_pos[entry_a.position] = entry_a
                 by_pos[entry_b.position] = entry_b
                 for (low, high), m in matches.items():

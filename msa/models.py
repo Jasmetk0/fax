@@ -234,7 +234,14 @@ class TournamentEntry(AuditModel):
                 fields=["tournament", "player"],
                 condition=Q(status="active"),
                 name="unique_active_entry",
-            )
+            ),
+            models.UniqueConstraint(
+                fields=["tournament", "position"],
+                condition=Q(status="active")
+                & Q(position__isnull=False)
+                & ~Q(entry_type="ALT"),
+                name="unique_active_slot",
+            ),
         ]
 
     def __str__(self) -> str:  # pragma: no cover - trivial
