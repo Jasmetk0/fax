@@ -2,6 +2,7 @@ import math
 
 from django.conf import settings
 from django.db import models
+from django.db.models import Q
 from django.utils.text import slugify
 
 from .services.rounds import round_label
@@ -167,6 +168,25 @@ class Tournament(AuditModel):
     flex_mode = models.BooleanField(default=False)
     entry_deadline = WoorldDateField(null=True, blank=True)
 
+    class WorldRankingMode(models.TextChoices):
+        AUTO = "auto", "Auto"
+        OFF = "off", "Off"
+        CURRENT = "current", "Current"
+        SNAPSHOT = "snapshot", "Snapshot"
+
+    world_ranking_mode = models.CharField(
+        max_length=10,
+        choices=WorldRankingMode.choices,
+        default=WorldRankingMode.AUTO,
+    )
+    world_ranking_snapshot = models.ForeignKey(
+        "RankingSnapshot",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="tournaments",
+    )
+
     def __str__(self) -> str:  # pragma: no cover - trivial
         return self.name
 
@@ -248,6 +268,15 @@ class Match(AuditModel):
 
     def __str__(self) -> str:  # pragma: no cover - trivial
         return f"{self.player1} vs {self.player2}"
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["tournament", "round", "section"],
+                name="match_unique_round_section",
+                condition=Q(section__gt="") & ~Q(section__contains='"'),
+            )
+        ]
 
 
 class RankingSnapshot(AuditModel):

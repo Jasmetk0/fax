@@ -40,6 +40,8 @@ class AdminTournamentSaveDatesTests(TestCase):
             "flex_mode": "",
             "draw_policy": "single_elim",
             "state": Tournament.State.DRAFT,
+            "world_ranking_mode": Tournament.WorldRankingMode.AUTO,
+            "world_ranking_snapshot": "",
             "_save": "Save",
         }
 

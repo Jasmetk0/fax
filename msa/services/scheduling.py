@@ -288,6 +288,8 @@ def swap_scheduled_matches(tournament, match_id_a, match_id_b, *, user=None) -> 
         sched_b = _extract_schedule(b)
         if not sched_a or not sched_b:
             return False
+        if sched_a == sched_b:
+            return False
         put_schedule(a, sched_b, user=user)
         put_schedule(b, sched_a, user=user)
     logger.info(
@@ -327,6 +329,7 @@ def move_scheduled_match(
         ids = [match_id]
         if occ_id:
             ids.append(occ_id)
+        ids.sort()
         matches = list(_for_update(Match.objects.filter(pk__in=ids).order_by("pk")))
         m_map = {m.pk: m for m in matches}
         m = m_map.get(match_id)
