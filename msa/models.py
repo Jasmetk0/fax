@@ -203,6 +203,7 @@ class TournamentEntry(AuditModel):
         ACTIVE = "active", "Active"
         WITHDRAWN = "withdrawn", "Withdrawn"
         REPLACED = "replaced", "Replaced"
+        REMOVED = "removed", "Removed"
 
     tournament = models.ForeignKey(
         Tournament, on_delete=models.CASCADE, related_name="entries"
@@ -227,8 +228,14 @@ class TournamentEntry(AuditModel):
     )
 
     class Meta:
-        unique_together = ("tournament", "player")
         ordering = ["seed", "player__name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["tournament", "player"],
+                condition=Q(status="active"),
+                name="unique_active_entry",
+            )
+        ]
 
     def __str__(self) -> str:  # pragma: no cover - trivial
         return f"{self.player} in {self.tournament}"
@@ -246,6 +253,7 @@ class Match(AuditModel):
     )
     round = models.CharField(max_length=50)
     section = models.CharField(max_length=50, blank=True)
+    position = models.IntegerField(null=True, blank=True)
     best_of = models.IntegerField(default=5)
     scheduled_at = models.DateTimeField(null=True, blank=True)
     player1 = models.ForeignKey(
@@ -275,7 +283,12 @@ class Match(AuditModel):
                 fields=["tournament", "round", "section"],
                 name="match_unique_round_section",
                 condition=Q(section__gt="") & ~Q(section__contains='"'),
-            )
+            ),
+            models.UniqueConstraint(
+                fields=["tournament", "round", "position"],
+                condition=Q(position__isnull=False),
+                name="match_unique_round_position",
+            ),
         ]
 
 
