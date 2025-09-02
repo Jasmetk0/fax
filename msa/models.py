@@ -167,6 +167,25 @@ class Tournament(AuditModel):
     flex_mode = models.BooleanField(default=False)
     entry_deadline = WoorldDateField(null=True, blank=True)
 
+    class WorldRankingMode(models.TextChoices):
+        AUTO = "auto", "Auto"
+        OFF = "off", "Off"
+        CURRENT = "current", "Current"
+        SNAPSHOT = "snapshot", "Snapshot"
+
+    world_ranking_mode = models.CharField(
+        max_length=10,
+        choices=WorldRankingMode.choices,
+        default=WorldRankingMode.AUTO,
+    )
+    world_ranking_snapshot = models.ForeignKey(
+        "RankingSnapshot",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="tournaments",
+    )
+
     def __str__(self) -> str:  # pragma: no cover - trivial
         return self.name
 

@@ -21,6 +21,7 @@ from .models import (
     MediaItem,
     NewsPost,
     Player,
+    RankingEntry,
     RankingSnapshot,
     Season,
     Tournament,
@@ -50,7 +51,6 @@ from .forms import ScheduleBulkSlotsForm, ScheduleSwapForm, ScheduleMoveForm
 from .services.entries import (
     bulk_add_entries,
     get_accepted_entries_sorted,
-    get_registered_entries_sorted,
     remove_entry,
 )
 from .services.scheduling import (
@@ -237,10 +237,87 @@ def tournament_overview(request, slug):
     )
 
 
+def _prepare_registered_entries(tournament: Tournament):
+    entries = list(
+        tournament.entries.filter(status=TournamentEntry.Status.ACTIVE).select_related(
+            "player"
+        )
+    )
+
+    def group_key(e: TournamentEntry):
+        if e.seed:
+            return (0, e.seed)
+        order = {
+            TournamentEntry.EntryType.DA: 1,
+            TournamentEntry.EntryType.WC: 2,
+            TournamentEntry.EntryType.Q: 3,
+            TournamentEntry.EntryType.LL: 3,
+            TournamentEntry.EntryType.ALT: 4,
+        }.get(e.entry_type, 5)
+        return (order, 0)
+
+    entries.sort(key=lambda e: (*group_key(e), e.created_at, e.pk))
+
+    player_ids = [e.player_id for e in entries]
+    mode = tournament.world_ranking_mode
+    snapshot = tournament.world_ranking_snapshot
+    rank_map: dict[int, int] = {}
+    show_wr = False
+    if mode != Tournament.WorldRankingMode.OFF:
+        if snapshot and mode in (
+            Tournament.WorldRankingMode.SNAPSHOT,
+            Tournament.WorldRankingMode.AUTO,
+        ):
+            for r in RankingEntry.objects.filter(
+                snapshot=snapshot, player_id__in=player_ids
+            ):
+                rank_map[r.player_id] = r.rank
+            show_wr = bool(rank_map)
+        elif mode in (
+            Tournament.WorldRankingMode.CURRENT,
+            Tournament.WorldRankingMode.AUTO,
+        ):
+            show_wr = any(e.player.current_rank is not None for e in entries)
+
+    path_map = {
+        TournamentEntry.EntryType.DA: "Direct",
+        TournamentEntry.EntryType.WC: "WC",
+        TournamentEntry.EntryType.Q: "Q",
+        TournamentEntry.EntryType.LL: "Q",
+        TournamentEntry.EntryType.ALT: "Reserve",
+    }
+
+    for idx, e in enumerate(entries, start=1):
+        e.entry_order = idx
+        if e.seed:
+            e.path_label = "Seed"
+        else:
+            e.path_label = path_map.get(e.entry_type, e.entry_type)
+        if show_wr:
+            if snapshot and rank_map:
+                e.world_rank = rank_map.get(e.player_id)
+            else:
+                e.world_rank = e.player.current_rank
+        else:
+            e.world_rank = None
+
+    seed_cut = tournament.seeds_count or sum(1 for e in entries if e.seed)
+    seed_cut = max(0, min(seed_cut, len(entries)))
+    if seed_cut <= 0 or seed_cut >= len(entries):
+        seed_cut = None
+    direct_cut = None
+    if tournament.draw_size and tournament.qualifiers_count is not None:
+        direct_cut = tournament.draw_size - tournament.qualifiers_count
+        direct_cut = max(0, min(direct_cut, len(entries)))
+        if direct_cut <= 0 or direct_cut >= len(entries):
+            direct_cut = None
+
+    return entries, seed_cut, direct_cut, show_wr
+
+
 def tournament_players(request, slug):
     tournament = get_object_or_404(Tournament, slug=slug)
-
-    registered_entries, ordering_registered_label = get_registered_entries_sorted(
+    registered_entries, seed_cut, direct_cut, show_wr = _prepare_registered_entries(
         tournament
     )
     accepted_entries, ordering_accepted_label = get_accepted_entries_sorted(tournament)
@@ -258,19 +335,27 @@ def tournament_players(request, slug):
 
         registered_entries = [
             SimpleNamespace(
-                player=p, rank=None, points=None, entry_type=None, id=None, seed=None
+                player=p,
+                entry_order=idx + 1,
+                path_label="",
+                world_rank=None,
             )
-            for p in players
+            for idx, p in enumerate(players)
         ]
+        seed_cut = direct_cut = None
+        show_wr = False
 
     context = {
         "tournament": tournament,
         "registered_entries": registered_entries,
         "accepted_entries": accepted_entries,
-        "ordering_registered_label": ordering_registered_label,
+        "ordering_registered_label": "Entry Order",
         "ordering_accepted_label": ordering_accepted_label,
         "is_admin": _is_admin(request),
         "seeds_count": tournament.seeds_count,
+        "seed_cutoff": seed_cut,
+        "direct_cutoff": direct_cut,
+        "show_world_ranking": show_wr,
     }
     return render(request, "msa/tournament_players.html", context)
 
@@ -279,6 +364,7 @@ def tournament_players_add(request, slug):
     tournament = get_object_or_404(Tournament, slug=slug)
     if not _is_admin(request):
         return HttpResponseForbidden()
+    registered_entries, _, _, show_wr = _prepare_registered_entries(tournament)
 
     existing_ids = tournament.entries.values_list("player_id", flat=True)
     players = Player.objects.exclude(id__in=existing_ids)
@@ -295,7 +381,13 @@ def tournament_players_add(request, slug):
     return render(
         request,
         "msa/tournament_players_add.html",
-        {"tournament": tournament, "players": players, "q": q},
+        {
+            "tournament": tournament,
+            "players": players,
+            "q": q,
+            "registered_entries": registered_entries,
+            "show_world_ranking": show_wr,
+        },
     )
 
 

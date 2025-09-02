@@ -123,7 +123,7 @@ class PlayersPageTests(TestCase):
         order = [segment.index(n) for n in expected]
         self.assertEqual(order, sorted(order))
 
-    def test_alphabetical_ordering(self):
+    def test_stable_ordering(self):
         t = Tournament.objects.create(name="T", slug="t")
         names = ["Dan", "Bob", "Ann", "Cara"]
         players = [Player.objects.create(name=n) for n in names]
@@ -131,10 +131,10 @@ class PlayersPageTests(TestCase):
             TournamentEntry.objects.create(tournament=t, player=p)
         resp = self.client.get(reverse("msa:tournament-players", args=[t.slug]))
         content = resp.content.decode()
-        order = [content.index(n) for n in sorted(names)]
+        order = [content.index(n) for n in names]
         self.assertEqual(order, sorted(order))
 
-    def test_ranking_ordering(self):
+    def test_ranking_snapshot_does_not_change_order(self):
         t = Tournament.objects.create(
             name="T2", slug="t2", seeding_rank_date="2024-01-01"
         )
@@ -155,7 +155,7 @@ class PlayersPageTests(TestCase):
         )
         resp = self.client.get(reverse("msa:tournament-players", args=[t.slug]))
         content = resp.content.decode()
-        expected = ["Andy", "Cara", "Ben", "Duke"]
+        expected = ["Andy", "Ben", "Cara", "Duke"]
         order = [content.index(n) for n in expected]
         self.assertEqual(order, sorted(order))
 
@@ -216,13 +216,12 @@ class PlayersPageTests(TestCase):
         resp = self.client.get(reverse("msa:tournament-players", args=[t.slug]))
         self.assertContains(resp, "Registered Players")
         self.assertContains(resp, "Accepted Players")
-        self.assertContains(resp, "badge badge-seed")
-        self.assertContains(resp, "badge badge-type")
-        self.assertNotContains(resp, "Add Players")
+        self.assertContains(resp, "Path to Main Draw")
+        self.assertNotContains(resp, "Edit Players")
         self.assertNotContains(resp, "Remove")
         c = self._admin_client()
         resp = c.get(reverse("msa:tournament-players", args=[t.slug]))
-        self.assertContains(resp, "Add Players")
+        self.assertContains(resp, "Edit Players")
         self.assertContains(resp, "Remove")
 
     def test_layout_classes(self):
@@ -230,3 +229,72 @@ class PlayersPageTests(TestCase):
         resp = self.client.get(reverse("msa:tournament-players", args=[t.slug]))
         self.assertContains(resp, "players-grid")
         self.assertContains(resp, "card")
+
+    def test_world_ranking_modes(self):
+        p1 = Player.objects.create(name="A", current_rank=10)
+        p2 = Player.objects.create(name="B")
+        snap = RankingSnapshot.objects.create(as_of="2024-01-01")
+        RankingEntry.objects.create(snapshot=snap, player=p1, rank=5, points=0)
+        RankingEntry.objects.create(snapshot=snap, player=p2, rank=7, points=0)
+
+        t_off = Tournament.objects.create(
+            name="Off", slug="off", world_ranking_mode=Tournament.WorldRankingMode.OFF
+        )
+        TournamentEntry.objects.create(tournament=t_off, player=p1)
+        resp = self.client.get(reverse("msa:tournament-players", args=[t_off.slug]))
+        self.assertNotContains(resp, "World Ranking")
+
+        t_cur = Tournament.objects.create(
+            name="Cur",
+            slug="cur",
+            world_ranking_mode=Tournament.WorldRankingMode.CURRENT,
+        )
+        TournamentEntry.objects.create(tournament=t_cur, player=p1)
+        TournamentEntry.objects.create(tournament=t_cur, player=p2)
+        resp = self.client.get(reverse("msa:tournament-players", args=[t_cur.slug]))
+        self.assertContains(resp, "World Ranking")
+        self.assertContains(resp, "10")
+        self.assertContains(resp, "-")
+
+        t_snap = Tournament.objects.create(
+            name="Snap",
+            slug="snap",
+            world_ranking_mode=Tournament.WorldRankingMode.SNAPSHOT,
+            world_ranking_snapshot=snap,
+        )
+        TournamentEntry.objects.create(tournament=t_snap, player=p1)
+        TournamentEntry.objects.create(tournament=t_snap, player=p2)
+        resp = self.client.get(reverse("msa:tournament-players", args=[t_snap.slug]))
+        self.assertContains(resp, "World Ranking")
+        self.assertContains(resp, "5")
+        self.assertContains(resp, "7")
+
+        t_auto = Tournament.objects.create(
+            name="Auto",
+            slug="auto",
+            world_ranking_mode=Tournament.WorldRankingMode.AUTO,
+            world_ranking_snapshot=snap,
+        )
+        TournamentEntry.objects.create(tournament=t_auto, player=p1)
+        resp = self.client.get(reverse("msa:tournament-players", args=[t_auto.slug]))
+        self.assertContains(resp, "World Ranking")
+        self.assertContains(resp, "5")
+
+        t_auto2 = Tournament.objects.create(
+            name="Auto2",
+            slug="auto2",
+            world_ranking_mode=Tournament.WorldRankingMode.AUTO,
+        )
+        TournamentEntry.objects.create(tournament=t_auto2, player=p1)
+        resp = self.client.get(reverse("msa:tournament-players", args=[t_auto2.slug]))
+        self.assertContains(resp, "World Ranking")
+        self.assertContains(resp, "10")
+
+        t_auto3 = Tournament.objects.create(
+            name="Auto3",
+            slug="auto3",
+            world_ranking_mode=Tournament.WorldRankingMode.AUTO,
+        )
+        TournamentEntry.objects.create(tournament=t_auto3, player=p2)
+        resp = self.client.get(reverse("msa:tournament-players", args=[t_auto3.slug]))
+        self.assertNotContains(resp, "World Ranking")
