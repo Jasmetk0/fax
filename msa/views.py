@@ -366,12 +366,27 @@ def tournament_players_add(request, slug):
         return HttpResponseForbidden()
     registered_entries, _, _, show_wr = _prepare_registered_entries(tournament)
 
-    existing_ids = tournament.entries.values_list("player_id", flat=True)
-    players = Player.objects.exclude(id__in=existing_ids)
+    existing_active_ids = set(
+        tournament.entries.filter(status=TournamentEntry.Status.ACTIVE).values_list(
+            "player_id", flat=True
+        )
+    )
+    removed_map = {
+        e.player_id: e
+        for e in tournament.entries.filter(
+            status=TournamentEntry.Status.REMOVED
+        ).select_related("player")
+    }
+    players_qs = Player.objects.exclude(id__in=existing_active_ids)
     q = request.GET.get("q")
     if q:
-        players = players.filter(name__icontains=q)
-    players = players.order_by("name")
+        players_qs = players_qs.filter(name__icontains=q)
+    players_qs = players_qs.order_by("name")
+    from types import SimpleNamespace
+
+    players = [
+        SimpleNamespace(player=p, restore=p.id in removed_map) for p in players_qs
+    ]
 
     if request.method == "POST":
         ids = [int(pid) for pid in request.POST.getlist("player_ids") if pid.isdigit()]
@@ -398,6 +413,7 @@ def tournament_player_remove(request, slug, entry_id):
     entry = get_object_or_404(TournamentEntry, pk=entry_id, tournament=tournament)
     if request.method == "POST":
         remove_entry(entry, user=request.user)
+        messages.success(request, "Player removed. You can add them back anytime.")
         return redirect("msa:tournament-players", slug=tournament.slug)
     return HttpResponseForbidden()
 
@@ -545,11 +561,15 @@ def tournament_draw(request, slug):
                         slot_b,
                     )
                     return redirect(request.path)
-                entry_a.position, entry_b.position = entry_b.position, entry_a.position
                 entry_a.updated_by = request.user
                 entry_b.updated_by = request.user
+                original_a, original_b = entry_a.position, entry_b.position
+                entry_a.position = None
                 entry_a.save(update_fields=["position", "updated_by"])
+                entry_b.position = original_a
                 entry_b.save(update_fields=["position", "updated_by"])
+                entry_a.position = original_b
+                entry_a.save(update_fields=["position"])
                 by_pos[entry_a.position] = entry_a
                 by_pos[entry_b.position] = entry_b
                 for (low, high), m in matches.items():

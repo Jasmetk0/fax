@@ -4,6 +4,7 @@ from typing import Dict, List, Optional
 
 from django.conf import settings
 from django.db import connection, transaction, IntegrityError
+from django.db.models import Q
 
 from ..models import Match, RankingSnapshot, TournamentEntry
 from .rounds import code_to_size, next_power_of_two
@@ -180,7 +181,7 @@ def _generate_draw_v1(tournament, force: bool = False, user=None):
 
         bracket = 1 << (draw_size - 1).bit_length()
         by_pos = {e.position: e for e in entries if e.position}
-        for a, b in pair_first_round_slots(bracket):
+        for idx, (a, b) in enumerate(pair_first_round_slots(bracket), start=1):
             ea = by_pos.get(a)
             eb = by_pos.get(b)
             if ea and eb:
@@ -191,6 +192,7 @@ def _generate_draw_v1(tournament, force: bool = False, user=None):
                     round=f"R{draw_size}",
                     section="",
                     best_of=5,
+                    position=idx,
                 )
 
         if tournament.state != tournament.State.DRAWN:
@@ -214,21 +216,24 @@ def replace_slot(
     Vrací True, pokud ALT/LL skončí v daném slotu.
     """
     with transaction.atomic():
-        occupant = _for_update(
-            TournamentEntry.objects.filter(tournament=tournament, position=slot)
-        ).first()
-        try:
-            alt = (
-                _for_update(
-                    TournamentEntry.objects.filter(
-                        pk=replacement_entry_id, tournament=tournament
-                    )
+        entries = list(
+            _for_update(
+                TournamentEntry.objects.filter(tournament=tournament)
+                .filter(
+                    Q(pk=replacement_entry_id)
+                    | Q(position=slot, status=TournamentEntry.Status.ACTIVE)
                 )
                 .select_related("player")
-                .get()
+                .order_by("id")
             )
-        except TournamentEntry.DoesNotExist:
+        )
+        try:
+            alt = next(e for e in entries if e.pk == replacement_entry_id)
+        except StopIteration:
             return False
+        occupant = next(
+            (e for e in entries if e.position == slot and e.pk != alt.pk), None
+        )
 
         if alt.position == slot:
             return False
@@ -246,12 +251,14 @@ def replace_slot(
                 .first()
             )
             if mate:
-                match_qs = tournament.matches.all()
-                match_qs = _for_update(match_qs)
+                match_qs = _for_update(
+                    Match.objects.filter(
+                        tournament=tournament, round=f"R{tournament.draw_size}"
+                    )
+                )
                 match = match_qs.filter(
                     player1__in=[occupant.player, mate.player],
                     player2__in=[occupant.player, mate.player],
-                    round=f"R{tournament.draw_size}",
                 ).first()
                 if match and match.winner_id and not allow_over_completed:
                     return False
@@ -264,34 +271,26 @@ def replace_slot(
                 updates["status"] = replaced
             TournamentEntry.objects.filter(pk=occupant.pk).update(**updates)
 
-        assigned = False
         try:
             TournamentEntry.objects.filter(pk=alt.pk).update(
                 position=slot, status=TournamentEntry.Status.ACTIVE
             )
         except IntegrityError:
-            pass
+            TournamentEntry.objects.filter(
+                tournament=tournament, position=slot, status="active"
+            ).exclude(pk=alt.pk).update(position=None)
+            try:
+                TournamentEntry.objects.filter(pk=alt.pk).update(
+                    position=slot, status=TournamentEntry.Status.ACTIVE
+                )
+            except IntegrityError:
+                pass
 
-        alt = TournamentEntry.objects.filter(pk=alt.pk).first()
-        if alt and alt.position == slot:
-            assigned = True
-        else:
-            again = TournamentEntry.objects.filter(
-                tournament=tournament, position=slot
-            ).first()
-            if again is None:
-                try:
-                    TournamentEntry.objects.filter(pk=alt.pk).update(
-                        position=slot, status=TournamentEntry.Status.ACTIVE
-                    )
-                except IntegrityError:
-                    pass
-                alt = TournamentEntry.objects.filter(pk=alt.pk).first()
-                assigned = bool(alt and alt.position == slot)
-            else:
-                assigned = again.pk == alt.pk
+        alt.refresh_from_db()
+        if alt.position != slot:
+            return False
 
-        if match and not match.winner_id and assigned:
+        if match and not match.winner_id:
             low, high = sorted([slot, mate_slot])
             e_low = (
                 TournamentEntry.objects.filter(tournament=tournament, position=low)
@@ -308,7 +307,7 @@ def replace_slot(
                 match.player2 = e_high.player
                 match.save(update_fields=["player1", "player2"])
 
-        return assigned
+        return True
 
 
 def has_completed_main_matches(tournament) -> bool:
@@ -369,88 +368,85 @@ def _find_highest_complete_round_code(tournament) -> Optional[str]:
 
 @transaction.atomic
 def progress_bracket(tournament) -> bool:
-    with transaction.atomic():
-        current_code = _find_highest_complete_round_code(tournament)
-        if not current_code:
-            return False
-        next_code = _next_round_code(current_code)
-        if not next_code:
-            return False
+    current_code = _find_highest_complete_round_code(tournament)
+    if not current_code:
+        return False
+    next_code = _next_round_code(current_code)
+    if not next_code:
+        return False
 
-        next_qs = Match.objects.filter(tournament=tournament, round=next_code)
-        if next_qs.exists():
-            return False
-
-        cur_qs = list(
-            _for_update(
-                Match.objects.filter(
-                    tournament=tournament, round=current_code
-                ).order_by("id")
+    cur_qs = list(
+        _for_update(
+            Match.objects.filter(tournament=tournament, round=current_code).order_by(
+                "position", "id"
             )
         )
+    )
 
-        if next_qs.exists():
-            return False
+    for idx, m in enumerate(cur_qs, start=1):
+        if m.position is None:
+            m.position = idx
+            m.save(update_fields=["position"])
+    match_by_pos = {m.position: m for m in cur_qs}
 
-        if any(m.winner_id is None for m in cur_qs):
-            return False
-
-        bracket = next_power_of_two(tournament.draw_size or 0)
-        entries = list(
-            _for_update(
-                tournament.entries.filter(
-                    position__isnull=False, status="active"
-                ).select_related("player")
-            )
+    bracket = next_power_of_two(tournament.draw_size or 0)
+    entries = list(
+        _for_update(
+            tournament.entries.filter(
+                position__isnull=False, status="active"
+            ).select_related("player")
         )
-        by_pos = {e.position: e for e in entries}
+    )
+    by_pos = {e.position: e for e in entries}
 
-        winners: List[Optional[TournamentEntry]] = []
-        for a, b in pair_first_round_slots(bracket):
-            ea = by_pos.get(a)
-            eb = by_pos.get(b)
-            winner_entry = None
-            if ea and eb:
-                match = next(
-                    (
-                        m
-                        for m in cur_qs
-                        if set([m.player1_id, m.player2_id])
-                        == set([ea.player_id, eb.player_id])
-                    ),
-                    None,
-                )
-                if match and match.winner_id is not None:
-                    winner_entry = ea if match.winner_id == ea.player_id else eb
-                else:
-                    winners.append(None)
-                    continue
-            elif ea or eb:
-                winner_entry = ea or eb
-            winners.append(winner_entry)
-
-        created_any = False
-        for i in range(0, len(winners), 2):
-            w1 = winners[i]
-            w2 = winners[i + 1] if i + 1 < len(winners) else None
-            if not w1 or not w2:
+    winners: List[Optional[TournamentEntry]] = []
+    for pair_idx, (a, b) in enumerate(pair_first_round_slots(bracket), start=1):
+        ea = by_pos.get(a)
+        eb = by_pos.get(b)
+        winner_entry = None
+        if ea and eb:
+            match = match_by_pos.get(pair_idx)
+            if match and match.winner_id is not None:
+                winner_entry = ea if match.winner_id == ea.player_id else eb
+            else:
+                winners.append(None)
                 continue
+        elif ea or eb:
+            winner_entry = ea or eb
+        winners.append(winner_entry)
+
+    created_any = False
+    for i in range(0, len(winners), 2):
+        w1 = winners[i]
+        w2 = winners[i + 1] if i + 1 < len(winners) else None
+        if not w1 or not w2:
+            continue
+        pos = i // 2 + 1
+        try:
             match, created = Match.objects.get_or_create(
                 tournament=tournament,
                 round=next_code,
-                section=str(i // 2),
+                position=pos,
                 defaults={
                     "player1": w1.player,
                     "player2": w2.player,
                     "best_of": 5,
                 },
             )
-            if not created and (
-                match.player1_id != w1.player_id or match.player2_id != w2.player_id
-            ):
-                match.player1 = w1.player
-                match.player2 = w2.player
-                match.save(update_fields=["player1", "player2"])
-            created_any = created_any or created
+        except IntegrityError:
+            match = Match.objects.get(
+                tournament=tournament, round=next_code, position=pos
+            )
+            created = False
+        fields = []
+        if match.player1_id is None:
+            match.player1 = w1.player
+            fields.append("player1")
+        if match.player2_id is None:
+            match.player2 = w2.player
+            fields.append("player2")
+        if fields:
+            match.save(update_fields=fields)
+        created_any = created_any or created
 
-        return created_any
+    return created_any

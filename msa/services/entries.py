@@ -169,36 +169,65 @@ def bulk_add_entries_csv(
 
 
 def bulk_add_entries(tournament: Tournament, player_ids: List[int]) -> int:
-    """Add multiple players to a tournament.
+    """Add or restore multiple players to a tournament.
 
-    Existing entries are ignored. Returns the number of newly created entries.
+    For each ``player_id`` we either restore an existing removed entry or
+    create a new one if none exists. Existing active entries are ignored.
+    Returns the number of entries created or restored.
     """
 
-    existing = set(
-        TournamentEntry.objects.filter(tournament=tournament).values_list(
-            "player_id", flat=True
-        )
-    )
-    to_add = [pid for pid in player_ids if pid not in existing]
-    players = list(Player.objects.filter(id__in=to_add))
     created = 0
-    for player in players:
-        TournamentEntry.objects.create(
-            tournament=tournament,
-            player=player,
-            entry_type=TournamentEntry.EntryType.DA,
-            status=TournamentEntry.Status.ACTIVE,
-        )
-        created += 1
+    ids = sorted({int(pid) for pid in player_ids})
+    with transaction.atomic():
+        for pid in ids:
+            qs = (
+                TournamentEntry.objects.select_for_update()
+                .filter(tournament=tournament, player_id=pid)
+                .order_by("id")
+            )
+            if qs.filter(status=TournamentEntry.Status.ACTIVE).exists():
+                continue
+            entry = qs.filter(status=TournamentEntry.Status.REMOVED).first()
+            if entry:
+                entry.status = TournamentEntry.Status.ACTIVE
+                entry.entry_type = TournamentEntry.EntryType.DA
+                entry.seed = None
+                entry.seed_locked = False
+                entry.position = None
+                entry.origin_note = ""
+                entry.origin_match = None
+                entry.save(
+                    update_fields=[
+                        "status",
+                        "entry_type",
+                        "seed",
+                        "seed_locked",
+                        "position",
+                        "origin_note",
+                        "origin_match",
+                    ]
+                )
+                created += 1
+                continue
+            try:
+                TournamentEntry.objects.create(
+                    tournament=tournament,
+                    player_id=pid,
+                    entry_type=TournamentEntry.EntryType.DA,
+                    status=TournamentEntry.Status.ACTIVE,
+                )
+                created += 1
+            except IntegrityError:
+                continue
     return created
 
 
 def remove_entry(entry: TournamentEntry, *, user=None) -> None:
-    """Withdraw a tournament entry."""
+    """Soft-remove a tournament entry."""
 
     with transaction.atomic():
         e = TournamentEntry.objects.select_for_update().get(pk=entry.pk)
-        e.status = TournamentEntry.Status.WITHDRAWN
+        e.status = TournamentEntry.Status.REMOVED
         e.position = None
         if user:
             e.updated_by = user
