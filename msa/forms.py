@@ -97,7 +97,14 @@ class TournamentForm(forms.ModelForm):
 class MatchForm(forms.ModelForm):
     class Meta:
         model = Match
-        exclude = ["tournament", "created_at", "updated_at", "created_by", "updated_by"]
+        exclude = [
+            "tournament",
+            "created_at",
+            "updated_at",
+            "created_by",
+            "updated_by",
+            "position",
+        ]
 
 
 class RankingSnapshotForm(forms.ModelForm):
