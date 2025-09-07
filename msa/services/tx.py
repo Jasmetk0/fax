@@ -1,19 +1,30 @@
-from contextlib import contextmanager
+from functools import wraps
 
 from django.db import transaction
 
 
-@contextmanager
-def atomic():
+def atomic(_fn=None):
     """
-    Jednotné místo pro atomic bloky (snadno se později zpřísní nastavení).
+    Použití:
+      @atomic()   # doporučeno (se závorkami)
+      @atomic     # funguje taky
     """
-    with transaction.atomic():
-        yield
+
+    def _decorator(fn):
+        @wraps(fn)
+        def _wrapped(*args, **kwargs):
+            with transaction.atomic():
+                return fn(*args, **kwargs)
+
+        return _wrapped
+
+    # @atomic bez závorek
+    if callable(_fn):
+        return _decorator(_fn)
+    # @atomic() se závorkami
+    return _decorator
 
 
 def locked(qs):
-    """
-    SELECT FOR UPDATE; na SQLite no-op, na Postgresu skutečný lock.
-    """
+    """SELECT FOR UPDATE; na SQLite no-op, na Postgresu skutečný lock."""
     return qs.select_for_update()

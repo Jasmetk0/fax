@@ -92,10 +92,10 @@ def _best_n_for_date(all_seasons: list[Season], snap_day: date) -> int:
     ]
     if containing:
         s = containing[0]
-        return int(getattr(s, "best_N", 10) or 10)
+        return int(getattr(s, "best_n", 10) or 10)
     # fallback: poslední sezóna
     s_last = sorted([s for s in all_seasons if s.end_date], key=lambda x: x.end_date)[-1]
-    return int(getattr(s_last, "best_N", 10) or 10)
+    return int(getattr(s_last, "best_n", 10) or 10)
 
 
 # ---------- Season standings ----------
@@ -106,11 +106,11 @@ def season_standings(
 ) -> list[SeasonRow]:
     """
     Sezónní tabulka: bere turnaje s end_date uvnitř sezóny.
-    Pro každého hráče sečte **top N** výsledků (N = best_n nebo Season.best_N).
+    Pro každého hráče sečte **top N** výsledků (N = best_n nebo Season.best_n).
     """
     if not season.start_date or not season.end_date:
         raise ValidationError("Season musí mít start_date i end_date.")
-    N = int(best_n if best_n is not None else (getattr(season, "best_N", 10) or 10))
+    N = int(best_n if best_n is not None else (getattr(season, "best_n", 10) or 10))
 
     rows: dict[int, list[int]] = {}
     for t in _tournaments_in_season(season):
