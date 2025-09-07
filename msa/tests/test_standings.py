@@ -44,7 +44,7 @@ def _mk_tournament(season, category, name, end_date_str, scoring_md=None):
 
 @pytest.mark.django_db
 def test_season_best_n_counts_top_results_only():
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31", best_N=1)
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31", best_n=1)
     cat = Category.objects.create(name="World Tour")
     scoring = {"Winner": 100, "RunnerUp": 60, "SF": 36, "QF": 18, "R16": 9}
 
@@ -99,18 +99,18 @@ def test_season_best_n_counts_top_results_only():
 
     rows = season_standings(s)
     rowA = next(r for r in rows if r.player_id == A.id)
-    assert rowA.total == 100  # best_N=1 → bere jen 100
+    assert rowA.total == 100  # best_n=1 → bere jen 100
     assert rowA.counted == [100] and rowA.dropped == [18]
 
 
 @pytest.mark.django_db
 def test_rolling_activation_and_expiry_61_weeks():
-    # dvě sezóny (kvůli best_N fallbacku), ale počítáme podle datumu
+    # dvě sezóny (kvůli best_n fallbacku), ale počítáme podle datumu
     s1 = Season.objects.create(
-        name="2025", start_date="2025-01-01", end_date="2025-12-31", best_N=2
+        name="2025", start_date="2025-01-01", end_date="2025-12-31", best_n=2
     )
     s2 = Season.objects.create(
-        name="2026", start_date="2026-01-01", end_date="2026-12-31", best_N=2
+        name="2026", start_date="2026-01-01", end_date="2026-12-31", best_n=2
     )
     cat = Category.objects.create(name="WT")
     scoring = {"Winner": 100, "RunnerUp": 60, "SF": 36, "QF": 18, "R16": 9, "R32": 5}
@@ -156,7 +156,7 @@ def test_rolling_activation_and_expiry_61_weeks():
 
 @pytest.mark.django_db
 def test_rtf_pins_auto_top_winners():
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31", best_N=2)
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31", best_n=2)
     catP = Category.objects.create(name="WT Platinum")
     catS = Category.objects.create(name="WT Silver")
     scoring = {"Winner": 100, "RunnerUp": 60, "SF": 36, "QF": 18, "R16": 9}

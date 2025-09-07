@@ -16,6 +16,7 @@ from msa.models import (
     TournamentEntry,
 )
 from msa.services.md_confirm import confirm_main_draw
+from msa.services.md_embed import r1_name_for_md
 from msa.services.tx import atomic, locked
 
 PLACEHOLDER_PREFIX = "WINNER K#"
@@ -124,11 +125,7 @@ def replace_placeholders_with_qual_winners(t: Tournament) -> int:
     changed = 0
     # Zámek na všechny MD R1 zápasy, aby se nepřekrývaly editace
     r1 = list(
-        locked(
-            Match.objects.filter(
-                tournament=t, phase=Phase.MD, round_name=f"R{t.category_season.draw_size}"
-            )
-        )
+        locked(Match.objects.filter(tournament=t, phase=Phase.MD, round_name=r1_name_for_md(t)))
     )
     # (R1 nemusí existovat, pokud ještě nebyl confirm_main_draw – v tom případě neděláme nic)
     for phi in placeholders:
