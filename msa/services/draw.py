@@ -74,9 +74,9 @@ def progress_bracket(tournament) -> bool:
     bracket = next_power_of_two(tournament.draw_size or 0)
     entries = list(
         lock_qs(
-            tournament.entries.filter(position__isnull=False, status="active").select_related(
-                "player"
-            )
+            tournament.entries.filter(
+                position__isnull=False, status=TournamentEntry.Status.ACTIVE
+            ).select_related("player")
         )
     )
     by_pos = {e.position: e for e in entries}
@@ -98,6 +98,8 @@ def progress_bracket(tournament) -> bool:
         winners.append(winner_entry)
 
     created_any = False
+    best_of = getattr(tournament, "md_best_of", None) or 5
+
     for i in range(0, len(winners), 2):
         w1 = winners[i]
         w2 = winners[i + 1] if i + 1 < len(winners) else None
@@ -112,7 +114,7 @@ def progress_bracket(tournament) -> bool:
                 defaults={
                     "player1": w1.player,
                     "player2": w2.player,
-                    "best_of": 5,
+                    "best_of": best_of,
                 },
             )
         except IntegrityError:
