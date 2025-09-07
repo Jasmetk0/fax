@@ -1,0 +1,24 @@
+from functools import wraps
+
+from django.db import transaction
+
+from msa.models import Tournament
+
+
+def _lock_tournament_row(tournament):
+    pk = getattr(tournament, "pk", tournament)
+    Tournament.objects.select_for_update().filter(pk=pk).exists()
+
+
+def atomic_tournament(fn):
+    @wraps(fn)
+    def wrapper(tournament, *args, **kwargs):
+        with transaction.atomic():
+            _lock_tournament_row(tournament)
+            return fn(tournament, *args, **kwargs)
+
+    return wrapper
+
+
+def lock_qs(qs):
+    return qs.select_for_update()

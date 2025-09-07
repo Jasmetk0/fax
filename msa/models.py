@@ -142,6 +142,7 @@ class Tournament(models.Model):
     slug = models.SlugField(max_length=140, unique=True, null=True, blank=True)
     start_date = models.DateField(null=True, blank=True)
     end_date = models.DateField(null=True, blank=True)
+    draw_size = models.PositiveSmallIntegerField(null=True, blank=True)
 
     q_best_of = models.PositiveSmallIntegerField(default=3, null=True, blank=True)
     md_best_of = models.PositiveSmallIntegerField(default=5, null=True, blank=True)
@@ -176,13 +177,12 @@ class Tournament(models.Model):
     def __str__(self):
         return self.name or self.slug or "<Tournament>"
 
-    @property
-    def draw_size(self) -> int:
-        return int(self.category_season.draw_size) if self.category_season else 0
-
 
 class TournamentEntry(models.Model):
-    tournament = models.ForeignKey(Tournament, on_delete=models.CASCADE, null=True, blank=True)
+    Status = EntryStatus
+    tournament = models.ForeignKey(
+        Tournament, on_delete=models.CASCADE, related_name="entries", null=True, blank=True
+    )
     player = models.ForeignKey(Player, on_delete=models.PROTECT, null=True, blank=True)
 
     entry_type = models.CharField(
@@ -234,6 +234,9 @@ class Match(models.Model):
         max_length=16, null=True, blank=True
     )  # "R64","R32","R16","QF","SF","F","3P" atd.
 
+    round = models.CharField(max_length=16, null=True, blank=True)
+    position = models.PositiveIntegerField(null=True, blank=True)
+
     slot_top = models.PositiveIntegerField(null=True, blank=True)
     slot_bottom = models.PositiveIntegerField(null=True, blank=True)
 
@@ -242,6 +245,13 @@ class Match(models.Model):
     )
     player_bottom = models.ForeignKey(
         Player, on_delete=models.PROTECT, related_name="matches_as_bottom", null=True, blank=True
+    )
+
+    player1 = models.ForeignKey(
+        Player, on_delete=models.PROTECT, related_name="matches_as_player1", null=True, blank=True
+    )
+    player2 = models.ForeignKey(
+        Player, on_delete=models.PROTECT, related_name="matches_as_player2", null=True, blank=True
     )
 
     winner = models.ForeignKey(
@@ -265,11 +275,17 @@ class Match(models.Model):
     class Meta:
         indexes = [
             models.Index(fields=["tournament", "phase", "round_name"]),
+            models.Index(fields=["tournament", "round"]),
+            models.Index(fields=["tournament", "position"]),
         ]
         constraints = [
             models.UniqueConstraint(
                 fields=["tournament", "phase", "round_name", "slot_top", "slot_bottom"],
                 name="uniq_match_slot_in_round",
+            ),
+            models.UniqueConstraint(
+                fields=["tournament", "round", "position"],
+                name="uniq_match_tournament_round_position",
             ),
         ]
 
