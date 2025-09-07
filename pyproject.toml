@@ -4,14 +4,13 @@ line-length = 100
 fix = true
 unsafe-fixes = false
 
-# pravidla patří nově sem:
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B"]   # styl + chyby + isort + pyupgrade + bugbear
-ignore = ["E501"]                     # délku řádků řeší Black, E501 vypínáme
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["E501"]  # délku řádků hlídá Black
 
 [tool.ruff.lint.per-file-ignores]
 "msa/tests/**/*.py" = ["F401", "F841", "E701", "E702", "B017"]
-"fax_calendar/**/*.py" = ["B017"]     # test v kalendáři měl „blind exception“
+"fax_calendar/**/*.py" = ["B017"]
 
 [tool.black]
 target-version = ["py312"]
