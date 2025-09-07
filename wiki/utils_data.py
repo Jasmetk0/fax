@@ -5,9 +5,9 @@ from __future__ import annotations
 import csv
 import io
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Dict, Iterable, List, Optional, Tuple
 
 from django.core.cache import cache
 from django.db.models import Sum
@@ -19,13 +19,13 @@ CACHE_TTL = 30  # seconds
 
 @dataclass
 class ShortcodeParams:
-    fmt: Optional[str] = None
-    unit: Optional[str] = None
+    fmt: str | None = None
+    unit: str | None = None
     default: str = ""
-    agg: Optional[str] = None
+    agg: str | None = None
 
 
-def format_number(value: Decimal, fmt: Optional[str]) -> str:
+def format_number(value: Decimal, fmt: str | None) -> str:
     """Format numeric value according to ``fmt`` parameter."""
 
     if fmt == "comma":
@@ -45,9 +45,9 @@ def format_number(value: Decimal, fmt: Optional[str]) -> str:
     return str(value).rstrip("0").rstrip(".")
 
 
-def _parse_params(parts: Iterable[str]) -> Tuple[Optional[str], ShortcodeParams]:
+def _parse_params(parts: Iterable[str]) -> tuple[str | None, ShortcodeParams]:
     key = None
-    params: Dict[str, str] = {}
+    params: dict[str, str] = {}
     for part in parts:
         if "=" in part:
             k, v = part.split("=", 1)
@@ -63,7 +63,7 @@ def _parse_params(parts: Iterable[str]) -> Tuple[Optional[str], ShortcodeParams]
     return key, sp
 
 
-def _agg_query(series: DataSeries, agg: str) -> Optional[Decimal]:
+def _agg_query(series: DataSeries, agg: str) -> Decimal | None:
     """Aggregate values based on ``agg`` expression."""
 
     range_part = None
@@ -93,7 +93,7 @@ def get_series_by_category(category: str):
     return DataSeries.objects.filter(categories__slug=category)
 
 
-def get_value_for_year(series: DataSeries, year: str) -> Optional[Decimal]:
+def get_value_for_year(series: DataSeries, year: str) -> Decimal | None:
     """Return value for ``year`` or ``None``."""
 
     try:
@@ -123,7 +123,7 @@ def replace_data_shortcodes(html: str) -> str:
         except DataSeries.DoesNotExist:
             cache.set(cache_key, params.default, CACHE_TTL)
             return params.default
-        value: Optional[Decimal]
+        value: Decimal | None
         if params.agg:
             value = _agg_query(series, params.agg)
         else:
@@ -177,18 +177,16 @@ def replace_data_shortcodes(html: str) -> str:
         fmt = params.get("fmt")
         unit = params.get("unit") == "1"
         empty = params.get("empty", "—")
-        cache_key = (
-            f"ds-table:{cat_slug}:{year}:{sort}:{desc}:{limit}:{fmt}:{unit}:{empty}"
-        )
+        cache_key = f"ds-table:{cat_slug}:{year}:{sort}:{desc}:{limit}:{fmt}:{unit}:{empty}"
         cached = cache.get(cache_key)
         if cached is not None:
             return cached
-        rows: List[Dict[str, object]] = []
+        rows: list[dict[str, object]] = []
         for series in get_series_by_category(cat_slug):
             value = get_value_for_year(series, year)
             if value is None:
                 display = empty
-                value_sort: Optional[Decimal] = None
+                value_sort: Decimal | None = None
             else:
                 display = format_number(value, fmt)
                 if unit and series.unit:
@@ -212,9 +210,7 @@ def replace_data_shortcodes(html: str) -> str:
             rows.reverse()
         if limit:
             rows = rows[:limit]
-        body = "".join(
-            f"<tr><td>{r['title']}</td><td>{r['display']}</td></tr>" for r in rows
-        )
+        body = "".join(f"<tr><td>{r['title']}</td><td>{r['display']}</td></tr>" for r in rows)
         html_table = (
             f'<table class="ds-table"><thead><tr><th>Název</th>'
             f"<th>Hodnota ({year})</th></tr></thead>"
@@ -244,9 +240,7 @@ def replace_data_shortcodes(html: str) -> str:
     return map_pattern.sub(repl_map, html)
 
 
-def import_csv_to_series(
-    series: DataSeries, file_obj: io.TextIOBase
-) -> Tuple[int, int]:
+def import_csv_to_series(series: DataSeries, file_obj: io.TextIOBase) -> tuple[int, int]:
     """Import CSV data into ``series``.
 
     Returns a tuple ``(created, updated)``.

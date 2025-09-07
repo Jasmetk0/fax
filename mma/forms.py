@@ -4,9 +4,9 @@ from .models import (
     Bout,
     Event,
     Fighter,
+    NewsItem,
     Organization,
     Ranking,
-    NewsItem,
 )
 
 

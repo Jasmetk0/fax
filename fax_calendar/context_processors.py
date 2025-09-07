@@ -13,9 +13,10 @@ def woorld_calendar_meta(request):
     year 1 is assumed.
     """
 
-    from .utils import parse_woorld_date
-    from . import core
     import json
+
+    from . import core
+    from .utils import parse_woorld_date
 
     date_str = request.session.get("woorld_current_date", "")
     try:

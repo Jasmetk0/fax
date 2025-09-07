@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from django.utils import timezone
 from zoneinfo import ZoneInfo
+
+from django.utils import timezone
 from rest_framework import serializers
 
 from mma.models import Event, NewsItem, Organization, Venue

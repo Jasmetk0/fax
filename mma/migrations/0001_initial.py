@@ -51,9 +51,7 @@ class Migration(migrations.Migration):
                 ("birthdate", models.DateField(blank=True, null=True)),
             ],
             options={
-                "indexes": [
-                    models.Index(fields=["slug"], name="mma_fighter_slug_05f6ee_idx")
-                ],
+                "indexes": [models.Index(fields=["slug"], name="mma_fighter_slug_05f6ee_idx")],
             },
         ),
         migrations.CreateModel(
@@ -78,9 +76,7 @@ class Migration(migrations.Migration):
             options={
                 "indexes": [
                     models.Index(fields=["slug"], name="mma_newsite_slug_550841_idx"),
-                    models.Index(
-                        fields=["published_at"], name="mma_newsite_publish_84fb38_idx"
-                    ),
+                    models.Index(fields=["published_at"], name="mma_newsite_publish_84fb38_idx"),
                 ],
             },
         ),
@@ -101,9 +97,7 @@ class Migration(migrations.Migration):
                 ("short_name", models.CharField(max_length=50)),
             ],
             options={
-                "indexes": [
-                    models.Index(fields=["slug"], name="mma_organiz_slug_a59e69_idx")
-                ],
+                "indexes": [models.Index(fields=["slug"], name="mma_organiz_slug_a59e69_idx")],
             },
         ),
         migrations.CreateModel(
@@ -157,9 +151,7 @@ class Migration(migrations.Migration):
                 ("limit_kg", models.PositiveIntegerField()),
             ],
             options={
-                "indexes": [
-                    models.Index(fields=["slug"], name="mma_weightc_slug_7c046b_idx")
-                ],
+                "indexes": [models.Index(fields=["slug"], name="mma_weightc_slug_7c046b_idx")],
             },
         ),
         migrations.CreateModel(
@@ -272,39 +264,27 @@ class Migration(migrations.Migration):
         ),
         migrations.AddIndex(
             model_name="event",
-            index=models.Index(
-                fields=["date_start"], name="mma_event_date_st_048a97_idx"
-            ),
+            index=models.Index(fields=["date_start"], name="mma_event_date_st_048a97_idx"),
         ),
         migrations.AddIndex(
             model_name="event",
-            index=models.Index(
-                fields=["organization"], name="mma_event_organiz_2dfb4d_idx"
-            ),
+            index=models.Index(fields=["organization"], name="mma_event_organiz_2dfb4d_idx"),
         ),
         migrations.AddIndex(
             model_name="ranking",
-            index=models.Index(
-                fields=["organization"], name="mma_ranking_organiz_9e62f0_idx"
-            ),
+            index=models.Index(fields=["organization"], name="mma_ranking_organiz_9e62f0_idx"),
         ),
         migrations.AddIndex(
             model_name="ranking",
-            index=models.Index(
-                fields=["weight_class"], name="mma_ranking_weight__1ce72d_idx"
-            ),
+            index=models.Index(fields=["weight_class"], name="mma_ranking_weight__1ce72d_idx"),
         ),
         migrations.AddIndex(
             model_name="ranking",
-            index=models.Index(
-                fields=["date_effective"], name="mma_ranking_date_ef_1811ea_idx"
-            ),
+            index=models.Index(fields=["date_effective"], name="mma_ranking_date_ef_1811ea_idx"),
         ),
         migrations.AlterUniqueTogether(
             name="ranking",
-            unique_together={
-                ("organization", "weight_class", "position", "date_effective")
-            },
+            unique_together={("organization", "weight_class", "position", "date_effective")},
         ),
         migrations.AddIndex(
             model_name="bout",
@@ -312,20 +292,14 @@ class Migration(migrations.Migration):
         ),
         migrations.AddIndex(
             model_name="bout",
-            index=models.Index(
-                fields=["weight_class"], name="mma_bout_weight__20e48e_idx"
-            ),
+            index=models.Index(fields=["weight_class"], name="mma_bout_weight__20e48e_idx"),
         ),
         migrations.AddIndex(
             model_name="bout",
-            index=models.Index(
-                fields=["fighter_red"], name="mma_bout_fighter_078ec8_idx"
-            ),
+            index=models.Index(fields=["fighter_red"], name="mma_bout_fighter_078ec8_idx"),
         ),
         migrations.AddIndex(
             model_name="bout",
-            index=models.Index(
-                fields=["fighter_blue"], name="mma_bout_fighter_ea47b9_idx"
-            ),
+            index=models.Index(fields=["fighter_blue"], name="mma_bout_fighter_ea47b9_idx"),
         ),
     ]

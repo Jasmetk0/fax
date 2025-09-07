@@ -1,7 +1,7 @@
 from django.contrib import admin
-from .models import Article, Tag, Category, CategoryArticle
 
 from . import admin_data  # noqa: F401
+from .models import Article, Category, CategoryArticle, Tag
 
 
 class CategoryArticleInline(admin.TabularInline):

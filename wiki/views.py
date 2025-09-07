@@ -1,20 +1,21 @@
-from django.urls import reverse_lazy
-from django.views.generic import (
-    ListView,
-    DetailView,
-    CreateView,
-    UpdateView,
-    DeleteView,
-    View,
-)
+import difflib
+
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.forms import inlineformset_factory
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
-import difflib
+from django.urls import reverse_lazy
+from django.views.generic import (
+    CreateView,
+    DeleteView,
+    DetailView,
+    ListView,
+    UpdateView,
+    View,
+)
 
-from .models import Article, ArticleRevision, Category, CategoryArticle
 from .infoboxes import parser as infobox_parser
+from .models import Article, ArticleRevision, Category, CategoryArticle
 
 
 class StaffRequiredMixin(LoginRequiredMixin, UserPassesTestMixin):
@@ -46,9 +47,7 @@ class ArticleListView(ListView):
     context_object_name = "articles"
 
     def get_queryset(self):
-        queryset = (
-            super().get_queryset().filter(is_deleted=False).order_by("-updated_at")
-        )
+        queryset = super().get_queryset().filter(is_deleted=False).order_by("-updated_at")
         q = self.request.GET.get("q")
         if q:
             queryset = queryset.filter(title__icontains=q)
@@ -149,9 +148,7 @@ class ArticleRevisionDiffView(AdminModeRequiredMixin, View):
             fromdesc="rev",
             todesc="current",
         )
-        return render(
-            request, "wiki/article_diff.html", {"article": article, "diff": diff}
-        )
+        return render(request, "wiki/article_diff.html", {"article": article, "diff": diff})
 
 
 class ArticleRevisionRevertView(AdminModeRequiredMixin, View):
@@ -201,9 +198,7 @@ class CategoryUpdateView(StaffRequiredMixin, UpdateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         if self.request.POST:
-            context["formset"] = CategoryArticleFormSet(
-                self.request.POST, instance=self.object
-            )
+            context["formset"] = CategoryArticleFormSet(self.request.POST, instance=self.object)
         else:
             context["formset"] = CategoryArticleFormSet(instance=self.object)
         return context

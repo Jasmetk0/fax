@@ -16,7 +16,6 @@ from django.views.generic import (
 from .models_data import DataPoint, DataSeries
 from .views import AdminModeRequiredMixin
 
-
 DataPointFormSet = inlineformset_factory(
     DataSeries, DataPoint, fields=["key", "value", "note"], extra=1, can_delete=True
 )

@@ -1,7 +1,7 @@
 """Base provider interface for MMA data."""
 
 from abc import ABC, abstractmethod
-from typing import Iterable, Mapping
+from collections.abc import Iterable, Mapping
 
 
 class MMADataProvider(ABC):

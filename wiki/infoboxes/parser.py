@@ -3,7 +3,6 @@ import json
 import logging
 import os
 import re
-from typing import Dict, List
 
 import bleach
 from django.conf import settings
@@ -14,17 +13,17 @@ from django.template.loader import render_to_string
 logger = logging.getLogger(__name__)
 
 INFOBOX_RE = re.compile(r"\{\{Infobox\s+([A-Za-z0-9._-]+)(.*?)\}\}", re.DOTALL)
-SCHEMA_CACHE: Dict[str, List[Dict[str, str]] | None] = {}
+SCHEMA_CACHE: dict[str, list[dict[str, str]] | None] = {}
 
 
 def _normalize_key(key: str) -> str:
     return re.sub(r"\s+", "_", key.strip().lower())
 
 
-def parse_params(raw: str) -> Dict[str, str]:
-    params: Dict[str, str] = {}
-    key: List[str] | None = None
-    val: List[str] = []
+def parse_params(raw: str) -> dict[str, str]:
+    params: dict[str, str] = {}
+    key: list[str] | None = None
+    val: list[str] = []
     quote: str | None = None
     i = 0
     while i < len(raw):
@@ -68,11 +67,11 @@ def parse_params(raw: str) -> Dict[str, str]:
     return params
 
 
-def load_schema(ibox_type: str) -> List[Dict[str, str]] | None:
+def load_schema(ibox_type: str) -> list[dict[str, str]] | None:
     if ibox_type not in SCHEMA_CACHE:
         path = os.path.join(settings.BASE_DIR, "infoboxes", f"{ibox_type}.schema.json")
         try:
-            with open(path, "r", encoding="utf-8") as fh:
+            with open(path, encoding="utf-8") as fh:
                 SCHEMA_CACHE[ibox_type] = json.load(fh)
         except FileNotFoundError:
             logger.debug("Schema not found for %s", ibox_type)
@@ -103,20 +102,15 @@ ALLOWED_ATTRS = {
 }
 
 
-def _sanitize_params(params: Dict[str, str]) -> Dict[str, str]:
-    return {
-        k: bleach.clean(v, tags=[], attributes={}, strip=True)
-        for k, v in params.items()
-    }
+def _sanitize_params(params: dict[str, str]) -> dict[str, str]:
+    return {k: bleach.clean(v, tags=[], attributes={}, strip=True) for k, v in params.items()}
 
 
-def _validate_params(
-    params: Dict[str, str], schema: List[Dict[str, str]] | None
-) -> List[str]:
+def _validate_params(params: dict[str, str], schema: list[dict[str, str]] | None) -> list[str]:
     if not schema:
         return []
     schema_map = {item["name"]: item for item in schema}
-    warnings: List[str] = []
+    warnings: list[str] = []
     for key, value in params.items():
         if key not in schema_map:
             warnings.append(f"Unknown parameter: {key}")
@@ -132,16 +126,14 @@ def _validate_params(
 
 def render_infobox(
     ibox_type: str,
-    params: Dict[str, str],
-    schema: List[Dict[str, str]] | None,
+    params: dict[str, str],
+    schema: list[dict[str, str]] | None,
     page_title: str,
 ) -> str:
     template = f"infoboxes/{ibox_type}.html"
     cache_key = (
         "infobox:"
-        + hashlib.md5(
-            (template + json.dumps(params, sort_keys=True)).encode()
-        ).hexdigest()
+        + hashlib.md5((template + json.dumps(params, sort_keys=True)).encode()).hexdigest()
     )
     cached = cache.get(cache_key)
     if cached:
@@ -158,8 +150,7 @@ def render_infobox(
                 "value": params.get(item["name"], ""),
             }
             for item in schema
-            if item["name"]
-            not in {"name", "flag", "coat_of_arms", "map", "image", "caption"}
+            if item["name"] not in {"name", "flag", "coat_of_arms", "map", "image", "caption"}
         ]
         context["rows"] = rows
     try:

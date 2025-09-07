@@ -7,6 +7,14 @@ from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.views.generic import CreateView, DeleteView, UpdateView
 
+from .forms import (
+    BoutForm,
+    EventForm,
+    FighterForm,
+    NewsItemForm,
+    OrganizationForm,
+    RankingForm,
+)
 from .models import (
     Bout,
     Event,
@@ -15,14 +23,6 @@ from .models import (
     Organization,
     Ranking,
     WeightClass,
-)
-from .forms import (
-    BoutForm,
-    EventForm,
-    FighterForm,
-    NewsItemForm,
-    OrganizationForm,
-    RankingForm,
 )
 
 
@@ -43,9 +43,9 @@ def dashboard(request):
         .select_related("organization", "venue")
         .order_by("-date_start")[:3]
     )
-    rankings = Ranking.objects.select_related(
-        "organization", "weight_class", "fighter"
-    ).order_by("position")[:5]
+    rankings = Ranking.objects.select_related("organization", "weight_class", "fighter").order_by(
+        "position"
+    )[:5]
     fighters = Fighter.objects.order_by("last_name")[:5]
     news_items = NewsItem.objects.order_by("-published_at")[:5]
     admin = _is_admin(request)
@@ -97,9 +97,7 @@ def event_list(request):
 
 
 def event_detail(request, slug):
-    event = get_object_or_404(
-        Event.objects.select_related("organization", "venue"), slug=slug
-    )
+    event = get_object_or_404(Event.objects.select_related("organization", "venue"), slug=slug)
     bouts = event.bouts.select_related("fighter_red", "fighter_blue").order_by("id")
     return render(
         request,
@@ -112,9 +110,7 @@ def fighter_list(request):
     query = request.GET.get("query", "")
     fighters = Fighter.objects.all()
     if query:
-        fighters = fighters.filter(
-            Q(first_name__icontains=query) | Q(last_name__icontains=query)
-        )
+        fighters = fighters.filter(Q(first_name__icontains=query) | Q(last_name__icontains=query))
     fighters = fighters.order_by("last_name")
     return render(
         request,
@@ -410,9 +406,7 @@ class RankingCreateView(AdminModeRequiredMixin, CreateView):
     def get_initial(self):
         initial = super().get_initial()
         org_slug = self.kwargs.get("org_slug") or self.request.GET.get("organization")
-        weight_slug = self.kwargs.get("weight_slug") or self.request.GET.get(
-            "weight_class"
-        )
+        weight_slug = self.kwargs.get("weight_slug") or self.request.GET.get("weight_class")
         if org_slug:
             initial["organization"] = get_object_or_404(Organization, slug=org_slug)
         if weight_slug:

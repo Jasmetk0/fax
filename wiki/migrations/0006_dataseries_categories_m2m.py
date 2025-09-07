@@ -47,9 +47,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="dataseries",
             name="categories",
-            field=models.ManyToManyField(
-                blank=True, related_name="series", to="wiki.datacategory"
-            ),
+            field=models.ManyToManyField(blank=True, related_name="series", to="wiki.datacategory"),
         ),
         migrations.RunPython(migrate_categories, migrations.RunPython.noop),
         migrations.RemoveField(model_name="dataseries", name="category"),

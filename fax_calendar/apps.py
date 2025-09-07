@@ -6,6 +6,7 @@ class FaxCalendarConfig(AppConfig):
 
     def ready(self) -> None:  # pragma: no cover - import side effects
         from django.contrib.admin.options import ModelAdmin
+
         from .widgets import WoorldAdminDateWidget
 
         original_get_form = ModelAdmin.get_form

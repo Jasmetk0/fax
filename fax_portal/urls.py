@@ -3,7 +3,6 @@ from django.urls import include, path
 from django.views.generic import TemplateView
 
 from fax_calendar import views as calendar_views
-
 from search import views as search_views
 from wiki.urls import api_urlpatterns as wiki_api
 
@@ -28,9 +27,7 @@ urlpatterns = [
     path("search", search_views.search, name="search"),
     path(
         "manifest.json",
-        TemplateView.as_view(
-            template_name="manifest.json", content_type="application/json"
-        ),
+        TemplateView.as_view(template_name="manifest.json", content_type="application/json"),
         name="manifest",
     ),
     path(

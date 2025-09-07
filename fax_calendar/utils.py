@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from datetime import date, datetime
-from typing import Iterable, Tuple, Union, Any
+from typing import Any
 
 from django.core.exceptions import ValidationError
 
@@ -23,7 +24,7 @@ def days_in_month(year: int, month: int) -> int:
 _SEP_RE = r"[-./]"
 
 
-def parse_woorld_date(value: Any) -> Tuple[int | None, int | None, int | None]:
+def parse_woorld_date(value: Any) -> tuple[int | None, int | None, int | None]:
     """Tolerant parser for Woorld calendar dates.
 
     Accepts multiple input types:
@@ -44,11 +45,11 @@ def parse_woorld_date(value: Any) -> Tuple[int | None, int | None, int | None]:
         return (None, None, None)
 
     # ``date`` / ``datetime`` instances --------------------------------
-    if isinstance(value, (date, datetime)):
+    if isinstance(value, date | datetime):
         return value.year, value.month, value.day
 
     # Tuple/list of components -----------------------------------------
-    if isinstance(value, (list, tuple)) and len(value) == 3:
+    if isinstance(value, list | tuple) and len(value) == 3:
         if all(v in (None, "", b"") for v in value):
             return (None, None, None)
         try:
@@ -77,9 +78,7 @@ def parse_woorld_date(value: Any) -> Tuple[int | None, int | None, int | None]:
         if iso:
             y, m, d = map(int, iso.groups())
         else:
-            dmy = re.fullmatch(
-                rf"(\d{{1,2}}){_SEP_RE}(\d{{1,2}}){_SEP_RE}(\d{{4}})", value
-            )
+            dmy = re.fullmatch(rf"(\d{{1,2}}){_SEP_RE}(\d{{1,2}}){_SEP_RE}(\d{{4}})", value)
             if not dmy:
                 raise ValidationError(err_msg)
             d, m, y = map(int, dmy.groups())
@@ -111,8 +110,8 @@ def to_storage(year: int, month: int, day: int) -> str:
 
 
 def from_storage(
-    value: Union[str, bytes, date, datetime, Iterable[int]],
-) -> Tuple[int | None, int | None, int | None]:
+    value: str | bytes | date | datetime | Iterable[int],
+) -> tuple[int | None, int | None, int | None]:
     """Parse storage format ``YYYY-MM-DD``.
 
     Gracefully handles ``None`` and various input types. Returns a
@@ -124,11 +123,11 @@ def from_storage(
         return (None, None, None)
 
     # ``date`` / ``datetime`` instances --------------------------------------
-    if isinstance(value, (date, datetime)):
+    if isinstance(value, date | datetime):
         return value.year, value.month, value.day
 
     # Raw tuple/list of components -------------------------------------------
-    if isinstance(value, (list, tuple)) and len(value) == 3:
+    if isinstance(value, list | tuple) and len(value) == 3:
         try:
             y, m, d = [int(v) for v in value]
             days_in_month(y, m)
@@ -174,7 +173,7 @@ def season_name(year: int, month: int, day: int) -> str:
 # ---------------------------------------------------------------------------
 
 
-def parse_woorld_ddmmyyyy(value: str) -> Tuple[int, int, int]:
+def parse_woorld_ddmmyyyy(value: str) -> tuple[int, int, int]:
     """Deprecated DD/MM/YYYY parser."""
 
     return parse_woorld_date(value)

@@ -1,6 +1,5 @@
 import unicodedata
 
-
 __all__ = ["normalize", "levenshtein_max1", "fuzzy1_token_match"]
 
 

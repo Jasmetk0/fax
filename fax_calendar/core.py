@@ -9,12 +9,10 @@ The calendar starts on Monday (weekday 0) on 1/1/1.
 
 from __future__ import annotations
 
-from typing import Dict, List, Tuple
-
 TROPICAL_YEAR: float = 428.5646875
 PROMOTED_START: int = 303
 PROTO_V3_YEARS: set[int] = {689, 1067, 1433, 1657}
-WEEKDAY_NAMES: List[str] = [
+WEEKDAY_NAMES: list[str] = [
     "Monday",
     "Tuesday",
     "Wednesday",
@@ -81,7 +79,7 @@ def month1_length(y: int) -> int:
     return 29 + E(y)
 
 
-def month_lengths(y: int) -> List[int]:
+def month_lengths(y: int) -> list[int]:
     """Return a list of month lengths for year ``y``.
 
     The calendar has 15 months alternating 29/28 days starting with 29.
@@ -89,7 +87,7 @@ def month_lengths(y: int) -> List[int]:
     """
 
     e = E(y)
-    lengths: List[int] = []
+    lengths: list[int] = []
     for m in range(1, 16):
         if m == 1:
             lengths.append(29 + e)
@@ -100,7 +98,7 @@ def month_lengths(y: int) -> List[int]:
     return lengths
 
 
-def anchors(y: int) -> Dict[str, int]:
+def anchors(y: int) -> dict[str, int]:
     """Return seasonal anchor day-of-year positions for year ``y``."""
 
     e = E(y)
@@ -140,7 +138,7 @@ def to_ordinal(y: int, m: int, d: int) -> int:
     return sum(lengths[: m - 1]) + d
 
 
-def from_ordinal(y: int, doy: int) -> Tuple[int, int, int]:
+def from_ordinal(y: int, doy: int) -> tuple[int, int, int]:
     """Return (y, m, d) for given day-of-year ``doy``."""
 
     if not 1 <= doy <= year_length(y):

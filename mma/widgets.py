@@ -1,7 +1,7 @@
 """Widget registrations for the MMA app."""
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
 
 
 @dataclass
