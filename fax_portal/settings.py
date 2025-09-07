@@ -88,6 +88,9 @@ STATIC_URL = "static/"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+# Ztišení Django 6.0 URLField warningu
+FORMS_URLFIELD_ASSUME_HTTPS = True
+
 # OpenFaxMap tile configuration
 OFM_TILE_URL = os.getenv("OFM_TILE_URL", "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png")
 OFM_TILE_ATTRIBUTION = os.getenv("OFM_TILE_ATTRIBUTION", "© OpenStreetMap contributors")
