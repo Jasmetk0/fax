@@ -7,6 +7,7 @@ from django.core.exceptions import ValidationError
 
 from msa.models import EntryStatus, Match, MatchState, Phase, Tournament, TournamentEntry
 from msa.services.md_confirm import _pick_seeds_and_unseeded  # reuse interní logiku
+from msa.services.md_embed import effective_template_size_for_md, r1_name_for_md
 from msa.services.seed_anchors import band_sequence_for_S, md_anchor_map
 from msa.services.tx import atomic, locked
 
@@ -21,10 +22,7 @@ def _default_seeds_count(draw_size: int) -> int:
     return 0
 
 
-def _r1_name(draw_size: int) -> str:
-    return f"R{draw_size}"
-
-
+# R1 i kotvy vyhodnocujeme podle embed šablony (power-of-two), ne přímo podle draw_size.
 @atomic()
 def regenerate_md_band(
     t: Tournament, band: str, rng_seed: int, mode: str = "SOFT"
@@ -44,16 +42,11 @@ def regenerate_md_band(
             tournament=t, status=EntryStatus.ACTIVE, position__isnull=False
         )
     )
-    draw_size = (
-        int(t.category_season.draw_size)
-        if (t.category_season and t.category_season.draw_size)
-        else 0
-    )
+    draw_size = int(t.category_season.draw_size or 0) if t.category_season else 0
     if not draw_size:
         raise ValidationError("Tournament.category_season.draw_size není nastaven.")
-    r1_qs = locked(
-        Match.objects.filter(tournament=t, phase=Phase.MD, round_name=_r1_name(draw_size))
-    )
+    template_size = effective_template_size_for_md(t)
+    r1_qs = locked(Match.objects.filter(tournament=t, phase=Phase.MD, round_name=r1_name_for_md(t)))
 
     # Build základní sady
     entries = list(entries_qs)
@@ -81,7 +74,7 @@ def regenerate_md_band(
                 te.save(update_fields=["position"])
     else:
         # Seed band
-        anchors = md_anchor_map(draw_size)  # OrderedDict
+        anchors = md_anchor_map(template_size)  # OrderedDict
         if band not in anchors:
             raise ValidationError(f"Neznámý band '{band}' pro draw_size={draw_size}.")
         # ověř, že band je „aktivní“ (patří do band_sequence_for_S)
@@ -90,7 +83,7 @@ def regenerate_md_band(
             if (t.category_season and t.category_season.md_seeds_count)
             else _default_seeds_count(draw_size)
         )
-        used_bands = set(band_sequence_for_S(draw_size, S))
+        used_bands = set(band_sequence_for_S(template_size, S))
         if band not in used_bands:
             raise ValidationError(f"Band '{band}' se nepoužívá při S={S}.")
 
