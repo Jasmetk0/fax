@@ -303,6 +303,7 @@ class Migration(migrations.Migration):
                 ),
                 ("start_date", models.DateField(blank=True, null=True)),
                 ("end_date", models.DateField(blank=True, null=True)),
+                ("draw_size", models.PositiveSmallIntegerField(blank=True, null=True)),
                 (
                     "q_best_of",
                     models.PositiveSmallIntegerField(blank=True, default=3, null=True),
@@ -538,6 +539,7 @@ class Migration(migrations.Migration):
                         blank=True,
                         null=True,
                         on_delete=django.db.models.deletion.CASCADE,
+                        related_name="entries",
                         to="msa.tournament",
                     ),
                 ),

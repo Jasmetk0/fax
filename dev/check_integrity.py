@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import ast
 import pathlib
+import sys
 
 SPEC = {
     "seed_anchors.py": ["md_anchor_map", "band_sequence_for_S"],
@@ -96,5 +97,55 @@ def main() -> int:
     return 0
 
 
+# === Concurrency Guards (AST check) ==========================================
+_REQUIRED_DECOS = {
+    "msa/services/draw.py": {"progress_bracket": "atomic_tournament"},
+    "msa/services/ops.py": {"replace_slot": "atomic_tournament"},
+}
+
+
+def _has_decorator(fn_node: ast.FunctionDef, deco_name: str) -> bool:
+    for d in fn_node.decorator_list:
+        if isinstance(d, ast.Name) and d.id == deco_name:
+            return True
+        if isinstance(d, ast.Attribute) and d.attr == deco_name:
+            return True
+    return False
+
+
+def _check_decorators(file_path: pathlib.Path, req: dict[str, str]) -> list[str]:
+    try:
+        src = file_path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return [f"{file_path}: file not found"]
+    tree = ast.parse(src, filename=str(file_path))
+    missing = []
+    for node in tree.body:
+        if isinstance(node, ast.FunctionDef) and node.name in req:
+            need = req[node.name]
+            if not _has_decorator(node, need):
+                missing.append(f"{file_path}: {node.name} missing @{need}")
+    return missing
+
+
+def check_concurrency_guards():
+    base = pathlib.Path(__file__).resolve().parents[1]
+    failures = []
+    for rel, req in _REQUIRED_DECOS.items():
+        failures += _check_decorators(base / rel, req)
+    if failures:
+        print("Concurrency guard check failed:")
+        for f in failures:
+            print(" -", f)
+        sys.exit(1)
+    else:
+        print("Concurrency guard check OK")
+        return True
+
+
 if __name__ == "__main__":
+    try:
+        check_concurrency_guards()
+    except SystemExit:
+        raise
     raise SystemExit(main())
