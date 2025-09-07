@@ -1,13 +1,11 @@
 # msa/services/planning.py
 from __future__ import annotations
 
-from typing import List, Optional, Tuple, Dict
 from dataclasses import dataclass
 
 from django.core.exceptions import ValidationError
-from django.db.models import Q
 
-from msa.models import Tournament, Match, Schedule, Phase, Snapshot, MatchState
+from msa.models import Match, Schedule, Snapshot, Tournament
 from msa.services.tx import atomic, locked
 
 
@@ -27,15 +25,20 @@ class ScheduledItem:
 
 # ---------- helpers ----------
 
-def _list_day(t: Tournament, play_date: str) -> List[Schedule]:
+
+def _list_day(t: Tournament, play_date: str) -> list[Schedule]:
     return list(
-        Schedule.objects.filter(tournament=t, play_date=play_date).select_related("match").order_by("order", "match_id")
+        Schedule.objects.filter(tournament=t, play_date=play_date)
+        .select_related("match")
+        .order_by("order", "match_id")
     )
 
 
-def _list_all(t: Tournament) -> List[Schedule]:
+def _list_all(t: Tournament) -> list[Schedule]:
     return list(
-        Schedule.objects.filter(tournament=t).select_related("match").order_by("play_date", "order", "match_id")
+        Schedule.objects.filter(tournament=t)
+        .select_related("match")
+        .order_by("play_date", "order", "match_id")
     )
 
 
@@ -48,7 +51,7 @@ def _compact_day(t: Tournament, play_date: str) -> None:
             sch.save(update_fields=["order"])
 
 
-def _snapshot_payload(t: Tournament) -> Dict:
+def _snapshot_payload(t: Tournament) -> dict:
     rows = [
         dict(
             match_id=sch.match_id,
@@ -60,54 +63,59 @@ def _snapshot_payload(t: Tournament) -> Dict:
     return dict(kind="PLANNING", rows=rows)
 
 
-def _restore_payload(t: Tournament, payload: Dict) -> None:
+def _restore_payload(t: Tournament, payload: dict) -> None:
     if payload.get("kind") != "PLANNING":
         raise ValidationError("Snapshot neobsahuje plánování.")
     # vymaž existující plán
     Schedule.objects.filter(tournament=t).delete()
     # znovu vytvoř podle payloadu
-    bulk: List[Schedule] = []
+    bulk: list[Schedule] = []
     for r in payload.get("rows", []):
         m = Match.objects.filter(pk=r["match_id"], tournament=t).first()
         if not m:
             # přeskoč neexistující zápasy (snapshot může být starší)
             continue
-        bulk.append(
-            Schedule(tournament=t, match=m, play_date=r["play_date"], order=r["order"])
-        )
+        bulk.append(Schedule(tournament=t, match=m, play_date=r["play_date"], order=r["order"]))
     Schedule.objects.bulk_create(bulk, ignore_conflicts=True)
 
 
-def _ensure_not_scheduled_elsewhere(t: Tournament, match_id: int) -> Optional[Schedule]:
+def _ensure_not_scheduled_elsewhere(t: Tournament, match_id: int) -> Schedule | None:
     """Vrátí existující Schedule pro match (pokud je), abychom ho mohli přesunout/odstranit."""
     return Schedule.objects.filter(tournament=t, match_id=match_id).first()
 
 
-def _serialize_day_items(day: List[Schedule]) -> List[ScheduledItem]:
-    out: List[ScheduledItem] = []
+def _serialize_day_items(day: list[Schedule]) -> list[ScheduledItem]:
+    out: list[ScheduledItem] = []
     for sch in day:
         m = sch.match
-        out.append(ScheduledItem(
-            match_id=m.id,
-            play_date=str(sch.play_date) if sch.play_date else None,
-            order=sch.order,
-            phase=m.phase,
-            round_name=m.round_name,
-            slot_top=m.slot_top or 0,
-            slot_bottom=m.slot_bottom or 0,
-            player_top_id=m.player_top_id,
-            player_bottom_id=m.player_bottom_id,
-            state=m.state,
-        ))
+        out.append(
+            ScheduledItem(
+                match_id=m.id,
+                play_date=str(sch.play_date) if sch.play_date else None,
+                order=sch.order,
+                phase=m.phase,
+                round_name=m.round_name,
+                slot_top=m.slot_top or 0,
+                slot_bottom=m.slot_bottom or 0,
+                player_top_id=m.player_top_id,
+                player_bottom_id=m.player_bottom_id,
+                state=m.state,
+            )
+        )
     return out
 
 
 # ---------- Public API ----------
 
+
 @atomic()
-def list_day_order(t: Tournament, play_date: str) -> List[ScheduledItem]:
+def list_day_order(t: Tournament, play_date: str) -> list[ScheduledItem]:
     """Vrať očíslovaný seznam zápasů pro den."""
-    day = locked(Schedule.objects.filter(tournament=t, play_date=play_date)).select_related("match").order_by("order", "match_id")
+    day = (
+        locked(Schedule.objects.filter(tournament=t, play_date=play_date))
+        .select_related("match")
+        .order_by("order", "match_id")
+    )
     return _serialize_day_items(list(day))
 
 
@@ -128,7 +136,9 @@ def insert_match(t: Tournament, match_id: int, play_date: str, order: int) -> No
             _compact_day(t, old_day)
 
     # posuň kolize na cílovém dni
-    colliders = Schedule.objects.filter(tournament=t, play_date=play_date, order__gte=order).order_by("-order")
+    colliders = Schedule.objects.filter(
+        tournament=t, play_date=play_date, order__gte=order
+    ).order_by("-order")
     for sch in colliders:
         sch.order = (sch.order or 0) + 1
         sch.save(update_fields=["order"])
@@ -143,7 +153,9 @@ def insert_match(t: Tournament, match_id: int, play_date: str, order: int) -> No
     _compact_day(t, play_date)
 
     # snapshot
-    Snapshot.objects.create(tournament=t, type=Snapshot.SnapshotType.MANUAL, payload=_snapshot_payload(t))
+    Snapshot.objects.create(
+        tournament=t, type=Snapshot.SnapshotType.MANUAL, payload=_snapshot_payload(t)
+    )
 
 
 @atomic()
@@ -152,16 +164,26 @@ def swap_matches(t: Tournament, match_id_a: int, match_id_b: int) -> None:
     Swap: vymění (play_date, order) dvou zápasů (může být i napříč dny).
     Bezpečně přes dočasné NULL v order (unikát dovolí více NULL).
     """
-    a = locked(Schedule.objects.filter(tournament=t, match_id=match_id_a)).select_related("match").first()
-    b = locked(Schedule.objects.filter(tournament=t, match_id=match_id_b)).select_related("match").first()
+    a = (
+        locked(Schedule.objects.filter(tournament=t, match_id=match_id_a))
+        .select_related("match")
+        .first()
+    )
+    b = (
+        locked(Schedule.objects.filter(tournament=t, match_id=match_id_b))
+        .select_related("match")
+        .first()
+    )
     if not a or not b:
         raise ValidationError("Oba zápasy musí být naplánované.")
     pa, oa = a.play_date, a.order
     pb, ob = b.play_date, b.order
 
     # dočasně uvolníme unikát
-    a.order = None; a.save(update_fields=["order"])
-    b.order = None; b.save(update_fields=["order"])
+    a.order = None
+    a.save(update_fields=["order"])
+    b.order = None
+    b.save(update_fields=["order"])
 
     # prohodíme den i pořadí
     a.play_date, a.order = pb, ob
@@ -170,24 +192,32 @@ def swap_matches(t: Tournament, match_id_a: int, match_id_b: int) -> None:
     b.save(update_fields=["play_date", "order"])
 
     # compact obou dnů
-    if pa: _compact_day(t, str(pa))
-    if pb: _compact_day(t, str(pb))
+    if pa:
+        _compact_day(t, str(pa))
+    if pb:
+        _compact_day(t, str(pb))
 
-    Snapshot.objects.create(tournament=t, type=Snapshot.SnapshotType.MANUAL, payload=_snapshot_payload(t))
+    Snapshot.objects.create(
+        tournament=t, type=Snapshot.SnapshotType.MANUAL, payload=_snapshot_payload(t)
+    )
 
 
 @atomic()
 def normalize_day(t: Tournament, play_date: str) -> None:
     """Normalize Day: přečísluje pořadí na 1..N a uloží snapshot."""
     _compact_day(t, play_date)
-    Snapshot.objects.create(tournament=t, type=Snapshot.SnapshotType.MANUAL, payload=_snapshot_payload(t))
+    Snapshot.objects.create(
+        tournament=t, type=Snapshot.SnapshotType.MANUAL, payload=_snapshot_payload(t)
+    )
 
 
 @atomic()
 def clear_day(t: Tournament, play_date: str) -> None:
     """Clear: z daného dne vymaže všechny zápasy (Schedule)."""
     Schedule.objects.filter(tournament=t, play_date=play_date).delete()
-    Snapshot.objects.create(tournament=t, type=Snapshot.SnapshotType.MANUAL, payload=_snapshot_payload(t))
+    Snapshot.objects.create(
+        tournament=t, type=Snapshot.SnapshotType.MANUAL, payload=_snapshot_payload(t)
+    )
 
 
 @atomic()
@@ -199,14 +229,20 @@ def move_match(t: Tournament, match_id: int, to_play_date: str, to_order: int) -
 @atomic()
 def save_planning_snapshot(t: Tournament, label: str = "manual") -> int:
     """Ulož explicitní snapshot plánu, vrať ID snapshotu."""
-    s = Snapshot.objects.create(tournament=t, type=Snapshot.SnapshotType.MANUAL, payload=dict(label=label, **_snapshot_payload(t)))
+    s = Snapshot.objects.create(
+        tournament=t,
+        type=Snapshot.SnapshotType.MANUAL,
+        payload=dict(label=label, **_snapshot_payload(t)),
+    )
     return s.id
 
 
 @atomic()
 def restore_planning_snapshot(t: Tournament, snapshot_id: int) -> None:
     """Obnoví plán z dříve uloženého snapshotu."""
-    s = Snapshot.objects.filter(tournament=t, pk=snapshot_id, type=Snapshot.SnapshotType.MANUAL).first()
+    s = Snapshot.objects.filter(
+        tournament=t, pk=snapshot_id, type=Snapshot.SnapshotType.MANUAL
+    ).first()
     if not s:
         raise ValidationError("Snapshot nenalezen nebo není typu MANUAL.")
     _restore_payload(t, s.payload)

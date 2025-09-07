@@ -1,4 +1,5 @@
 import pytest
+
 from msa.services.md_generator import generate_main_draw_mapping
 
 

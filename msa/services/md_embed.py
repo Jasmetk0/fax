@@ -1,13 +1,12 @@
 # msa/services/md_embed.py
 from __future__ import annotations
 
-from typing import Dict, List, Tuple
 import random
 
 from django.core.exceptions import ValidationError
 
 from msa.models import Tournament
-from msa.services.seed_anchors import md_anchor_map, band_sequence_for_S
+from msa.services.seed_anchors import band_sequence_for_S, md_anchor_map
 
 
 def next_power_of_two(n: int) -> int:
@@ -30,13 +29,13 @@ def r1_name_for_md(t: Tournament) -> str:
     return f"R{effective_template_size_for_md(t)}"
 
 
-def _seed_anchor_slots_in_order(template_size: int, S: int) -> List[int]:
+def _seed_anchor_slots_in_order(template_size: int, S: int) -> list[int]:
     """Vrátí seznam kotev (slotů) pro seedy 1..S v přesném pořadí (1,2,3,4,5,6,7,8,...)."""
     if S <= 0:
         return []
-    anchors = md_anchor_map(template_size)            # dict: band -> [slots...]
-    bands = band_sequence_for_S(template_size, S)     # např. ["1","2","3-4","5-8",...]
-    out: List[int] = []
+    anchors = md_anchor_map(template_size)  # dict: band -> [slots...]
+    bands = band_sequence_for_S(template_size, S)  # např. ["1","2","3-4","5-8",...]
+    out: list[int] = []
     left = S
     for band in bands:
         for s in anchors[band]:
@@ -53,12 +52,12 @@ def _opponent_slot(template_size: int, slot: int) -> int:
 
 def generate_md_mapping_with_byes(
     *,
-    template_size: int,         # např. 32/64
-    seeds_in_order: List[int],  # TournamentEntry.id v pořadí seeda 1..S
-    unseeded_players: List[int],# TournamentEntry.id nenasazených (pool)
-    bye_count: int,             # kolik BYE párů v R1 (např. 32-24 = 8)
+    template_size: int,  # např. 32/64
+    seeds_in_order: list[int],  # TournamentEntry.id v pořadí seeda 1..S
+    unseeded_players: list[int],  # TournamentEntry.id nenasazených (pool)
+    bye_count: int,  # kolik BYE párů v R1 (např. 32-24 = 8)
     rng_seed: int,
-) -> Dict[int, int]:
+) -> dict[int, int]:
     """
     Vytvoří mapping {slot -> entry_id} pro šablonu template_size tak, že
     - umístí seedy na jejich kotvy,
@@ -71,13 +70,13 @@ def generate_md_mapping_with_byes(
         raise ValidationError("Nepodařilo se spočítat kotvy pro všechny seedy.")
 
     # 1) umísti seedy
-    mapping: Dict[int, int] = {}
-    for slot, eid in zip(seed_slots, seeds_in_order):
+    mapping: dict[int, int] = {}
+    for slot, eid in zip(seed_slots, seeds_in_order, strict=False):
         mapping[int(slot)] = int(eid)
 
     # 2) vyrob množinu BYE protislots pro top `bye_count` seedů
     bye_opponent_slots = set()
-    for slot in seed_slots[:max(0, bye_count)]:
+    for slot in seed_slots[: max(0, bye_count)]:
         bye_opponent_slots.add(_opponent_slot(template_size, slot))
 
     # 3) připrav dostupné unseeded sloty: všechny kromě seed_slots a bye_opponent_slots
@@ -93,12 +92,12 @@ def generate_md_mapping_with_byes(
     rnd = random.Random(rng_seed)
     pool = unseeded_players[:]
     rnd.shuffle(pool)
-    for slot, eid in zip(available_unseeded_slots, pool):
+    for slot, eid in zip(available_unseeded_slots, pool, strict=False):
         mapping[int(slot)] = int(eid)
 
     return mapping
 
 
-def pairings_round1(template_size: int) -> List[Tuple[int, int]]:
+def pairings_round1(template_size: int) -> list[tuple[int, int]]:
     """Zrcadlové páry pro danou šablonu (1..template_size)."""
     return [(i, template_size + 1 - i) for i in range(1, template_size // 2 + 1)]

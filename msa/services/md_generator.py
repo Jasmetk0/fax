@@ -1,14 +1,15 @@
-from typing import List, Dict, Any
 import random
-from msa.services.seed_anchors import md_anchor_map, band_sequence_for_S
+from typing import Any
+
+from msa.services.seed_anchors import band_sequence_for_S, md_anchor_map
 
 
 def generate_main_draw_mapping(
     draw_size: int,
-    seeds_in_order: List[Any],   # [p1..pS] v seeding pořadí
-    unseeded_players: List[Any], # DA/WC/Q/LL v libovolném pořadí
+    seeds_in_order: list[Any],  # [p1..pS] v seeding pořadí
+    unseeded_players: list[Any],  # DA/WC/Q/LL v libovolném pořadí
     rng_seed: int,
-) -> Dict[int, Any]:
+) -> dict[int, Any]:
     """
     Mapping {slot -> player} pro MD (16/32/64):
       - seedy na kanonických kotvách po bandech ve správném pořadí,
@@ -18,7 +19,7 @@ def generate_main_draw_mapping(
     S = len(seeds_in_order)
     used_bands = band_sequence_for_S(draw_size, S)
 
-    slot_to_player: Dict[int, Any] = {}
+    slot_to_player: dict[int, Any] = {}
     seed_idx = 0
     for band in used_bands:
         for slot in anchors[band]:
@@ -38,7 +39,7 @@ def generate_main_draw_mapping(
     shuffled = unseeded_players[:]
     rnd.shuffle(shuffled)
 
-    for slot, player in zip(remaining_slots, shuffled):
+    for slot, player in zip(remaining_slots, shuffled, strict=False):
         slot_to_player[slot] = player
 
     assert len(slot_to_player) == draw_size

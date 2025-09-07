@@ -1,17 +1,14 @@
 # msa/services/md_band_regen.py
 from __future__ import annotations
 
-from typing import Dict, List, Tuple
 import random
 
 from django.core.exceptions import ValidationError
 
-from msa.models import (
-    Tournament, TournamentEntry, EntryType, EntryStatus, Phase, Match, MatchState
-)
-from msa.services.tx import atomic, locked
-from msa.services.seed_anchors import md_anchor_map, band_sequence_for_S
+from msa.models import EntryStatus, Match, MatchState, Phase, Tournament, TournamentEntry
 from msa.services.md_confirm import _pick_seeds_and_unseeded  # reuse interní logiku
+from msa.services.seed_anchors import band_sequence_for_S, md_anchor_map
+from msa.services.tx import atomic, locked
 
 
 def _default_seeds_count(draw_size: int) -> int:
@@ -29,7 +26,9 @@ def _r1_name(draw_size: int) -> str:
 
 
 @atomic()
-def regenerate_md_band(t: Tournament, band: str, rng_seed: int, mode: str = "SOFT") -> Dict[int, int]:
+def regenerate_md_band(
+    t: Tournament, band: str, rng_seed: int, mode: str = "SOFT"
+) -> dict[int, int]:
     """
     Přelosuje **vybraný band** seedů v MD (např. '3-4','5-8','9-16','17-32') nebo 'Unseeded'.
     - U seed bandů: permutuje rozložení seedů v rámci kotev daného bandu (kotvy zůstávají, mění se to, KTERÝ seed sedí na které kotvě).
@@ -40,20 +39,30 @@ def regenerate_md_band(t: Tournament, band: str, rng_seed: int, mode: str = "SOF
     Vrací aktuální mapping {slot -> entry_id}.
     """
     # zámky
-    entries_qs = locked(TournamentEntry.objects.filter(tournament=t, status=EntryStatus.ACTIVE, position__isnull=False))
-    draw_size = int(t.category_season.draw_size) if (t.category_season and t.category_season.draw_size) else 0
+    entries_qs = locked(
+        TournamentEntry.objects.filter(
+            tournament=t, status=EntryStatus.ACTIVE, position__isnull=False
+        )
+    )
+    draw_size = (
+        int(t.category_season.draw_size)
+        if (t.category_season and t.category_season.draw_size)
+        else 0
+    )
     if not draw_size:
         raise ValidationError("Tournament.category_season.draw_size není nastaven.")
-    r1_qs = locked(Match.objects.filter(tournament=t, phase=Phase.MD, round_name=_r1_name(draw_size)))
+    r1_qs = locked(
+        Match.objects.filter(tournament=t, phase=Phase.MD, round_name=_r1_name(draw_size))
+    )
 
     # Build základní sady
     entries = list(entries_qs)
     slot_to_entry = {int(te.position): te for te in entries}
-    entry_id_to_te = {te.id: te for te in entries}
 
     # Určete sady seedů dle WR pořadí (stejně jako confirm_main_draw)
     # reuse _pick_seeds_and_unseeded:
     from msa.services.md_confirm import _collect_active_entries
+
     evs = _collect_active_entries(t)
     seeds, unseeded, _ = _pick_seeds_and_unseeded(t, evs)
     seed_ids_in_order = [e.id for e in seeds]
@@ -65,7 +74,7 @@ def regenerate_md_band(t: Tournament, band: str, rng_seed: int, mode: str = "SOF
         rng = random.Random(rng_seed)
         rng.shuffle(pool_ids)
         # Ulož nové pozice jen pro unseeded
-        for s, eid in zip(un_slots, pool_ids):
+        for s, eid in zip(un_slots, pool_ids, strict=False):
             te = TournamentEntry.objects.select_for_update().get(pk=eid)
             if te.position != s:
                 te.position = s
@@ -76,9 +85,11 @@ def regenerate_md_band(t: Tournament, band: str, rng_seed: int, mode: str = "SOF
         if band not in anchors:
             raise ValidationError(f"Neznámý band '{band}' pro draw_size={draw_size}.")
         # ověř, že band je „aktivní“ (patří do band_sequence_for_S)
-        S = (t.category_season.md_seeds_count
-             if (t.category_season and t.category_season.md_seeds_count)
-             else _default_seeds_count(draw_size))
+        S = (
+            t.category_season.md_seeds_count
+            if (t.category_season and t.category_season.md_seeds_count)
+            else _default_seeds_count(draw_size)
+        )
         used_bands = set(band_sequence_for_S(draw_size, S))
         if band not in used_bands:
             raise ValidationError(f"Band '{band}' se nepoužívá při S={S}.")
@@ -90,7 +101,7 @@ def regenerate_md_band(t: Tournament, band: str, rng_seed: int, mode: str = "SOF
         rng = random.Random(rng_seed)
         rng.shuffle(band_seed_ids)
         # Ulož – přemapuj seed IDs na anchor sloty
-        for s, eid in zip(anchor_slots, band_seed_ids):
+        for s, eid in zip(anchor_slots, band_seed_ids, strict=False):
             te = TournamentEntry.objects.select_for_update().get(pk=eid)
             if te.position != s:
                 te.position = s
@@ -98,9 +109,12 @@ def regenerate_md_band(t: Tournament, band: str, rng_seed: int, mode: str = "SOF
 
     # Aktualizace R1 – podle režimu
     # Připrav si nový mapping (po změnách)
-    slot_to_entry_after = {int(te.position): te.id for te in TournamentEntry.objects.filter(
-        tournament=t, status=EntryStatus.ACTIVE, position__isnull=False
-    )}
+    slot_to_entry_after = {
+        int(te.position): te.id
+        for te in TournamentEntry.objects.filter(
+            tournament=t, status=EntryStatus.ACTIVE, position__isnull=False
+        )
+    }
 
     # Pomocná: získat player_id podle entry_id
     # Reuse evs map (id -> player_id)
@@ -121,7 +135,7 @@ def regenerate_md_band(t: Tournament, band: str, rng_seed: int, mode: str = "SOF
         m.player_bottom_id = new_bot
         m.save(update_fields=["player_top", "player_bottom", "winner", "score", "state"])
 
-    hard = (mode.upper() == "HARD")
+    hard = mode.upper() == "HARD"
     for m in r1_qs:
         if m.winner_id is not None and not hard:
             # SOFT: hotové páry necháme beze změny

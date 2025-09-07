@@ -1,38 +1,44 @@
 # msa/services/md_soft_regen.py
 from __future__ import annotations
 
-from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass
 
 from django.core.exceptions import ValidationError
 
 from msa.models import (
-    Tournament, TournamentEntry, EntryType, EntryStatus, Phase, Match, MatchState, Schedule
+    EntryStatus,
+    Match,
+    MatchState,
+    Phase,
+    Schedule,
+    Tournament,
+    TournamentEntry,
 )
-from msa.services.tx import atomic, locked
 from msa.services.md_embed import r1_name_for_md
-
+from msa.services.tx import atomic, locked
 
 # ---- Pomocné typy ----
+
 
 @dataclass(frozen=True)
 class EntryView:
     id: int
     player_id: int
     entry_type: str
-    wr_snapshot: Optional[int]  # None = NR
+    wr_snapshot: int | None  # None = NR
 
 
 # ---- Utilitky ----
 
-def _collect_active_entries(t: Tournament) -> List[EntryView]:
-    qs = (
-        TournamentEntry.objects
-        .filter(tournament=t, status=EntryStatus.ACTIVE, position__isnull=False)
-        .select_related("player")
-    )
+
+def _collect_active_entries(t: Tournament) -> list[EntryView]:
+    qs = TournamentEntry.objects.filter(
+        tournament=t, status=EntryStatus.ACTIVE, position__isnull=False
+    ).select_related("player")
     return [
-        EntryView(id=te.id, player_id=te.player_id, entry_type=te.entry_type, wr_snapshot=te.wr_snapshot)
+        EntryView(
+            id=te.id, player_id=te.player_id, entry_type=te.entry_type, wr_snapshot=te.wr_snapshot
+        )
         for te in qs
     ]
 
@@ -47,27 +53,33 @@ def _default_seeds_count(draw_size: int) -> int:
     return 0
 
 
-def _seed_ids_by_wr(t: Tournament, all_entries: List[EntryView]) -> List[int]:
-    draw_size = t.category_season.draw_size if (t.category_season and t.category_season.draw_size) else 0
+def _seed_ids_by_wr(t: Tournament, all_entries: list[EntryView]) -> list[int]:
+    draw_size = (
+        t.category_season.draw_size if (t.category_season and t.category_season.draw_size) else 0
+    )
     if not draw_size:
         raise ValidationError("Tournament.category_season.draw_size není nastaven.")
-    S = (t.category_season.md_seeds_count
-         if (t.category_season and t.category_season.md_seeds_count)
-         else _default_seeds_count(draw_size))
+    S = (
+        t.category_season.md_seeds_count
+        if (t.category_season and t.category_season.md_seeds_count)
+        else _default_seeds_count(draw_size)
+    )
     sorted_by_wr = sorted(
         all_entries,
-        key=lambda ev: (1 if ev.wr_snapshot is None else 0,
-                        ev.wr_snapshot if ev.wr_snapshot is not None else 10**9,
-                        ev.id)
+        key=lambda ev: (
+            1 if ev.wr_snapshot is None else 0,
+            ev.wr_snapshot if ev.wr_snapshot is not None else 10**9,
+            ev.id,
+        ),
     )
     return [ev.id for ev in sorted_by_wr[:S]]
 
 
-
 # ---- Soft regenerate: jen nenasazení v R1 bez výsledku ----
 
+
 @atomic()
-def soft_regenerate_unseeded_md(t: Tournament, rng_seed: int) -> Dict[int, int]:
+def soft_regenerate_unseeded_md(t: Tournament, rng_seed: int) -> dict[int, int]:
     """
     Přelosuje **jen nenasazené** hráče v těch R1 zápasech, kde ještě není výsledek.
     Zachová:
@@ -79,9 +91,13 @@ def soft_regenerate_unseeded_md(t: Tournament, rng_seed: int) -> Dict[int, int]:
     """
     # Zámky: všechny aktivní entries a R1 zápasy
     entries_qs = locked(
-        TournamentEntry.objects.filter(tournament=t, status=EntryStatus.ACTIVE, position__isnull=False)
+        TournamentEntry.objects.filter(
+            tournament=t, status=EntryStatus.ACTIVE, position__isnull=False
+        )
     )
-    draw_size = t.category_season.draw_size if (t.category_season and t.category_season.draw_size) else 0
+    draw_size = (
+        t.category_season.draw_size if (t.category_season and t.category_season.draw_size) else 0
+    )
     if not draw_size:
         raise ValidationError("Tournament.category_season.draw_size není nastaven.")
     r1_qs = locked(Match.objects.filter(tournament=t, phase=Phase.MD, round_name=r1_name_for_md(t)))
@@ -90,7 +106,7 @@ def soft_regenerate_unseeded_md(t: Tournament, rng_seed: int) -> Dict[int, int]:
     seed_ids = set(_seed_ids_by_wr(t, entries))
 
     # Sestavíme množinu MUTABLE slotů = sloty R1 zápasů bez výsledku
-    mutable_slots: List[int] = []
+    mutable_slots: list[int] = []
     fixed_slots: set[int] = set()
     for m in r1_qs:
         has_result = (m.winner_id is not None) or (m.state == MatchState.DONE)
@@ -106,11 +122,9 @@ def soft_regenerate_unseeded_md(t: Tournament, rng_seed: int) -> Dict[int, int]:
         return {int(te.position): te.id for te in entries_qs}
 
     # Z MUTABLE slotů odfiltruj ty, kde sedí seed (seed se NIKDY nehýbe)
-    slot_to_entry: Dict[int, TournamentEntry] = {
-        int(te.position): te for te in entries_qs
-    }
-    mutable_unseeded_slots: List[int] = []
-    pool_entry_ids: List[int] = []
+    slot_to_entry: dict[int, TournamentEntry] = {int(te.position): te for te in entries_qs}
+    mutable_unseeded_slots: list[int] = []
+    pool_entry_ids: list[int] = []
     for slot in sorted(mutable_slots):
         te = slot_to_entry.get(slot)
         if not te:
@@ -128,12 +142,13 @@ def soft_regenerate_unseeded_md(t: Tournament, rng_seed: int) -> Dict[int, int]:
 
     # Deterministicky zamíchat pool a znovu je přiřadit do STEJNÉ množiny slotů (jiné pořadí)
     import random
+
     rnd = random.Random(rng_seed)
     shuffled = pool_entry_ids[:]
     rnd.shuffle(shuffled)
 
     # Ulož nové pozice (jen pro nenasazené v mutable_unseeded_slots)
-    for slot, eid in zip(sorted(mutable_unseeded_slots), shuffled):
+    for slot, eid in zip(sorted(mutable_unseeded_slots), shuffled, strict=False):
         te = TournamentEntry.objects.select_for_update().get(pk=eid)
         if te.position != slot:
             te.position = slot
@@ -144,8 +159,12 @@ def soft_regenerate_unseeded_md(t: Tournament, rng_seed: int) -> Dict[int, int]:
     for m in r1_qs:
         if (m.winner_id is not None) or (m.state == MatchState.DONE):
             continue
-        new_top_e = TournamentEntry.objects.filter(tournament=t, status=EntryStatus.ACTIVE, position=m.slot_top).first()
-        new_bot_e = TournamentEntry.objects.filter(tournament=t, status=EntryStatus.ACTIVE, position=m.slot_bottom).first()
+        new_top_e = TournamentEntry.objects.filter(
+            tournament=t, status=EntryStatus.ACTIVE, position=m.slot_top
+        ).first()
+        new_bot_e = TournamentEntry.objects.filter(
+            tournament=t, status=EntryStatus.ACTIVE, position=m.slot_bottom
+        ).first()
         new_top = new_top_e.player_id if new_top_e else None
         new_bot = new_bot_e.player_id if new_bot_e else None
 
@@ -161,6 +180,9 @@ def soft_regenerate_unseeded_md(t: Tournament, rng_seed: int) -> Dict[int, int]:
             Schedule.objects.filter(match=m).delete()
 
     # Aktuální mapping
-    return {int(te.position): te.id for te in TournamentEntry.objects.filter(
-        tournament=t, status=EntryStatus.ACTIVE, position__isnull=False
-    )}
+    return {
+        int(te.position): te.id
+        for te in TournamentEntry.objects.filter(
+            tournament=t, status=EntryStatus.ACTIVE, position__isnull=False
+        )
+    }

@@ -1,11 +1,11 @@
-from django.contrib.auth import get_user_model
-from django.db import models
-from django.utils.text import slugify
-from django.urls import reverse
+import re
 
 import bleach
 import markdown
-import re
+from django.contrib.auth import get_user_model
+from django.db import models
+from django.urls import reverse
+from django.utils.text import slugify
 
 from .utils_data import replace_data_shortcodes
 
@@ -148,16 +148,12 @@ class CategoryArticle(models.Model):
 
 
 class ArticleRevision(models.Model):
-    article = models.ForeignKey(
-        Article, related_name="revisions", on_delete=models.CASCADE
-    )
+    article = models.ForeignKey(Article, related_name="revisions", on_delete=models.CASCADE)
     title = models.CharField(max_length=200)
     summary = models.TextField(blank=True)
     content_md = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
-    author = models.ForeignKey(
-        get_user_model(), null=True, blank=True, on_delete=models.SET_NULL
-    )
+    author = models.ForeignKey(get_user_model(), null=True, blank=True, on_delete=models.SET_NULL)
 
     class Meta:
         ordering = ["-created_at"]

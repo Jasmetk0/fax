@@ -6,9 +6,9 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.core.management import call_command
+from django.db import IntegrityError, transaction
 from django.urls import reverse
 
-from django.db import IntegrityError, transaction
 from wiki.models_data import DataPoint, DataSeries
 from wiki.utils_data import replace_data_shortcodes
 
@@ -51,9 +51,7 @@ def test_api_endpoints(client):
     User = get_user_model()
     staff = User.objects.create_user("admin", password="x", is_staff=True)
     client.force_login(staff)
-    resp = client.post(
-        "/api/dataseries/", {"slug": "x"}, content_type="application/json"
-    )
+    resp = client.post("/api/dataseries/", {"slug": "x"}, content_type="application/json")
     assert resp.status_code == 201
 
 

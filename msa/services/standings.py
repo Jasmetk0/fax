@@ -2,25 +2,22 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
 from datetime import date, datetime, timedelta
 
 from django.core.exceptions import ValidationError
-from django.db.models import Q
 
-from msa.models import Tournament, Season, Category, Phase
+from msa.models import Category, Phase, Season, Tournament
 from msa.services.scoring import compute_tournament_points
-from msa.services.md_embed import effective_template_size_for_md
-
 
 # ---------- datové typy ----------
+
 
 @dataclass(frozen=True)
 class SeasonRow:
     player_id: int
     total: int
-    counted: List[int]  # body jednotlivých započtených turnajů (seřazeno desc)
-    dropped: List[int]  # vyřazené body (desc)
+    counted: list[int]  # body jednotlivých započtených turnajů (seřazeno desc)
+    dropped: list[int]  # vyřazené body (desc)
     average: float
 
 
@@ -28,8 +25,8 @@ class SeasonRow:
 class RollingRow:
     player_id: int
     total: int
-    counted: List[int]
-    dropped: List[int]
+    counted: list[int]
+    dropped: list[int]
     average: float
     window_start_monday: date
     window_end_monday: date
@@ -40,14 +37,15 @@ class RollingRow:
 class RtFRow:
     player_id: int
     total: int
-    counted: List[int]
-    dropped: List[int]
+    counted: list[int]
+    dropped: list[int]
     average: float
-    pinned_category: Optional[str] = None  # pokud je hráč „připíchnutý“ jako vítěz auto-TOP
-    pinned_rank: Optional[int] = None      # pořadí v rámci pinned sekce
+    pinned_category: str | None = None  # pokud je hráč „připíchnutý“ jako vítěz auto-TOP
+    pinned_rank: int | None = None  # pořadí v rámci pinned sekce
 
 
 # ---------- pomocné datumové utilitky ----------
+
 
 def _to_date(d: date | str) -> date:
     if isinstance(d, date):
@@ -68,27 +66,30 @@ def _monday_of(d: date) -> date:
 
 # ---------- vnitřní sklizeň bodů ----------
 
-def _tournaments_in_season(s: Season) -> List[Tournament]:
-    return list(Tournament.objects.filter(
-        season=s
-    ).exclude(end_date=None))
+
+def _tournaments_in_season(s: Season) -> list[Tournament]:
+    return list(Tournament.objects.filter(season=s).exclude(end_date=None))
 
 
-def _tournament_total_points_map(t: Tournament, *, only_completed_rounds: bool) -> Dict[int, int]:
+def _tournament_total_points_map(t: Tournament, *, only_completed_rounds: bool) -> dict[int, int]:
     # compute_tournament_points vrací breakdowny; posbíráme total per player
     totals = compute_tournament_points(t, only_completed_rounds=only_completed_rounds)
     return {pid: pb.total for pid, pb in totals.items()}
 
 
-def _sorted_points_desc(points: List[int]) -> List[int]:
+def _sorted_points_desc(points: list[int]) -> list[int]:
     return sorted(points, reverse=True)
 
 
-def _best_n_for_date(all_seasons: List[Season], snap_day: date) -> int:
+def _best_n_for_date(all_seasons: list[Season], snap_day: date) -> int:
     # Najdi season, která obsahuje snap_day; pokud žádná, vezmi poslední dle end_date
     if not all_seasons:
         return 10  # bezpečný fallback
-    containing = [s for s in all_seasons if s.start_date and s.end_date and (s.start_date <= snap_day <= s.end_date)]
+    containing = [
+        s
+        for s in all_seasons
+        if s.start_date and s.end_date and (s.start_date <= snap_day <= s.end_date)
+    ]
     if containing:
         s = containing[0]
         return int(getattr(s, "best_N", 10) or 10)
@@ -99,7 +100,10 @@ def _best_n_for_date(all_seasons: List[Season], snap_day: date) -> int:
 
 # ---------- Season standings ----------
 
-def season_standings(season: Season, *, best_n: Optional[int] = None, only_completed_rounds: bool = True) -> List[SeasonRow]:
+
+def season_standings(
+    season: Season, *, best_n: int | None = None, only_completed_rounds: bool = True
+) -> list[SeasonRow]:
     """
     Sezónní tabulka: bere turnaje s end_date uvnitř sezóny.
     Pro každého hráče sečte **top N** výsledků (N = best_n nebo Season.best_N).
@@ -108,20 +112,22 @@ def season_standings(season: Season, *, best_n: Optional[int] = None, only_compl
         raise ValidationError("Season musí mít start_date i end_date.")
     N = int(best_n if best_n is not None else (getattr(season, "best_N", 10) or 10))
 
-    rows: Dict[int, List[int]] = {}
+    rows: dict[int, list[int]] = {}
     for t in _tournaments_in_season(season):
         pts = _tournament_total_points_map(t, only_completed_rounds=only_completed_rounds)
         for pid, val in pts.items():
             rows.setdefault(pid, []).append(val)
 
-    out: List[SeasonRow] = []
+    out: list[SeasonRow] = []
     for pid, arr in rows.items():
         arr_sorted = _sorted_points_desc(arr)
         counted = arr_sorted[:N]
         dropped = arr_sorted[N:]
         total = sum(counted)
         avg = (total / len(counted)) if counted else 0.0
-        out.append(SeasonRow(player_id=pid, total=total, counted=counted, dropped=dropped, average=avg))
+        out.append(
+            SeasonRow(player_id=pid, total=total, counted=counted, dropped=dropped, average=avg)
+        )
 
     # řadíme podle total desc, při shodě vyšší average
     out.sort(key=lambda r: (r.total, r.average, -r.player_id), reverse=True)
@@ -129,6 +135,7 @@ def season_standings(season: Season, *, best_n: Optional[int] = None, only_compl
 
 
 # ---------- Rolling standings (61 týdnů okno) ----------
+
 
 def _activation_monday_for_tournament(t: Tournament) -> date:
     if not t.end_date:
@@ -138,7 +145,9 @@ def _activation_monday_for_tournament(t: Tournament) -> date:
     return act
 
 
-def rolling_standings(snapshot_monday: date | str, *, only_completed_rounds: bool = True) -> RollingRow | List[RollingRow]:
+def rolling_standings(
+    snapshot_monday: date | str, *, only_completed_rounds: bool = True
+) -> RollingRow | list[RollingRow]:
     """
     Rolling k „pondělí“ = snapshot_monday (datum pondělí). Vezme turnaje, které:
       activation_monday <= snapshot_monday < activation_monday + 61 týdnů.
@@ -151,8 +160,8 @@ def rolling_standings(snapshot_monday: date | str, *, only_completed_rounds: boo
 
     all_t = list(Tournament.objects.exclude(end_date=None))
     # filtr okna
-    eligible: List[Tournament] = []
-    windows: Dict[int, Tuple[date, date]] = {}
+    eligible: list[Tournament] = []
+    windows: dict[int, tuple[date, date]] = {}
     for t in all_t:
         act = _activation_monday_for_tournament(t)
         end = act + timedelta(weeks=61)
@@ -164,13 +173,13 @@ def rolling_standings(snapshot_monday: date | str, *, only_completed_rounds: boo
     seasons = list(Season.objects.exclude(start_date=None).exclude(end_date=None))
     N = _best_n_for_date(seasons, snap)
 
-    per_player_points: Dict[int, List[int]] = {}
+    per_player_points: dict[int, list[int]] = {}
     for t in eligible:
         pts = _tournament_total_points_map(t, only_completed_rounds=only_completed_rounds)
         for pid, val in pts.items():
             per_player_points.setdefault(pid, []).append(val)
 
-    out: List[RollingRow] = []
+    out: list[RollingRow] = []
     for pid, arr in per_player_points.items():
         arr_sorted = _sorted_points_desc(arr)
         counted = arr_sorted[:N]
@@ -180,10 +189,18 @@ def rolling_standings(snapshot_monday: date | str, *, only_completed_rounds: boo
         # okno per player = průnik (ale pro jednoduchost přidáme globální okno: min act, max end v eligible)
         global_start = min((windows[t.id][0] for t in eligible), default=snap)
         global_end = max((windows[t.id][1] for t in eligible), default=snap)
-        out.append(RollingRow(
-            player_id=pid, total=total, counted=counted, dropped=dropped, average=avg,
-            window_start_monday=global_start, window_end_monday=global_end, best_n_used=N
-        ))
+        out.append(
+            RollingRow(
+                player_id=pid,
+                total=total,
+                counted=counted,
+                dropped=dropped,
+                average=avg,
+                window_start_monday=global_start,
+                window_end_monday=global_end,
+                best_n_used=N,
+            )
+        )
 
     out.sort(key=lambda r: (r.total, r.average, -r.player_id), reverse=True)
     return out
@@ -191,20 +208,26 @@ def rolling_standings(snapshot_monday: date | str, *, only_completed_rounds: boo
 
 # ---------- Road to Finals (RtF) ----------
 
-def _final_winner_player_id(t: Tournament) -> Optional[int]:
+
+def _final_winner_player_id(t: Tournament) -> int | None:
     # Finále je R2; pokud existuje zápas s winner, vrátíme vítěze.
     from msa.models import Match
-    fin = Match.objects.filter(tournament=t, phase=Phase.MD, round_name="R2").exclude(winner_id=None).first()
+
+    fin = (
+        Match.objects.filter(tournament=t, phase=Phase.MD, round_name="R2")
+        .exclude(winner_id=None)
+        .first()
+    )
     return fin.winner_id if fin else None
 
 
 def rtf_standings(
     season: Season,
     *,
-    auto_top_categories: Optional[List[str]] = None,
-    finals_slots: Optional[int] = None,
+    auto_top_categories: list[str] | None = None,
+    finals_slots: int | None = None,
     only_completed_rounds: bool = True,
-) -> List[RtFRow]:
+) -> list[RtFRow]:
     """
     RtF = stejné body jako Season mode (top N), ale vítězové turnajů z auto-TOP kategorií jsou „připíchnuti“ nahoře,
     v pořadí kategorií. Uvnitř pinned sekce řazení podle bodů/average.
@@ -215,10 +238,19 @@ def rtf_standings(
     auto = [a.strip() for a in (auto_top_categories or []) if a and isinstance(a, str)]
     if not auto:
         # žádné připíchnutí → prosté season standings
-        return [RtFRow(player_id=r.player_id, total=r.total, counted=r.counted, dropped=r.dropped, average=r.average) for r in base]
+        return [
+            RtFRow(
+                player_id=r.player_id,
+                total=r.total,
+                counted=r.counted,
+                dropped=r.dropped,
+                average=r.average,
+            )
+            for r in base
+        ]
 
     # najdi vítěze těch kategorií v rámci sezóny
-    pinned_ordered: List[Tuple[str, int]] = []  # (category_name, player_id)
+    pinned_ordered: list[tuple[str, int]] = []  # (category_name, player_id)
     for cat_name in auto:
         cat = Category.objects.filter(name=cat_name).first()
         if not cat:
@@ -237,7 +269,7 @@ def rtf_standings(
 
     # z pinned hráčů vyrob řádky (v jejich pořadí), bez duplicit
     seen = set()
-    pinned_rows: List[RtFRow] = []
+    pinned_rows: list[RtFRow] = []
     for idx, (cat_name, pid) in enumerate(pinned_ordered, start=1):
         if pid in seen:  # jeden hráč mohl vyhrát víc auto-TOP; držíme jeho první výskyt
             continue
@@ -245,16 +277,30 @@ def rtf_standings(
         if not base_row:
             # hráč nemusí mít žádné body (teoreticky), vytvoříme nulový
             base_row = SeasonRow(player_id=pid, total=0, counted=[], dropped=[], average=0.0)
-        pinned_rows.append(RtFRow(
-            player_id=pid, total=base_row.total, counted=base_row.counted, dropped=base_row.dropped,
-            average=base_row.average, pinned_category=cat_name, pinned_rank=idx
-        ))
+        pinned_rows.append(
+            RtFRow(
+                player_id=pid,
+                total=base_row.total,
+                counted=base_row.counted,
+                dropped=base_row.dropped,
+                average=base_row.average,
+                pinned_category=cat_name,
+                pinned_rank=idx,
+            )
+        )
         seen.add(pid)
 
     # zbylí hráči (nepinned), v pořadí jako base, ale bez těch v seen
     rest_rows = [
-        RtFRow(player_id=r.player_id, total=r.total, counted=r.counted, dropped=r.dropped, average=r.average)
-        for r in base if r.player_id not in seen
+        RtFRow(
+            player_id=r.player_id,
+            total=r.total,
+            counted=r.counted,
+            dropped=r.dropped,
+            average=r.average,
+        )
+        for r in base
+        if r.player_id not in seen
     ]
 
     out = pinned_rows + rest_rows

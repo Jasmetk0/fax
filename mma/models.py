@@ -38,9 +38,7 @@ class Venue(models.Model):
 
 class Event(models.Model):
     slug = models.SlugField(unique=True)
-    organization = models.ForeignKey(
-        Organization, on_delete=models.CASCADE, related_name="events"
-    )
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="events")
     name = models.CharField(max_length=200)
     date_start = models.DateTimeField()
     venue = models.ForeignKey(Venue, on_delete=models.CASCADE, related_name="events")
@@ -84,18 +82,12 @@ class Bout(models.Model):
         PENDING = "pending", "Pending"
 
     event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="bouts")
-    weight_class = models.ForeignKey(
-        WeightClass, on_delete=models.CASCADE, related_name="bouts"
-    )
-    fighter_red = models.ForeignKey(
-        Fighter, on_delete=models.CASCADE, related_name="bouts_as_red"
-    )
+    weight_class = models.ForeignKey(WeightClass, on_delete=models.CASCADE, related_name="bouts")
+    fighter_red = models.ForeignKey(Fighter, on_delete=models.CASCADE, related_name="bouts_as_red")
     fighter_blue = models.ForeignKey(
         Fighter, on_delete=models.CASCADE, related_name="bouts_as_blue"
     )
-    result = models.CharField(
-        max_length=10, choices=Result.choices, default=Result.PENDING
-    )
+    result = models.CharField(max_length=10, choices=Result.choices, default=Result.PENDING)
     method = models.CharField(max_length=100, blank=True)
     round = models.PositiveSmallIntegerField(null=True, blank=True)
     time = models.CharField(max_length=10, blank=True)
@@ -117,13 +109,9 @@ class Ranking(models.Model):
     organization = models.ForeignKey(
         Organization, on_delete=models.CASCADE, related_name="rankings"
     )
-    weight_class = models.ForeignKey(
-        WeightClass, on_delete=models.CASCADE, related_name="rankings"
-    )
+    weight_class = models.ForeignKey(WeightClass, on_delete=models.CASCADE, related_name="rankings")
     position = models.PositiveSmallIntegerField()
-    fighter = models.ForeignKey(
-        Fighter, on_delete=models.CASCADE, related_name="rankings"
-    )
+    fighter = models.ForeignKey(Fighter, on_delete=models.CASCADE, related_name="rankings")
     date_effective = models.DateField()
 
     class Meta:

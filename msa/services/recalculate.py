@@ -1,33 +1,29 @@
 # msa/services/recalculate.py
 from __future__ import annotations
 
-from typing import Dict, List, Literal, Optional, Tuple
-from dataclasses import dataclass, asdict
-from copy import deepcopy
+from dataclasses import dataclass
+from typing import Literal
 
 from django.core.exceptions import ValidationError
 
-from msa.models import (
-    Tournament, TournamentEntry, Snapshot,
-    EntryType, EntryStatus, SeedingSource
-)
-from msa.services.tx import atomic, locked
-
+from msa.models import EntryStatus, EntryType, SeedingSource, Snapshot, Tournament, TournamentEntry
+from msa.services.tx import atomic
 
 Group = Literal["SEED", "DA", "Q", "RESERVE"]
+
 
 @dataclass(frozen=True)
 class EntryState:
     id: int
     player_id: int
-    wr: Optional[int]
+    wr: int | None
     entry_type: str
-    seed: Optional[int]
+    seed: int | None
     is_wc: bool
     promoted_by_wc: bool
     is_qwc: bool
     promoted_by_qwc: bool
-    position: Optional[int]  # registrace/MD slot
+    position: int | None  # registrace/MD slot
 
 
 @dataclass(frozen=True)
@@ -39,15 +35,16 @@ class Row:
 
 @dataclass(frozen=True)
 class Preview:
-    current: List[Row]
-    proposed: List[Row]
-    moves: List[Tuple[int, Group, Group]]  # (entry_id, from_group, to_group)
-    counters: Dict[str, int]               # S / D / Q_draw_size / WC_used / WC_limit
+    current: list[Row]
+    proposed: list[Row]
+    moves: list[tuple[int, Group, Group]]  # (entry_id, from_group, to_group)
+    counters: dict[str, int]  # S / D / Q_draw_size / WC_used / WC_limit
 
 
 # --------- utils ---------
 
-def _eff_draw_params(t: Tournament) -> Tuple[int, int, int]:
+
+def _eff_draw_params(t: Tournament) -> tuple[int, int, int]:
     """
     Vrací (draw_size, qualifiers_count, qual_rounds).
     """
@@ -63,9 +60,12 @@ def _eff_draw_params(t: Tournament) -> Tuple[int, int, int]:
 
 
 def _default_md_seeds(draw_size: int) -> int:
-    if draw_size >= 64: return 16
-    if draw_size >= 32: return 8
-    if draw_size >= 16: return 4
+    if draw_size >= 64:
+        return 16
+    if draw_size >= 32:
+        return 8
+    if draw_size >= 16:
+        return 4
     return 0
 
 
@@ -81,38 +81,38 @@ def _eff_wc_limit(t: Tournament) -> int:
     return int(t.wc_slots) if getattr(t, "wc_slots", None) is not None else base
 
 
-def _entries_active(t: Tournament) -> List[EntryState]:
-    qs = (
-        TournamentEntry.objects
-        .filter(tournament=t, status=EntryStatus.ACTIVE)
-        .select_related("player")
+def _entries_active(t: Tournament) -> list[EntryState]:
+    qs = TournamentEntry.objects.filter(tournament=t, status=EntryStatus.ACTIVE).select_related(
+        "player"
     )
-    out: List[EntryState] = []
+    out: list[EntryState] = []
     for te in qs:
-        out.append(EntryState(
-            id=te.id,
-            player_id=te.player_id,
-            wr=te.wr_snapshot,
-            entry_type=te.entry_type,
-            seed=te.seed,
-            is_wc=bool(getattr(te, "is_wc", False)),
-            promoted_by_wc=bool(getattr(te, "promoted_by_wc", False)),
-            is_qwc=bool(getattr(te, "is_qwc", False)),
-            promoted_by_qwc=bool(getattr(te, "promoted_by_qwc", False)),
-            position=te.position,
-        ))
+        out.append(
+            EntryState(
+                id=te.id,
+                player_id=te.player_id,
+                wr=te.wr_snapshot,
+                entry_type=te.entry_type,
+                seed=te.seed,
+                is_wc=bool(getattr(te, "is_wc", False)),
+                promoted_by_wc=bool(getattr(te, "promoted_by_wc", False)),
+                is_qwc=bool(getattr(te, "is_qwc", False)),
+                promoted_by_qwc=bool(getattr(te, "promoted_by_qwc", False)),
+                position=te.position,
+            )
+        )
     return out
 
 
-def _sort_by_wr(entries: List[EntryState]) -> List[EntryState]:
-    return sorted(entries, key=lambda e: (
-        1 if e.wr is None else 0,
-        e.wr if e.wr is not None else 10**9,
-        e.id
-    ))
+def _sort_by_wr(entries: list[EntryState]) -> list[EntryState]:
+    return sorted(
+        entries, key=lambda e: (1 if e.wr is None else 0, e.wr if e.wr is not None else 10**9, e.id)
+    )
 
 
-def _current_layout(t: Tournament, entries: List[EntryState], S: int, D: int, Qdraw: int) -> List[Row]:
+def _current_layout(
+    t: Tournament, entries: list[EntryState], S: int, D: int, Qdraw: int
+) -> list[Row]:
     """
     Aktuální obraz registrace/MD:
     - „SEED“: ti, kteří mají te.seed 1..S (řadíme podle te.seed),
@@ -120,7 +120,11 @@ def _current_layout(t: Tournament, entries: List[EntryState], S: int, D: int, Qd
     - „Q“: EntryType.Q,
     - „RESERVE“: ostatní (ALT/LL/QWC placeholders atd.).
     """
-    seeds = [e for e in entries if (e.entry_type == EntryType.DA and (e.seed or 0) >= 1 and (e.seed or 0) <= S)]
+    seeds = [
+        e
+        for e in entries
+        if (e.entry_type == EntryType.DA and (e.seed or 0) >= 1 and (e.seed or 0) <= S)
+    ]
     seeds.sort(key=lambda e: (e.seed or 10**9, e.id))
     seed_ids = {e.id for e in seeds}
 
@@ -131,10 +135,14 @@ def _current_layout(t: Tournament, entries: List[EntryState], S: int, D: int, Qd
     qs = [e for e in entries if e.entry_type == EntryType.Q]
     qs = _sort_by_wr(qs)
 
-    res = [e for e in entries if e.id not in seed_ids and e.entry_type not in (EntryType.DA, EntryType.Q)]
+    res = [
+        e
+        for e in entries
+        if e.id not in seed_ids and e.entry_type not in (EntryType.DA, EntryType.Q)
+    ]
     res = _sort_by_wr(res)
 
-    rows: List[Row] = []
+    rows: list[Row] = []
     rows += [Row(entry_id=e.id, group="SEED", index=i) for i, e in enumerate(seeds)]
     rows += [Row(entry_id=e.id, group="DA", index=i) for i, e in enumerate(das)]
     rows += [Row(entry_id=e.id, group="Q", index=i) for i, e in enumerate(qs)]
@@ -143,10 +151,8 @@ def _current_layout(t: Tournament, entries: List[EntryState], S: int, D: int, Qd
 
 
 def _proposed_layout(
-    t: Tournament,
-    entries: List[EntryState],
-    seeding_source: str
-) -> Tuple[List[Row], Dict[str,int]]:
+    t: Tournament, entries: list[EntryState], seeding_source: str
+) -> tuple[list[Row], dict[str, int]]:
     """
     Navrhovaný layout podle aktuálních S/K/R/draw_size a seeding_source.
     - WC pravidla: kdokoli s promoted_by_wc=True MUSÍ být v DA; pokud to překročí D,
@@ -157,16 +163,17 @@ def _proposed_layout(
     draw_size, qualifiers_count, qual_rounds = _eff_draw_params(t)
     S = _eff_md_seeds(t)
     D = draw_size - qualifiers_count
-    Qdraw = qualifiers_count * (2 ** qual_rounds)
+    Qdraw = qualifiers_count * (2**qual_rounds)
 
     # Aktuální layout — použijeme, pokud seeding_source == NONE
     cur_rows = _current_layout(t, entries, S, D, Qdraw)
-    id_to_cur_group_idx = {r.entry_id: (r.group, r.index) for r in cur_rows}
 
     # 1) Základní pořadí pro řazení
     if seeding_source == SeedingSource.NONE:
         # zachovej aktuální pořadí; poskládáme list v aktuálním pořadí WR jen pro hranice
-        ordered = [next(e for e in entries if e.id == r.entry_id) for r in cur_rows]  # SEED→DA→Q→RESERVE
+        ordered = [
+            next(e for e in entries if e.id == r.entry_id) for r in cur_rows
+        ]  # SEED→DA→Q→RESERVE
     else:
         # SNAPSHOT/CURRENT (zatím oboje = podle Entry.wr)
         ordered = _sort_by_wr(entries)
@@ -181,7 +188,7 @@ def _proposed_layout(
         da_sorted = _sort_by_wr(da_all)
         # kolik musíme vyhodit
         to_drop = len(da_all) - D
-        kept: List[EntryState] = []
+        kept: list[EntryState] = []
         dropped = 0
         for e in da_sorted:
             if not e.promoted_by_wc and dropped < to_drop:
@@ -205,7 +212,7 @@ def _proposed_layout(
     taken_ids |= {e.id for e in q_pool}
     reserve = [e for e in ordered if e.id not in taken_ids]
 
-    rows: List[Row] = []
+    rows: list[Row] = []
     rows += [Row(entry_id=e.id, group="SEED", index=i) for i, e in enumerate(seeds_sorted)]
     rows += [Row(entry_id=e.id, group="DA", index=i) for i, e in enumerate(da_rest)]
     rows += [Row(entry_id=e.id, group="Q", index=i) for i, e in enumerate(q_pool)]
@@ -221,9 +228,9 @@ def _proposed_layout(
     return rows, counters
 
 
-def _diff(current: List[Row], proposed: List[Row]) -> List[Tuple[int, Group, Group]]:
+def _diff(current: list[Row], proposed: list[Row]) -> list[tuple[int, Group, Group]]:
     cur_map = {r.entry_id: r.group for r in current}
-    out: List[Tuple[int, Group, Group]] = []
+    out: list[tuple[int, Group, Group]] = []
     for r in proposed:
         g0 = cur_map.get(r.entry_id)
         if g0 is None:
@@ -235,8 +242,11 @@ def _diff(current: List[Row], proposed: List[Row]) -> List[Tuple[int, Group, Gro
 
 # --------- public API ---------
 
+
 @atomic()
-def preview_recalculate_registration(t: Tournament, *, seeding_source: Optional[str] = None) -> Preview:
+def preview_recalculate_registration(
+    t: Tournament, *, seeding_source: str | None = None
+) -> Preview:
     """
     Vypočítá návrh rozložení (SEED/DA/Q/RESERVE) a vrátí diff vůči aktuálnímu stavu.
     NIC NEUKLÁDÁ.
@@ -246,7 +256,7 @@ def preview_recalculate_registration(t: Tournament, *, seeding_source: Optional[
     draw_size, qualifiers_count, qual_rounds = _eff_draw_params(t)
     S = _eff_md_seeds(t)
     D = draw_size - qualifiers_count
-    Qdraw = qualifiers_count * (2 ** qual_rounds)
+    Qdraw = qualifiers_count * (2**qual_rounds)
 
     current = _current_layout(t, entries, S, D, Qdraw)
     proposed, counters = _proposed_layout(t, entries, src)
@@ -264,16 +274,22 @@ def confirm_recalculate_registration(t: Tournament, preview: Preview) -> None:
       - nastaví `position` = pořadí v rámci registrace (SEED→DA→Q→RESERVE; 1..N).
     """
     # pro jistotu ověř, že preview odpovídá aktuální sadě entry (alespoň počtem)
-    ids_now = set(TournamentEntry.objects.filter(tournament=t, status=EntryStatus.ACTIVE).values_list("id", flat=True))
+    ids_now = set(
+        TournamentEntry.objects.filter(tournament=t, status=EntryStatus.ACTIVE).values_list(
+            "id", flat=True
+        )
+    )
     ids_in_preview = {r.entry_id for r in (preview.current + preview.proposed)}
     if not ids_in_preview.issuperset(ids_now):
         # nejsme tvrdí — jen varování do výjimky
-        raise ValidationError("Preview neodpovídá aktuálním registracím (změnily se položky). Vygeneruj znovu.")
+        raise ValidationError(
+            "Preview neodpovídá aktuálním registracím (změnily se položky). Vygeneruj znovu."
+        )
 
     # 1) aplikuj typy a seedy
     # pořadí pro position
     ordered = preview.proposed
-    order_index = {r.entry_id: i+1 for i, r in enumerate(ordered)}  # 1..N
+    order_index = {r.entry_id: i + 1 for i, r in enumerate(ordered)}  # 1..N
     seed_counter = 0
     for r in ordered:
         te = TournamentEntry.objects.select_for_update().get(pk=r.entry_id)
@@ -312,9 +328,11 @@ def brutal_reset_to_registration(t: Tournament, reason: str = "PARAM_CHANGE") ->
       - turnaj ponechá v REG fázi bez dotčení registrací (Entry zůstávají ACTIVE).
     """
     # 0) archivní snapshot (jen lehký payload, ať je to rychlé)
-    entries = list(TournamentEntry.objects.filter(tournament=t, status=EntryStatus.ACTIVE).values(
-        "id", "player_id", "entry_type", "seed", "wr_snapshot", "position"
-    ))
+    entries = list(
+        TournamentEntry.objects.filter(tournament=t, status=EntryStatus.ACTIVE).values(
+            "id", "player_id", "entry_type", "seed", "wr_snapshot", "position"
+        )
+    )
     payload = dict(
         reason=reason,
         t_id=t.id,
@@ -322,12 +340,13 @@ def brutal_reset_to_registration(t: Tournament, reason: str = "PARAM_CHANGE") ->
         entries=entries,
         counts=dict(
             matches=t.match_set.count() if hasattr(t, "match_set") else 0,
-        )
+        ),
     )
     Snapshot.objects.create(tournament=t, type=Snapshot.SnapshotType.BRUTAL, payload=payload)
 
     # 1) smaž zápasy (cascade smaže Schedule)
     from msa.models import Match
+
     Match.objects.filter(tournament=t).delete()
 
     # 2) nuluj sloty/seed

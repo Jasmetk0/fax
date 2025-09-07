@@ -22,9 +22,7 @@ class EventList(generics.ListAPIView):
     serializer_class = EventListSerializer
 
     def get_queryset(self):
-        qs = Event.objects.select_related("organization", "venue").order_by(
-            "date_start"
-        )
+        qs = Event.objects.select_related("organization", "venue").order_by("date_start")
         upcoming = self.request.GET.get("upcoming")
         now = timezone.now()
         if upcoming in {"1", "true", "True"}:

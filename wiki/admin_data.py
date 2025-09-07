@@ -26,9 +26,7 @@ class DataPointInlineFormSet(BaseInlineFormSet):
                 continue
             key = form.cleaned_data.get("key")
             if key in keys:
-                raise forms.ValidationError(
-                    _("Duplicate key %(key)s"), params={"key": key}
-                )
+                raise forms.ValidationError(_("Duplicate key %(key)s"), params={"key": key})
             keys.append(key)
 
 
@@ -62,18 +60,14 @@ class DataSeriesAdmin(admin.ModelAdmin):
 
     def import_csv(self, request, queryset):  # pragma: no cover - simple wrapper
         if queryset.count() != 1:
-            self.message_user(
-                request, _("Select exactly one series."), level=messages.ERROR
-            )
+            self.message_user(request, _("Select exactly one series."), level=messages.ERROR)
             return
         file = request.FILES.get("csv_file")
         if not file:
             self.message_user(request, _("No file provided."), level=messages.ERROR)
             return
         series = queryset.first()
-        created, updated = import_csv_to_series(
-            series, io.TextIOWrapper(file, encoding="utf-8")
-        )
+        created, updated = import_csv_to_series(series, io.TextIOWrapper(file, encoding="utf-8"))
         self.message_user(
             request,
             _(f"Imported: {created} created, {updated} updated."),

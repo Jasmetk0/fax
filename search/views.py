@@ -1,27 +1,35 @@
 from datetime import datetime
-from typing import Dict, List
 
 from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import render
 from django.utils.text import slugify
 
-from .utils import fuzzy1_token_match, normalize
 from wiki.models import Article
+
+from .utils import fuzzy1_token_match, normalize
 
 try:  # optional apps
     from msa.models import (
-        Player as MsaPlayer,
-        Tournament as MsaTournament,
         NewsPost as MsaNews,
+    )
+    from msa.models import (
+        Player as MsaPlayer,
+    )
+    from msa.models import (
+        Tournament as MsaTournament,
     )
 except Exception:  # pragma: no cover - optional
     MsaPlayer = MsaTournament = MsaNews = None
 
 try:
     from mma.models import (
-        Fighter as MmaFighter,
         Event as MmaEvent,
+    )
+    from mma.models import (
+        Fighter as MmaFighter,
+    )
+    from mma.models import (
         Organization as MmaOrg,
     )
 except Exception:  # pragma: no cover - optional
@@ -55,7 +63,7 @@ def search(request):
     q = (request.GET.get("q") or "").strip()
     q_norm = normalize(q)
     slug_q = slugify(q)
-    results: List[Dict] = []
+    results: list[dict] = []
 
     if q:
         # Wiki articles
@@ -68,9 +76,7 @@ def search(request):
         )
         wiki_qs = list(filtered[:600])
         if len(wiki_qs) < 600:
-            wiki_qs += list(
-                base.exclude(id__in=[a.id for a in wiki_qs])[: 600 - len(wiki_qs)]
-            )
+            wiki_qs += list(base.exclude(id__in=[a.id for a in wiki_qs])[: 600 - len(wiki_qs)])
         for a in wiki_qs:
             snippet = a.summary or a.content_md
             score = _score_match(q_norm, slug_q, a.title, a.slug, snippet)
@@ -92,9 +98,7 @@ def search(request):
             filtered = base.filter(Q(name__icontains=q) | Q(slug__icontains=slug_q))
             players = list(filtered[:600])
             if len(players) < 600:
-                players += list(
-                    base.exclude(id__in=[p.id for p in players])[: 600 - len(players)]
-                )
+                players += list(base.exclude(id__in=[p.id for p in players])[: 600 - len(players)])
             for p in players:
                 snippet = p.country or ""
                 score = _score_match(q_norm, slug_q, p.name, p.slug, snippet)
@@ -117,9 +121,7 @@ def search(request):
             tournaments = list(filtered[:600])
             if len(tournaments) < 600:
                 tournaments += list(
-                    base.exclude(id__in=[t.id for t in tournaments])[
-                        : 600 - len(tournaments)
-                    ]
+                    base.exclude(id__in=[t.id for t in tournaments])[: 600 - len(tournaments)]
                 )
             for t in tournaments:
                 snippet = ", ".join(filter(None, [t.city, t.country]))
@@ -147,9 +149,7 @@ def search(request):
             )
             news = list(filtered[:600])
             if len(news) < 600:
-                news += list(
-                    base.exclude(id__in=[n.id for n in news])[: 600 - len(news)]
-                )
+                news += list(base.exclude(id__in=[n.id for n in news])[: 600 - len(news)])
             for n in news:
                 snippet = n.excerpt
                 score = _score_match(q_norm, slug_q, n.title, n.slug, snippet)
@@ -201,9 +201,7 @@ def search(request):
             filtered = base.filter(Q(name__icontains=q) | Q(slug__icontains=slug_q))
             events = list(filtered[:600])
             if len(events) < 600:
-                events += list(
-                    base.exclude(id__in=[e.id for e in events])[: 600 - len(events)]
-                )
+                events += list(base.exclude(id__in=[e.id for e in events])[: 600 - len(events)])
             for e in events:
                 snippet = getattr(e.organization, "name", "")
                 score = _score_match(q_norm, slug_q, e.name, e.slug, snippet)
@@ -223,15 +221,11 @@ def search(request):
         if MmaOrg:
             base = MmaOrg.objects.order_by("-id")
             filtered = base.filter(
-                Q(name__icontains=q)
-                | Q(short_name__icontains=q)
-                | Q(slug__icontains=slug_q)
+                Q(name__icontains=q) | Q(short_name__icontains=q) | Q(slug__icontains=slug_q)
             )
             orgs = list(filtered[:600])
             if len(orgs) < 600:
-                orgs += list(
-                    base.exclude(id__in=[o.id for o in orgs])[: 600 - len(orgs)]
-                )
+                orgs += list(base.exclude(id__in=[o.id for o in orgs])[: 600 - len(orgs)])
             for o in orgs:
                 snippet = o.short_name or ""
                 score = _score_match(q_norm, slug_q, o.name, o.slug, snippet)
@@ -284,7 +278,7 @@ def search(request):
 
     found_urls = {r["url"] for r in results}
     q_tokens = _tokenize(q)
-    fuzzy_hits: List[Dict] = []
+    fuzzy_hits: list[dict] = []
 
     if q_tokens:
         for a in Article.objects.filter(is_deleted=False).order_by("-updated_at")[
@@ -308,9 +302,7 @@ def search(request):
                 found_urls.add(url)
 
         if MsaPlayer:
-            for p in MsaPlayer.objects.order_by("-updated_at")[
-                :MAX_CANDIDATES_PER_MODEL
-            ]:
+            for p in MsaPlayer.objects.order_by("-updated_at")[:MAX_CANDIDATES_PER_MODEL]:
                 url = f"/msasquashtour/players/{p.slug}/"
                 if url in found_urls:
                     continue
@@ -328,9 +320,7 @@ def search(request):
                     found_urls.add(url)
 
         if MsaTournament:
-            for t in MsaTournament.objects.order_by("-updated_at")[
-                :MAX_CANDIDATES_PER_MODEL
-            ]:
+            for t in MsaTournament.objects.order_by("-updated_at")[:MAX_CANDIDATES_PER_MODEL]:
                 url = f"/msasquashtour/tournaments/{t.slug}/"
                 if url in found_urls:
                     continue
@@ -349,9 +339,7 @@ def search(request):
                     found_urls.add(url)
 
         if MsaNews:
-            for n in MsaNews.objects.order_by("-published_at")[
-                :MAX_CANDIDATES_PER_MODEL
-            ]:
+            for n in MsaNews.objects.order_by("-published_at")[:MAX_CANDIDATES_PER_MODEL]:
                 url = f"/msasquashtour/news/{n.slug}/"
                 if url in found_urls:
                     continue
@@ -390,9 +378,7 @@ def search(request):
                     found_urls.add(url)
 
         if MmaEvent:
-            for e in MmaEvent.objects.order_by("-date_start")[
-                :MAX_CANDIDATES_PER_MODEL
-            ]:
+            for e in MmaEvent.objects.order_by("-date_start")[:MAX_CANDIDATES_PER_MODEL]:
                 url = f"/mma/events/{e.slug}/"
                 if url in found_urls:
                     continue
@@ -433,13 +419,11 @@ def search(request):
     results.extend(fuzzy_hits)
 
     types = sorted({r["type"] for r in results})
-    return render(
-        request, "search/results.html", {"q": q, "results": results, "types": types}
-    )
+    return render(request, "search/results.html", {"q": q, "results": results, "types": types})
 
 
 def _suggest_pack(
-    arr: List[Dict],
+    arr: list[dict],
     title: str,
     slug: str | None,
     url: str,
@@ -463,16 +447,14 @@ def suggest(request):
     q = (request.GET.get("q") or "").strip()
     q_norm = normalize(q)
     slug_q = slugify(q)
-    results: List[Dict] = []
+    results: list[dict] = []
 
     if q_norm:
         wiki_qs = Article.objects.filter(
             Q(title__icontains=q) | Q(slug__icontains=slug_q)
         ).order_by("-updated_at")[:20]
         for a in wiki_qs:
-            _suggest_pack(
-                results, a.title, a.slug, a.get_absolute_url(), "wiki", q_norm, slug_q
-            )
+            _suggest_pack(results, a.title, a.slug, a.get_absolute_url(), "wiki", q_norm, slug_q)
 
         if MsaPlayer:
             qs = MsaPlayer.objects.filter(
@@ -505,9 +487,9 @@ def suggest(request):
                 )
 
         if MsaNews:
-            qs = MsaNews.objects.filter(
-                Q(title__icontains=q) | Q(slug__icontains=slug_q)
-            ).order_by("-published_at")[:20]
+            qs = MsaNews.objects.filter(Q(title__icontains=q) | Q(slug__icontains=slug_q)).order_by(
+                "-published_at"
+            )[:20]
             for n in qs:
                 _suggest_pack(
                     results,
@@ -539,9 +521,9 @@ def suggest(request):
                 )
 
         if MmaEvent:
-            qs = MmaEvent.objects.filter(
-                Q(name__icontains=q) | Q(slug__icontains=slug_q)
-            ).order_by("-date_start")[:20]
+            qs = MmaEvent.objects.filter(Q(name__icontains=q) | Q(slug__icontains=slug_q)).order_by(
+                "-date_start"
+            )[:20]
             for e in qs:
                 _suggest_pack(
                     results,
@@ -555,9 +537,7 @@ def suggest(request):
 
         if MmaOrg:
             qs = MmaOrg.objects.filter(
-                Q(name__icontains=q)
-                | Q(short_name__icontains=q)
-                | Q(slug__icontains=slug_q)
+                Q(name__icontains=q) | Q(short_name__icontains=q) | Q(slug__icontains=slug_q)
             ).order_by("-id")[:20]
             for o in qs:
                 _suggest_pack(
@@ -595,7 +575,7 @@ def suggest(request):
             break
     if len(out) < 10:
         q_tokens = _tokenize(q)
-        fuzzy_hits: List[Dict] = []
+        fuzzy_hits: list[dict] = []
         if q_tokens:
             for a in Article.objects.filter(is_deleted=False).order_by("-updated_at")[
                 :MAX_CANDIDATES_PER_MODEL
@@ -609,51 +589,33 @@ def suggest(request):
                     seen.add(url)
 
             if MsaPlayer:
-                for p in MsaPlayer.objects.order_by("-updated_at")[
-                    :MAX_CANDIDATES_PER_MODEL
-                ]:
+                for p in MsaPlayer.objects.order_by("-updated_at")[:MAX_CANDIDATES_PER_MODEL]:
                     url = f"/msasquashtour/players/{p.slug}/"
                     if url in seen:
                         continue
                     tokens = _tokenize(p.name) | _tokenize(p.slug or "")
-                    if any(
-                        fuzzy1_token_match(qt, tt) for qt in q_tokens for tt in tokens
-                    ):
-                        fuzzy_hits.append(
-                            {"title": p.name, "url": url, "source": "msa"}
-                        )
+                    if any(fuzzy1_token_match(qt, tt) for qt in q_tokens for tt in tokens):
+                        fuzzy_hits.append({"title": p.name, "url": url, "source": "msa"})
                         seen.add(url)
 
             if MsaTournament:
-                for t in MsaTournament.objects.order_by("-updated_at")[
-                    :MAX_CANDIDATES_PER_MODEL
-                ]:
+                for t in MsaTournament.objects.order_by("-updated_at")[:MAX_CANDIDATES_PER_MODEL]:
                     url = f"/msasquashtour/tournaments/{t.slug}/"
                     if url in seen:
                         continue
                     tokens = _tokenize(t.name) | _tokenize(t.slug or "")
-                    if any(
-                        fuzzy1_token_match(qt, tt) for qt in q_tokens for tt in tokens
-                    ):
-                        fuzzy_hits.append(
-                            {"title": t.name, "url": url, "source": "msa"}
-                        )
+                    if any(fuzzy1_token_match(qt, tt) for qt in q_tokens for tt in tokens):
+                        fuzzy_hits.append({"title": t.name, "url": url, "source": "msa"})
                         seen.add(url)
 
             if MsaNews:
-                for n in MsaNews.objects.order_by("-published_at")[
-                    :MAX_CANDIDATES_PER_MODEL
-                ]:
+                for n in MsaNews.objects.order_by("-published_at")[:MAX_CANDIDATES_PER_MODEL]:
                     url = f"/msasquashtour/news/{n.slug}/"
                     if url in seen:
                         continue
                     tokens = _tokenize(n.title) | _tokenize(n.slug or "")
-                    if any(
-                        fuzzy1_token_match(qt, tt) for qt in q_tokens for tt in tokens
-                    ):
-                        fuzzy_hits.append(
-                            {"title": n.title, "url": url, "source": "msa"}
-                        )
+                    if any(fuzzy1_token_match(qt, tt) for qt in q_tokens for tt in tokens):
+                        fuzzy_hits.append({"title": n.title, "url": url, "source": "msa"})
                         seen.add(url)
 
             if MmaFighter:
@@ -661,30 +623,20 @@ def suggest(request):
                     url = f"/mma/fighters/{f.slug}/"
                     if url in seen:
                         continue
-                    title = (
-                        " ".join(filter(None, [f.first_name, f.last_name])) or f.slug
-                    )
+                    title = " ".join(filter(None, [f.first_name, f.last_name])) or f.slug
                     tokens = _tokenize(title) | _tokenize(f.slug or "")
-                    if any(
-                        fuzzy1_token_match(qt, tt) for qt in q_tokens for tt in tokens
-                    ):
+                    if any(fuzzy1_token_match(qt, tt) for qt in q_tokens for tt in tokens):
                         fuzzy_hits.append({"title": title, "url": url, "source": "mma"})
                         seen.add(url)
 
             if MmaEvent:
-                for e in MmaEvent.objects.order_by("-date_start")[
-                    :MAX_CANDIDATES_PER_MODEL
-                ]:
+                for e in MmaEvent.objects.order_by("-date_start")[:MAX_CANDIDATES_PER_MODEL]:
                     url = f"/mma/events/{e.slug}/"
                     if url in seen:
                         continue
                     tokens = _tokenize(e.name) | _tokenize(e.slug or "")
-                    if any(
-                        fuzzy1_token_match(qt, tt) for qt in q_tokens for tt in tokens
-                    ):
-                        fuzzy_hits.append(
-                            {"title": e.name, "url": url, "source": "mma"}
-                        )
+                    if any(fuzzy1_token_match(qt, tt) for qt in q_tokens for tt in tokens):
+                        fuzzy_hits.append({"title": e.name, "url": url, "source": "mma"})
                         seen.add(url)
 
             if MmaOrg:
@@ -693,12 +645,8 @@ def suggest(request):
                     if url in seen:
                         continue
                     tokens = _tokenize(o.name) | _tokenize(o.slug or "")
-                    if any(
-                        fuzzy1_token_match(qt, tt) for qt in q_tokens for tt in tokens
-                    ):
-                        fuzzy_hits.append(
-                            {"title": o.name, "url": url, "source": "mma"}
-                        )
+                    if any(fuzzy1_token_match(qt, tt) for qt in q_tokens for tt in tokens):
+                        fuzzy_hits.append({"title": o.name, "url": url, "source": "mma"})
                         seen.add(url)
 
         fuzzy_hits.sort(key=lambda r: r["title"])

@@ -44,7 +44,5 @@ class Migration(migrations.Migration):
             name="sub_category",
             field=models.CharField(blank=True, db_index=True, max_length=100),
         ),
-        migrations.RunPython(
-            populate_categories, reverse_code=migrations.RunPython.noop
-        ),
+        migrations.RunPython(populate_categories, reverse_code=migrations.RunPython.noop),
     ]

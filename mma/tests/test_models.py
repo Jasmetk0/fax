@@ -1,16 +1,14 @@
 import datetime
+from decimal import Decimal
 
 from django.utils import timezone
 
 from mma import models
-from decimal import Decimal
 
 
 def test_create_event_and_bout(db):
     org = models.Organization.objects.create(slug="org", name="Org", short_name="ORG")
-    wc = models.WeightClass.objects.create(
-        slug="lw", name="Lightweight", limit_kg=Decimal("70.50")
-    )
+    wc = models.WeightClass.objects.create(slug="lw", name="Lightweight", limit_kg=Decimal("70.50"))
     venue = models.Venue.objects.create(name="Arena", city="Prague", country="CZ")
     event = models.Event.objects.create(
         slug="event1",

@@ -18,9 +18,7 @@ urlpatterns = [
     path("suggest/", views.article_suggest, name="article-suggest"),
     path("create/", views.ArticleCreateView.as_view(), name="article-create"),
     path("categories/", views.CategoryListView.as_view(), name="category-list"),
-    path(
-        "categories/create/", views.CategoryCreateView.as_view(), name="category-create"
-    ),
+    path("categories/create/", views.CategoryCreateView.as_view(), name="category-create"),
     path(
         "categories/<slug:slug>/edit/",
         views.CategoryUpdateView.as_view(),

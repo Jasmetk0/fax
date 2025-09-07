@@ -1,6 +1,7 @@
-from django.test import override_settings
-from django.template.loader import render_to_string as django_render_to_string
 from unittest.mock import patch
+
+from django.template.loader import render_to_string as django_render_to_string
+from django.test import override_settings
 
 from wiki.infoboxes import parser
 
@@ -45,9 +46,7 @@ def test_sanitization():
 
 def test_cache_usage():
     md = "{{Infobox city | name=Prague }}"
-    with patch(
-        "wiki.infoboxes.parser.render_to_string", wraps=django_render_to_string
-    ) as r:
+    with patch("wiki.infoboxes.parser.render_to_string", wraps=django_render_to_string) as r:
         render(md)
         render(md)
         assert r.call_count == 1

@@ -1,11 +1,9 @@
 # msa/services/ll_prefix.py
-from typing import List, Tuple, Optional
 from dataclasses import dataclass
 
-from django.db.models import Q
 from django.core.exceptions import ValidationError
 
-from msa.models import Tournament, TournamentEntry, EntryType, EntryStatus
+from msa.models import EntryStatus, EntryType, Tournament, TournamentEntry
 from msa.services.tx import atomic
 
 
@@ -13,15 +11,14 @@ from msa.services.tx import atomic
 class LLEntryView:
     id: int
     player_id: int
-    wr_snapshot: Optional[int]  # None = NR
-    position: Optional[int]     # None = ještě nepřiřazen v MD
+    wr_snapshot: int | None  # None = NR
+    position: int | None  # None = ještě nepřiřazen v MD
 
 
 def _ll_queryset(t: Tournament):
     # Všichni LL (ať už přiřazení do MD/slotu, nebo volní v poolu)
-    return (
-        TournamentEntry.objects
-        .filter(tournament=t, entry_type=EntryType.LL, status=EntryStatus.ACTIVE)
+    return TournamentEntry.objects.filter(
+        tournament=t, entry_type=EntryType.LL, status=EntryStatus.ACTIVE
     )
 
 
@@ -37,9 +34,8 @@ def _free_ll_queryset(t: Tournament):
 
 def _alt_queryset(t: Tournament):
     # Rezervy/alternates, dosud neobsazené v MD
-    return (
-        TournamentEntry.objects
-        .filter(tournament=t, entry_type=EntryType.ALT, status=EntryStatus.ACTIVE, position__isnull=True)
+    return TournamentEntry.objects.filter(
+        tournament=t, entry_type=EntryType.ALT, status=EntryStatus.ACTIVE, position__isnull=True
     )
 
 
@@ -49,20 +45,22 @@ def _md_slot_taken(t: Tournament, slot: int) -> bool:
     ).exists()
 
 
-def _ll_queue_sorted(qs) -> List[LLEntryView]:
+def _ll_queue_sorted(qs) -> list[LLEntryView]:
     """
     Fronta LL dle specifikace: WR snapshot vzestupně, NR (None) na konec.
     Tie-break stabilně podle PK.
     """
     items = [
-        LLEntryView(id=te.id, player_id=te.player_id, wr_snapshot=te.wr_snapshot, position=te.position)
+        LLEntryView(
+            id=te.id, player_id=te.player_id, wr_snapshot=te.wr_snapshot, position=te.position
+        )
         for te in qs.order_by("wr_snapshot__isnull", "wr_snapshot", "id")
     ]
     # Pozn.: order_by("wr_snapshot__isnull", "wr_snapshot", "id") → None (NR) až za čísly.
     return items
 
 
-def get_ll_queue(t: Tournament) -> List[LLEntryView]:
+def get_ll_queue(t: Tournament) -> list[LLEntryView]:
     """Vrátí celou LL frontu (přiřazení i volní), v pořadí pravidel."""
     return _ll_queue_sorted(_ll_queryset(t))
 
@@ -171,7 +169,9 @@ def reinstate_original_player(t: Tournament, original_entry_id: int, slot: int) 
     if not ll_assigned:
         # Bez LL jen vrať hráče do slotu, pokud to dává smysl
         if occupant and occupant.id != original.id:
-            raise ValidationError("Slot je obsazen jiným hráčem a v MD není LL – nelze reinstat bez manuálního zásahu.")
+            raise ValidationError(
+                "Slot je obsazen jiným hráčem a v MD není LL – nelze reinstat bez manuálního zásahu."
+            )
         original.position = slot
         original.save(update_fields=["position"])
         return

@@ -1,4 +1,5 @@
 import pytest
+
 from msa.services.qual_generator import generate_qualification_mapping, seeds_per_bracket
 
 
@@ -27,7 +28,7 @@ def test_R3_K2_tiers_top_bottom():
 def test_R4_K3_four_tiers():
     K, R = 3, 4  # 16 na větev, 4 seedy/ větev => 12 seedů celkem
     seeds = [f"S{i}" for i in range(1, 13)]
-    U = [f"U{i}" for i in range(1, 3*16 - 12 + 1)]  # doplnit zbytek
+    U = [f"U{i}" for i in range(1, 3 * 16 - 12 + 1)]  # doplnit zbytek
 
     br = generate_qualification_mapping(K, R, seeds, U, rng_seed=7)
     # Tier1 TOP → slot 1
@@ -43,22 +44,24 @@ def test_R4_K3_four_tiers():
 def test_unseeded_determinism_changes_with_rng():
     K, R = 2, 3
     seeds = ["S1", "S2", "S3", "S4"]
-    need = K*(2**R) - len(seeds)
-    U = [f"U{i}" for i in range(1, need+1)]
+    need = K * (2**R) - len(seeds)
+    U = [f"U{i}" for i in range(1, need + 1)]
 
     b1 = generate_qualification_mapping(K, R, seeds, U, rng_seed=1)
     b2 = generate_qualification_mapping(K, R, seeds, U, rng_seed=2)
     # najdi aspoň jeden rozdíl v nenasazených
-    assert any(b1[i][s] != b2[i][s] for i in range(K) for s in range(1, 2**R + 1) if s not in (1, 8))
+    assert any(
+        b1[i][s] != b2[i][s] for i in range(K) for s in range(1, 2**R + 1) if s not in (1, 8)
+    )
 
 
 def test_size_checks():
     K, R = 2, 3
     seeds = ["S1", "S2", "S3", "S4"]
     # málo nenasazených → chyba
-    need = K*(2**R) - len(seeds)
+    need = K * (2**R) - len(seeds)
     with pytest.raises(ValueError):
-        generate_qualification_mapping(K, R, seeds, ["U1"]*(need-1), rng_seed=0)
+        generate_qualification_mapping(K, R, seeds, ["U1"] * (need - 1), rng_seed=0)
     # špatný počet seedů → chyba
     with pytest.raises(ValueError):
-        generate_qualification_mapping(K, R, seeds[:-1], ["U1"]*need, rng_seed=0)
+        generate_qualification_mapping(K, R, seeds[:-1], ["U1"] * need, rng_seed=0)

@@ -82,9 +82,7 @@ urlpatterns = [
         name="ranking_delete",
     ),
     path("news/add/", views.NewsItemCreateView.as_view(), name="news_add"),
-    path(
-        "news/<slug:slug>/edit/", views.NewsItemUpdateView.as_view(), name="news_edit"
-    ),
+    path("news/<slug:slug>/edit/", views.NewsItemUpdateView.as_view(), name="news_edit"),
     path(
         "news/<slug:slug>/delete/",
         views.NewsItemDeleteView.as_view(),

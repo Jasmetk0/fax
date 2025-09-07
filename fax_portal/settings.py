@@ -73,9 +73,7 @@ DATABASES = {
 }
 
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"
-    },
+    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
@@ -91,9 +89,7 @@ STATIC_URL = "static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # OpenFaxMap tile configuration
-OFM_TILE_URL = os.getenv(
-    "OFM_TILE_URL", "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-)
+OFM_TILE_URL = os.getenv("OFM_TILE_URL", "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png")
 OFM_TILE_ATTRIBUTION = os.getenv("OFM_TILE_ATTRIBUTION", "© OpenStreetMap contributors")
 OFM_STYLE_URL = os.getenv("OFM_STYLE_URL", "")
 

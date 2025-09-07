@@ -1,6 +1,6 @@
+from django.core.validators import MinValueValidator
 from django.db import models
 from django.utils import timezone
-from django.core.validators import MinValueValidator
 
 """
 SOFT SCHEMA (MVP):
@@ -98,7 +98,9 @@ class CategorySeason(models.Model):
         # ponecháme unikátnost, ale protože hodnoty mohou být NULL, DB obvykle
         # dovolí víc NULL řádků; pro MVP nevadí. Později zpřísníme.
         constraints = [
-            models.UniqueConstraint(fields=["category", "season", "draw_size"], name="uniq_category_season_drawsize")
+            models.UniqueConstraint(
+                fields=["category", "season", "draw_size"], name="uniq_category_season_drawsize"
+            )
         ]
 
     def __str__(self):
@@ -132,7 +134,9 @@ class PlayerLicense(models.Model):
 class Tournament(models.Model):
     season = models.ForeignKey(Season, on_delete=models.PROTECT, null=True, blank=True)
     category = models.ForeignKey(Category, on_delete=models.PROTECT, null=True, blank=True)
-    category_season = models.ForeignKey(CategorySeason, on_delete=models.PROTECT, null=True, blank=True)
+    category_season = models.ForeignKey(
+        CategorySeason, on_delete=models.PROTECT, null=True, blank=True
+    )
 
     name = models.CharField(max_length=120, null=True, blank=True)
     slug = models.SlugField(max_length=140, unique=True, null=True, blank=True)
@@ -143,16 +147,24 @@ class Tournament(models.Model):
     md_best_of = models.PositiveSmallIntegerField(default=5, null=True, blank=True)
 
     wc_slots = models.PositiveSmallIntegerField(null=True, blank=True)
-    q_wc_slots = models.PositiveSmallIntegerField(null=True, blank=True) 
+    q_wc_slots = models.PositiveSmallIntegerField(null=True, blank=True)
 
     seeding_source = models.CharField(
-        max_length=16, choices=SeedingSource.choices, default=SeedingSource.SNAPSHOT, null=True, blank=True
+        max_length=16,
+        choices=SeedingSource.choices,
+        default=SeedingSource.SNAPSHOT,
+        null=True,
+        blank=True,
     )
     snapshot_label = models.CharField(max_length=120, blank=True, null=True, default=None)
 
     rng_seed_active = models.BigIntegerField(default=0, null=True, blank=True)
     state = models.CharField(
-        max_length=12, choices=TournamentState.choices, default=TournamentState.REG, null=True, blank=True
+        max_length=12,
+        choices=TournamentState.choices,
+        default=TournamentState.REG,
+        null=True,
+        blank=True,
     )
 
     created_at = models.DateTimeField(default=timezone.now, null=True, blank=True)
@@ -173,15 +185,23 @@ class TournamentEntry(models.Model):
     tournament = models.ForeignKey(Tournament, on_delete=models.CASCADE, null=True, blank=True)
     player = models.ForeignKey(Player, on_delete=models.PROTECT, null=True, blank=True)
 
-    entry_type = models.CharField(max_length=8, choices=EntryType.choices, default=EntryType.DA, null=True, blank=True)
+    entry_type = models.CharField(
+        max_length=8, choices=EntryType.choices, default=EntryType.DA, null=True, blank=True
+    )
     seed = models.PositiveSmallIntegerField(null=True, blank=True)
     wr_snapshot = models.PositiveIntegerField(null=True, blank=True)  # WR pro seeding/snapshot
 
-    status = models.CharField(max_length=12, choices=EntryStatus.choices, default=EntryStatus.ACTIVE, null=True, blank=True)
+    status = models.CharField(
+        max_length=12,
+        choices=EntryStatus.choices,
+        default=EntryStatus.ACTIVE,
+        null=True,
+        blank=True,
+    )
     position = models.PositiveIntegerField(null=True, blank=True)
 
     is_wc = models.BooleanField(default=False, null=True, blank=True)
-    is_qwc = models.BooleanField(default=False, null=True, blank=True) 
+    is_qwc = models.BooleanField(default=False, null=True, blank=True)
     promoted_by_wc = models.BooleanField(default=False, null=True, blank=True)
     promoted_by_qwc = models.BooleanField(default=False, null=True, blank=True)
 
@@ -210,7 +230,9 @@ class TournamentEntry(models.Model):
 class Match(models.Model):
     tournament = models.ForeignKey(Tournament, on_delete=models.CASCADE, null=True, blank=True)
     phase = models.CharField(max_length=8, choices=Phase.choices, null=True, blank=True)
-    round_name = models.CharField(max_length=16, null=True, blank=True)  # "R64","R32","R16","QF","SF","F","3P" atd.
+    round_name = models.CharField(
+        max_length=16, null=True, blank=True
+    )  # "R64","R32","R16","QF","SF","F","3P" atd.
 
     slot_top = models.PositiveIntegerField(null=True, blank=True)
     slot_bottom = models.PositiveIntegerField(null=True, blank=True)
@@ -222,14 +244,22 @@ class Match(models.Model):
         Player, on_delete=models.PROTECT, related_name="matches_as_bottom", null=True, blank=True
     )
 
-    winner = models.ForeignKey(Player, on_delete=models.PROTECT, related_name="wins", null=True, blank=True)
+    winner = models.ForeignKey(
+        Player, on_delete=models.PROTECT, related_name="wins", null=True, blank=True
+    )
 
-    best_of = models.PositiveSmallIntegerField(default=5, validators=[MinValueValidator(1)], null=True, blank=True)
+    best_of = models.PositiveSmallIntegerField(
+        default=5, validators=[MinValueValidator(1)], null=True, blank=True
+    )
     win_by_two = models.BooleanField(default=True)
 
-    score = models.JSONField(default=dict, blank=True, null=True)  # {"sets": [[11,8],...], "special": "WO/RET/DQ"}
+    score = models.JSONField(
+        default=dict, blank=True, null=True
+    )  # {"sets": [[11,8],...], "special": "WO/RET/DQ"}
 
-    state = models.CharField(max_length=12, choices=MatchState.choices, default=MatchState.PENDING, null=True, blank=True)
+    state = models.CharField(
+        max_length=12, choices=MatchState.choices, default=MatchState.PENDING, null=True, blank=True
+    )
     needs_review = models.BooleanField(default=False)
 
     class Meta:
@@ -251,11 +281,15 @@ class Schedule(models.Model):
     tournament = models.ForeignKey(Tournament, on_delete=models.CASCADE, null=True, blank=True)
     play_date = models.DateField(null=True, blank=True)
     order = models.PositiveIntegerField(null=True, blank=True)
-    match = models.OneToOneField(Match, on_delete=models.CASCADE, related_name="schedule", null=True, blank=True)
+    match = models.OneToOneField(
+        Match, on_delete=models.CASCADE, related_name="schedule", null=True, blank=True
+    )
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=["tournament", "play_date", "order"], name="uniq_tournament_day_order")
+            models.UniqueConstraint(
+                fields=["tournament", "play_date", "order"], name="uniq_tournament_day_order"
+            )
         ]
         ordering = ["play_date", "order"]
 
@@ -282,14 +316,20 @@ class Snapshot(models.Model):
 class RankingAdjustment(models.Model):
     player = models.ForeignKey(Player, on_delete=models.CASCADE, null=True, blank=True)
     scope = models.CharField(
-        max_length=16, choices=RankingScope.choices, default=RankingScope.ROLLING_ONLY, null=True, blank=True
+        max_length=16,
+        choices=RankingScope.choices,
+        default=RankingScope.ROLLING_ONLY,
+        null=True,
+        blank=True,
     )
 
     points_delta = models.IntegerField(default=0, null=True, blank=True)
     start_monday = models.DateField(null=True, blank=True)
     duration_weeks = models.PositiveSmallIntegerField(default=61, null=True, blank=True)
 
-    best_n_penalty = models.SmallIntegerField(default=0, null=True, blank=True)  # např. -1 na X týdnů
+    best_n_penalty = models.SmallIntegerField(
+        default=0, null=True, blank=True
+    )  # např. -1 na X týdnů
 
     class Meta:
         ordering = ["-start_monday", "-duration_weeks"]

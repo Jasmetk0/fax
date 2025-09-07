@@ -1,4 +1,5 @@
 import datetime
+from decimal import Decimal
 
 from django.utils import timezone
 
@@ -11,7 +12,6 @@ from mma.models import (
     Venue,
     WeightClass,
 )
-from decimal import Decimal
 
 
 def test_dashboard_renders(client, db):
@@ -34,9 +34,7 @@ def test_dashboard_renders(client, db):
 
 def test_section_pages_render(client, db):
     org = Organization.objects.create(slug="org", name="Org", short_name="ORG")
-    weight = WeightClass.objects.create(
-        slug="lw", name="Lightweight", limit_kg=Decimal("70.30")
-    )
+    weight = WeightClass.objects.create(slug="lw", name="Lightweight", limit_kg=Decimal("70.30"))
     venue = Venue.objects.create(name="Arena", city="Prague", country="CZ")
     event = Event.objects.create(
         slug="e1",
@@ -45,12 +43,8 @@ def test_section_pages_render(client, db):
         date_start=timezone.now(),
         venue=venue,
     )
-    f1 = Fighter.objects.create(
-        slug="f1", first_name="John", last_name="Doe", country="USA"
-    )
-    f2 = Fighter.objects.create(
-        slug="f2", first_name="Max", last_name="Must", country="DE"
-    )
+    f1 = Fighter.objects.create(slug="f1", first_name="John", last_name="Doe", country="USA")
+    f2 = Fighter.objects.create(slug="f2", first_name="Max", last_name="Must", country="DE")
     Bout.objects.create(
         event=event,
         weight_class=weight,

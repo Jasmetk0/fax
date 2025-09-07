@@ -1,6 +1,7 @@
 import pytest
 from django.urls import reverse
-from .models import Article, Category, CategoryArticle, ArticleRevision
+
+from .models import Article, ArticleRevision, Category, CategoryArticle
 
 
 @pytest.mark.django_db
@@ -56,9 +57,7 @@ def test_staff_edit_creates_revision(client, django_user_model):
     article = Article.objects.create(title="A", content_md="one")
     url = reverse("wiki:article-edit", args=[article.slug])
     assert client.get(url).status_code == 200
-    client.post(
-        url, {"title": "A", "summary": "", "content_md": "two", "status": "published"}
-    )
+    client.post(url, {"title": "A", "summary": "", "content_md": "two", "status": "published"})
     assert ArticleRevision.objects.filter(article=article).count() == 1
 
 
@@ -70,14 +69,10 @@ def test_diff_endpoint(client, django_user_model):
     session["admin_mode"] = True
     session.save()
     article = Article.objects.create(title="A", content_md="one")
-    rev = ArticleRevision.objects.create(
-        article=article, title="A", content_md="one", author=user
-    )
+    rev = ArticleRevision.objects.create(article=article, title="A", content_md="one", author=user)
     article.content_md = "two"
     article.save()
-    ArticleRevision.objects.create(
-        article=article, title="A", content_md="two", author=user
-    )
+    ArticleRevision.objects.create(article=article, title="A", content_md="two", author=user)
     url = reverse("wiki:article-diff", args=[article.slug, rev.id])
     resp = client.get(url)
     assert resp.status_code == 200

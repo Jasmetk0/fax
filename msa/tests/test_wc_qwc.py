@@ -1,12 +1,18 @@
 # tests/test_wc_qwc.py
 import pytest
+
 from msa.models import (
-    Season, Category, CategorySeason, Tournament, Player, TournamentEntry,
-    EntryType, EntryStatus, TournamentState
+    Category,
+    CategorySeason,
+    EntryStatus,
+    EntryType,
+    Player,
+    Season,
+    Tournament,
+    TournamentEntry,
+    TournamentState,
 )
-from msa.services.wc import (
-    set_wc_slots, set_q_wc_slots, apply_wc, remove_wc, apply_qwc, remove_qwc
-)
+from msa.services.wc import apply_qwc, apply_wc, remove_qwc, remove_wc, set_q_wc_slots, set_wc_slots
 
 
 @pytest.mark.django_db
@@ -14,14 +20,22 @@ def test_wc_above_cutline_is_label_only_does_not_consume():
     # MD32, qualifiers=4 → D = 28
     s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
     c = Category.objects.create(name="WT")
-    cs = CategorySeason.objects.create(category=c, season=s, draw_size=32, qualifiers_count=4, wc_slots_default=2)
-    t = Tournament.objects.create(season=s, category=c, category_season=cs, name="T", slug="t", state=TournamentState.REG)
+    cs = CategorySeason.objects.create(
+        category=c, season=s, draw_size=32, qualifiers_count=4, wc_slots_default=2
+    )
+    t = Tournament.objects.create(
+        season=s, category=c, category_season=cs, name="T", slug="t", state=TournamentState.REG
+    )
 
     # 40 registrací: 1..40 (1 nejlepší). DA/Q/ALT neřešíme, rozhoduje WR.
     players = [Player.objects.create(name=f"P{i}") for i in range(1, 41)]
     for i, p in enumerate(players, start=1):
         TournamentEntry.objects.create(
-            tournament=t, player=p, entry_type=EntryType.ALT, status=EntryStatus.ACTIVE, wr_snapshot=i
+            tournament=t,
+            player=p,
+            entry_type=EntryType.ALT,
+            status=EntryStatus.ACTIVE,
+            wr_snapshot=i,
         )
 
     # hráč s WR=10 je nad čarou D=28 → jen label, bez čerpání
@@ -38,13 +52,21 @@ def test_wc_above_cutline_is_label_only_does_not_consume():
 def test_wc_below_cutline_promotes_and_demotes_last_DA_and_respects_limit():
     s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
     c = Category.objects.create(name="WT")
-    cs = CategorySeason.objects.create(category=c, season=s, draw_size=32, qualifiers_count=4, wc_slots_default=1)
-    t = Tournament.objects.create(season=s, category=c, category_season=cs, name="T", slug="t", state=TournamentState.REG)
+    cs = CategorySeason.objects.create(
+        category=c, season=s, draw_size=32, qualifiers_count=4, wc_slots_default=1
+    )
+    t = Tournament.objects.create(
+        season=s, category=c, category_season=cs, name="T", slug="t", state=TournamentState.REG
+    )
 
     players = [Player.objects.create(name=f"P{i}") for i in range(1, 41)]
     for i, p in enumerate(players, start=1):
         TournamentEntry.objects.create(
-            tournament=t, player=p, entry_type=EntryType.ALT, status=EntryStatus.ACTIVE, wr_snapshot=i
+            tournament=t,
+            player=p,
+            entry_type=EntryType.ALT,
+            status=EntryStatus.ACTIVE,
+            wr_snapshot=i,
         )
 
     # WR=30 je POD čarou (D=28) → povýší do DA, spotřebuje 1 slot
@@ -61,22 +83,38 @@ def test_wc_below_cutline_promotes_and_demotes_last_DA_and_respects_limit():
     # odeber WC z prvního → vrátí ho do Q a do DA povýší nejlepšího mimo čáru
     remove_wc(t, below.id)
     below.refresh_from_db()
-    assert below.entry_type == EntryType.Q and below.is_wc is False and below.promoted_by_wc is False
+    assert (
+        below.entry_type == EntryType.Q and below.is_wc is False and below.promoted_by_wc is False
+    )
 
 
 @pytest.mark.django_db
 def test_qwc_promotes_alt_to_q_and_respects_limit_label_only_in_q():
     s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
     c = Category.objects.create(name="WT")
-    cs = CategorySeason.objects.create(category=c, season=s, draw_size=32, qualifiers_count=4, q_wc_slots_default=1)
-    t = Tournament.objects.create(season=s, category=c, category_season=cs, name="T", slug="t", state=TournamentState.REG)
+    cs = CategorySeason.objects.create(
+        category=c, season=s, draw_size=32, qualifiers_count=4, q_wc_slots_default=1
+    )
+    t = Tournament.objects.create(
+        season=s, category=c, category_season=cs, name="T", slug="t", state=TournamentState.REG
+    )
 
     P = [Player.objects.create(name=f"P{i}") for i in range(1, 10)]
     # 6 hráčů ALT, 2 hráči už Q
     for i, p in enumerate(P[:6], start=1):
-        TournamentEntry.objects.create(tournament=t, player=p, entry_type=EntryType.ALT, status=EntryStatus.ACTIVE, wr_snapshot=50+i)
-    q1 = TournamentEntry.objects.create(tournament=t, player=P[6], entry_type=EntryType.Q, status=EntryStatus.ACTIVE, wr_snapshot=10)
-    q2 = TournamentEntry.objects.create(tournament=t, player=P[7], entry_type=EntryType.Q, status=EntryStatus.ACTIVE, wr_snapshot=12)
+        TournamentEntry.objects.create(
+            tournament=t,
+            player=p,
+            entry_type=EntryType.ALT,
+            status=EntryStatus.ACTIVE,
+            wr_snapshot=50 + i,
+        )
+    q1 = TournamentEntry.objects.create(
+        tournament=t, player=P[6], entry_type=EntryType.Q, status=EntryStatus.ACTIVE, wr_snapshot=10
+    )
+    q2 = TournamentEntry.objects.create(
+        tournament=t, player=P[7], entry_type=EntryType.Q, status=EntryStatus.ACTIVE, wr_snapshot=12
+    )
 
     # ALT → Q pomocí QWC (spotřebuje slot)
     alt = TournamentEntry.objects.filter(tournament=t, entry_type=EntryType.ALT).first()

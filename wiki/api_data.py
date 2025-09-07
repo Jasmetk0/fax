@@ -22,9 +22,7 @@ class DataPointSerializer(serializers.ModelSerializer):
 
 
 class DataSeriesListSerializer(serializers.ModelSerializer):
-    categories = serializers.SlugRelatedField(
-        many=True, read_only=True, slug_field="slug"
-    )
+    categories = serializers.SlugRelatedField(many=True, read_only=True, slug_field="slug")
 
     class Meta:
         model = DataSeries
@@ -41,9 +39,7 @@ class DataSeriesCategorySerializer(serializers.ModelSerializer):
 
 class DataSeriesDetailSerializer(serializers.ModelSerializer):
     points = DataPointSerializer(many=True, read_only=True)
-    categories = serializers.SlugRelatedField(
-        many=True, read_only=True, slug_field="slug"
-    )
+    categories = serializers.SlugRelatedField(many=True, read_only=True, slug_field="slug")
 
     class Meta:
         model = DataSeries
@@ -77,9 +73,7 @@ class DataPointDetail(generics.GenericAPIView):
     def get(self, request, slug: str, key: str) -> Response:
         series = get_object_or_404(DataSeries, slug=slug)
         point = get_object_or_404(DataPoint, series=series, key=key)
-        return Response(
-            {"key": point.key, "value": str(point.value), "unit": series.unit}
-        )
+        return Response({"key": point.key, "value": str(point.value), "unit": series.unit})
 
 
 class DataSeriesByCategory(generics.GenericAPIView):

@@ -33,9 +33,7 @@ def test_category_api_and_table_shortcode(client):
     assert data["results"][0]["slug"] == "country-population/italora"
     assert data["by_slug"]["country-population/italora"] == "10.0000"
 
-    html = replace_data_shortcodes(
-        "{{table:country-population|year=2020|sort=value|desc=1}}"
-    )
+    html = replace_data_shortcodes("{{table:country-population|year=2020|sort=value|desc=1}}")
     assert "<table" in html
     assert html.index("Italora") < html.index("Francica")
 

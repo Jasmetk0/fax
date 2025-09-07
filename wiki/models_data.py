@@ -35,9 +35,7 @@ class DataSeries(models.Model):
 class DataPoint(models.Model):
     """Single numeric value within a :class:`DataSeries`."""
 
-    series = models.ForeignKey(
-        DataSeries, on_delete=models.CASCADE, related_name="points"
-    )
+    series = models.ForeignKey(DataSeries, on_delete=models.CASCADE, related_name="points")
     key = models.CharField(max_length=50)
     value = models.DecimalField(max_digits=20, decimal_places=4)
     note = models.CharField(max_length=200, blank=True)

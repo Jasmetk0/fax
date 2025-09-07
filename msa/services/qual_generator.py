@@ -1,34 +1,40 @@
-from typing import List, Dict, Any
-import math
 import random
 from collections import OrderedDict
+from typing import Any
 
 # --- Anchor map pro JEDNU kvalifikační větev (bracket) o velikosti 2^R ---
 # Tiers v přesném pořadí plnění globálními Q-seedy: TOP → BOTTOM → MIDDLE_A → MIDDLE_B → ...
 # Podporujeme R ∈ {1,2,3,4}. Pro R>=5 by se dal použít MD-like kotvy (32/64), ale zatím není potřeba.
 
+
 def bracket_anchor_tiers(R: int) -> OrderedDict:
-    size = 2 ** R
+    size = 2**R
     if R <= 0:
         raise ValueError("R must be >= 1")
     if size == 2:  # R=1 → bez seedů (2^(R-2) = 0)
         return OrderedDict()  # žádné kotvy, ale vracíme prázdno
     if size == 4:  # R=2 → 1 seed/bracket: TOP
-        return OrderedDict({
-            "TOP": [1],
-        })
+        return OrderedDict(
+            {
+                "TOP": [1],
+            }
+        )
     if size == 8:  # R=3 → 2 seedy/bracket: TOP, BOTTOM
-        return OrderedDict({
-            "TOP": [1],
-            "BOTTOM": [8],
-        })
+        return OrderedDict(
+            {
+                "TOP": [1],
+                "BOTTOM": [8],
+            }
+        )
     if size == 16:  # R=4 → 4 seedy/bracket: TOP, BOTTOM, MIDDLE_A, MIDDLE_B
-        return OrderedDict({
-            "TOP": [1],
-            "BOTTOM": [16],
-            "MIDDLE_A": [9],
-            "MIDDLE_B": [8],
-        })
+        return OrderedDict(
+            {
+                "TOP": [1],
+                "BOTTOM": [16],
+                "MIDDLE_A": [9],
+                "MIDDLE_B": [8],
+            }
+        )
     raise ValueError(f"Unsupported bracket size 2^{R}. Supported R: 1..4")
 
 
@@ -37,12 +43,12 @@ def seeds_per_bracket(R: int) -> int:
 
 
 def generate_qualification_mapping(
-    K: int,                 # počet kvalifikačních větví = počet kvalifikantů do MD
-    R: int,                 # počet kol v každé větvi (počet hráčů na větev = 2^R)
-    q_seeds_in_order: List[Any],   # globální pořadí Q-seedů (SNAPSHOT/CURRENT), délka = K * 2^(R-2)
-    unseeded_players: List[Any],   # ostatní hráči (Q + Reserve/QWC), libovolné pořadí
+    K: int,  # počet kvalifikačních větví = počet kvalifikantů do MD
+    R: int,  # počet kol v každé větvi (počet hráčů na větev = 2^R)
+    q_seeds_in_order: list[Any],  # globální pořadí Q-seedů (SNAPSHOT/CURRENT), délka = K * 2^(R-2)
+    unseeded_players: list[Any],  # ostatní hráči (Q + Reserve/QWC), libovolné pořadí
     rng_seed: int,
-) -> List[Dict[int, Any]]:
+) -> list[dict[int, Any]]:
     """
     Vygeneruje K kvalifikačních větví. Každá větev je dict {local_slot(1..2^R) -> player}.
 
@@ -58,7 +64,7 @@ def generate_qualification_mapping(
     if R < 1:
         raise ValueError("R must be >= 1")
 
-    size = 2 ** R
+    size = 2**R
     spb = seeds_per_bracket(R)
     anchors = bracket_anchor_tiers(R)  # OrderedDict tier-> [slots]
 
@@ -75,7 +81,7 @@ def generate_qualification_mapping(
         raise ValueError("Nedostatek nenasazených hráčů pro vyplnění kvalifikace.")
 
     # Připrav prázdné větve
-    brackets: List[Dict[int, Any]] = [dict() for _ in range(K)]
+    brackets: list[dict[int, Any]] = [dict() for _ in range(K)]
 
     # 1) Rozdělení seedů do tierů po blocích K
     # Např. R=4 (spb=4): bloky [0:K] -> TOP, [K:2K] -> BOTTOM, [2K:3K] -> MIDDLE_A, [3K:4K] -> MIDDLE_B
@@ -102,8 +108,8 @@ def generate_qualification_mapping(
                 continue
             try:
                 brackets[b][local_slot] = next(it)
-            except StopIteration:
-                raise AssertionError("Internal fill error: unexpected pool exhaustion")
+            except StopIteration as err:
+                raise AssertionError("Internal fill error: unexpected pool exhaustion") from err
 
     # sanity
     for b in range(K):

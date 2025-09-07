@@ -34,6 +34,4 @@ class Command(BaseCommand):
 
         with file_path.open("r", encoding="utf-8") as fh:
             created, updated = import_csv_to_series(series, fh)
-        self.stdout.write(
-            self.style.SUCCESS(f"Imported {created} created, {updated} updated")
-        )
+        self.stdout.write(self.style.SUCCESS(f"Imported {created} created, {updated} updated"))

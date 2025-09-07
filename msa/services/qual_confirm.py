@@ -1,56 +1,55 @@
 # msa/services/qual_confirm.py
 from __future__ import annotations
 
-from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass
 
 from django.core.exceptions import ValidationError
 
-from msa.models import (
-    Tournament, TournamentEntry, EntryType, EntryStatus, Phase, Match, MatchState
-)
-from msa.services.tx import atomic, locked
+from msa.models import EntryStatus, EntryType, Match, MatchState, Phase, Tournament, TournamentEntry
 from msa.services.qual_generator import generate_qualification_mapping, seeds_per_bracket
-
+from msa.services.tx import atomic, locked
 
 # ---- Pomocné typy ----
+
 
 @dataclass(frozen=True)
 class EntryView:
     id: int
     player_id: int
     entry_type: str
-    wr_snapshot: Optional[int]  # None = NR
+    wr_snapshot: int | None  # None = NR
 
 
-def _collect_qual_entries(t: Tournament) -> List[EntryView]:
+def _collect_qual_entries(t: Tournament) -> list[EntryView]:
     """
     Hráči způsobilí pro kvalifikaci: EntryType ∈ {Q, QWC}
     (QWC je label, ale v generátoru se chová jako Q).
     """
-    qs = (
-        TournamentEntry.objects
-        .filter(tournament=t, status=EntryStatus.ACTIVE, entry_type__in=[EntryType.Q, EntryType.QWC])
-        .select_related("player")
-    )
-    out: List[EntryView] = []
+    qs = TournamentEntry.objects.filter(
+        tournament=t, status=EntryStatus.ACTIVE, entry_type__in=[EntryType.Q, EntryType.QWC]
+    ).select_related("player")
+    out: list[EntryView] = []
     for te in qs:
-        out.append(EntryView(
-            id=te.id,
-            player_id=te.player_id,
-            entry_type=te.entry_type,
-            wr_snapshot=te.wr_snapshot,
-        ))
+        out.append(
+            EntryView(
+                id=te.id,
+                player_id=te.player_id,
+                entry_type=te.entry_type,
+                wr_snapshot=te.wr_snapshot,
+            )
+        )
     return out
 
 
-def _sort_by_wr(entries: List[EntryView]) -> List[EntryView]:
+def _sort_by_wr(entries: list[EntryView]) -> list[EntryView]:
     # WR asc (1 nejlepší), NR (None) až nakonec, tie by PK (id)
     return sorted(
         entries,
-        key=lambda ev: (1 if ev.wr_snapshot is None else 0,
-                        ev.wr_snapshot if ev.wr_snapshot is not None else 10**9,
-                        ev.id)
+        key=lambda ev: (
+            1 if ev.wr_snapshot is None else 0,
+            ev.wr_snapshot if ev.wr_snapshot is not None else 10**9,
+            ev.id,
+        ),
     )
 
 
@@ -61,7 +60,7 @@ def _round_name(size: int) -> str:
     return f"Q{size}"
 
 
-def _pairs_for_size(size: int) -> List[Tuple[int, int]]:
+def _pairs_for_size(size: int) -> list[tuple[int, int]]:
     """
     Standardní zrcadlové párování v rámci jedné větve (lokální sloty 1..size).
     """
@@ -69,7 +68,7 @@ def _pairs_for_size(size: int) -> List[Tuple[int, int]]:
 
 
 @atomic()
-def confirm_qualification(t: Tournament, rng_seed: int) -> List[Dict[int, int]]:
+def confirm_qualification(t: Tournament, rng_seed: int) -> list[dict[int, int]]:
     """
     Vygeneruje a POTVRDÍ K kvalifikačních větví po R kolech:
       - vybere Q-seedy (globálně) dle WR: K * 2^(R-2) nejlepších,
@@ -80,12 +79,16 @@ def confirm_qualification(t: Tournament, rng_seed: int) -> List[Dict[int, int]]:
     Každá větev používá globálně unikátní sloty díky offsetu base = branch_index * 1000.
     Vrací seznam K dictů {local_slot -> entry_id} (mapping kvalifikací).
     """
-    if not t.category_season or not t.category_season.qualifiers_count or not t.category_season.qual_rounds:
+    if (
+        not t.category_season
+        or not t.category_season.qualifiers_count
+        or not t.category_season.qual_rounds
+    ):
         raise ValidationError("CategorySeason.qualifiers_count a qual_rounds musí být nastavené.")
 
     K = int(t.category_season.qualifiers_count)
     R = int(t.category_season.qual_rounds)
-    size = 2 ** R
+    size = 2**R
     spb = seeds_per_bracket(R)  # 2^(R-2) nebo 0
 
     # zamkni všechny kvalifikační entries pro stabilitu
@@ -99,16 +102,21 @@ def confirm_qualification(t: Tournament, rng_seed: int) -> List[Dict[int, int]]:
     sorted_by_wr = _sort_by_wr(entries)
     expected_seeds = K * spb
     if len(sorted_by_wr) < K * size:
-        raise ValidationError(f"Nedostatek hráčů: potřeba {K*size}, máme {len(sorted_by_wr)} (Q + QWC).")
+        raise ValidationError(
+            f"Nedostatek hráčů: potřeba {K*size}, máme {len(sorted_by_wr)} (Q + QWC)."
+        )
 
     seeds = sorted_by_wr[:expected_seeds]
-    unseeded = sorted_by_wr[expected_seeds:]  # pořadí tady vlastně nevadí (generator stejně dělá shuffle)
+    unseeded = sorted_by_wr[
+        expected_seeds:
+    ]  # pořadí tady vlastně nevadí (generator stejně dělá shuffle)
     q_seed_ids = [e.id for e in seeds]
-    q_unseed_ids = [e.id for e in unseeded[: (K*size - expected_seeds)]]
+    q_unseed_ids = [e.id for e in unseeded[: (K * size - expected_seeds)]]
 
     # Vygenerovat mapping pro K větví
     branches = generate_qualification_mapping(
-        K=K, R=R,
+        K=K,
+        R=R,
         q_seeds_in_order=q_seed_ids,
         unseeded_players=q_unseed_ids,
         rng_seed=rng_seed,
@@ -120,7 +128,7 @@ def confirm_qualification(t: Tournament, rng_seed: int) -> List[Dict[int, int]]:
     # Pokud už existují Q-zápasy (např. přegenerace), smažeme je a vytvoříme znovu.
     Match.objects.filter(tournament=t, phase=Phase.QUAL).delete()
 
-    bulk_matches: List[Match] = []
+    bulk_matches: list[Match] = []
     # Pro každou větev
     for b, mapping in enumerate(branches):
         base = b * 1000
@@ -185,7 +193,11 @@ def update_ll_after_qual_finals(t: Tournament) -> int:
     upraví jejich TournamentEntry.entry_type na LL (pokud už LL nejsou).
     Vrací počet nově „povýšených“ LL.
     """
-    finals = list(Match.objects.filter(tournament=t, phase=Phase.QUAL, round_name="Q2").exclude(winner_id=None))
+    finals = list(
+        Match.objects.filter(tournament=t, phase=Phase.QUAL, round_name="Q2").exclude(
+            winner_id=None
+        )
+    )
     promoted = 0
     for m in finals:
         # loser = druhý hráč ve finále
@@ -195,7 +207,9 @@ def update_ll_after_qual_finals(t: Tournament) -> int:
             loser_id = m.player_top_id
         if not loser_id:
             continue
-        te = TournamentEntry.objects.filter(tournament=t, player_id=loser_id, status=EntryStatus.ACTIVE).first()
+        te = TournamentEntry.objects.filter(
+            tournament=t, player_id=loser_id, status=EntryStatus.ACTIVE
+        ).first()
         if not te:
             continue
         if te.entry_type != EntryType.LL:

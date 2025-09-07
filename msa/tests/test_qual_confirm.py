@@ -1,8 +1,19 @@
 # tests/test_qual_confirm.py
 import pytest
+
 from msa.models import (
-    Season, Category, CategorySeason, Tournament, Player, TournamentEntry,
-    EntryType, EntryStatus, Phase, Match, MatchState, TournamentState
+    Category,
+    CategorySeason,
+    EntryStatus,
+    EntryType,
+    Match,
+    MatchState,
+    Phase,
+    Player,
+    Season,
+    Tournament,
+    TournamentEntry,
+    TournamentState,
 )
 from msa.services.qual_confirm import confirm_qualification, update_ll_after_qual_finals
 
@@ -12,8 +23,12 @@ def test_confirm_qualification_creates_full_tree_and_seeds_on_tiers():
     s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
     c = Category.objects.create(name="World Tour")
     # K=2 kvalifikanti, R=3 → každá větev má 8 hráčů, seeds_per_bracket=2
-    cs = CategorySeason.objects.create(category=c, season=s, draw_size=32, qualifiers_count=2, qual_rounds=3)
-    t = Tournament.objects.create(season=s, category=c, category_season=cs, name="T", slug="t", state=TournamentState.QUAL)
+    cs = CategorySeason.objects.create(
+        category=c, season=s, draw_size=32, qualifiers_count=2, qual_rounds=3
+    )
+    t = Tournament.objects.create(
+        season=s, category=c, category_season=cs, name="T", slug="t", state=TournamentState.QUAL
+    )
 
     # 16 hráčů do kvaldy (Q), WR: 1..16
     P = [Player.objects.create(name=f"P{i}") for i in range(1, 17)]
@@ -27,7 +42,7 @@ def test_confirm_qualification_creates_full_tree_and_seeds_on_tiers():
     q8 = list(Match.objects.filter(tournament=t, phase=Phase.QUAL, round_name="Q8"))
     q4 = list(Match.objects.filter(tournament=t, phase=Phase.QUAL, round_name="Q4"))
     q2 = list(Match.objects.filter(tournament=t, phase=Phase.QUAL, round_name="Q2"))
-    assert len(q8) == 2 * 4   # K * (8/2) zápasů v prvním kole
+    assert len(q8) == 2 * 4  # K * (8/2) zápasů v prvním kole
     assert len(q4) == 2 * 2
     assert len(q2) == 2 * 1
 
@@ -45,13 +60,23 @@ def test_confirm_qualification_creates_full_tree_and_seeds_on_tiers():
 def test_update_ll_after_qual_finals_promotes_final_losers():
     s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
     c = Category.objects.create(name="World Tour")
-    cs = CategorySeason.objects.create(category=c, season=s, draw_size=32, qualifiers_count=2, qual_rounds=2)  # K=2, R=2 → Q4,Q2
-    t = Tournament.objects.create(season=s, category=c, category_season=cs, name="T", slug="t", state=TournamentState.QUAL)
+    cs = CategorySeason.objects.create(
+        category=c, season=s, draw_size=32, qualifiers_count=2, qual_rounds=2
+    )  # K=2, R=2 → Q4,Q2
+    t = Tournament.objects.create(
+        season=s, category=c, category_season=cs, name="T", slug="t", state=TournamentState.QUAL
+    )
 
     # 8 hráčů do kvaldy (Q)
-    P = [Player.objects.create(name=f"P{i}\") for i in range(1, 9)]
+    P = [Player.objects.create(name=f"P{i}") for i in range(1, 9)]
     for p in P:
-        TournamentEntry.objects.create(tournament=t, player=p, entry_type=EntryType.Q, status=EntryStatus.ACTIVE, wr_snapshot=50)
+        TournamentEntry.objects.create(
+            tournament=t,
+            player=p,
+            entry_type=EntryType.Q,
+            status=EntryStatus.ACTIVE,
+            wr_snapshot=50,
+        )
 
     confirm_qualification(t, rng_seed=7)
 
@@ -66,5 +91,7 @@ def test_update_ll_after_qual_finals_promotes_final_losers():
     promoted = update_ll_after_qual_finals(t)
     # Dva poražení finalisté mají být převedeni na LL
     assert promoted == 2
-    ll_count = TournamentEntry.objects.filter(tournament=t, entry_type=EntryType.LL, status=EntryStatus.ACTIVE).count()
+    ll_count = TournamentEntry.objects.filter(
+        tournament=t, entry_type=EntryType.LL, status=EntryStatus.ACTIVE
+    ).count()
     assert ll_count == 2

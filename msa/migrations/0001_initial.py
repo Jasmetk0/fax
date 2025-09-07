@@ -299,9 +299,7 @@ class Migration(migrations.Migration):
                 ("name", models.CharField(blank=True, max_length=120, null=True)),
                 (
                     "slug",
-                    models.SlugField(
-                        blank=True, max_length=140, null=True, unique=True
-                    ),
+                    models.SlugField(blank=True, max_length=140, null=True, unique=True),
                 ),
                 ("start_date", models.DateField(blank=True, null=True)),
                 ("end_date", models.DateField(blank=True, null=True)),
@@ -329,9 +327,7 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "snapshot_label",
-                    models.CharField(
-                        blank=True, default=None, max_length=120, null=True
-                    ),
+                    models.CharField(blank=True, default=None, max_length=120, null=True),
                 ),
                 (
                     "rng_seed_active",
@@ -354,9 +350,7 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "created_at",
-                    models.DateTimeField(
-                        blank=True, default=django.utils.timezone.now, null=True
-                    ),
+                    models.DateTimeField(blank=True, default=django.utils.timezone.now, null=True),
                 ),
                 ("updated_at", models.DateTimeField(auto_now=True, null=True)),
                 (
@@ -423,9 +417,7 @@ class Migration(migrations.Migration):
                 ("payload", models.JSONField(blank=True, null=True)),
                 (
                     "created_at",
-                    models.DateTimeField(
-                        blank=True, default=django.utils.timezone.now, null=True
-                    ),
+                    models.DateTimeField(blank=True, default=django.utils.timezone.now, null=True),
                 ),
                 (
                     "tournament",

@@ -1,16 +1,12 @@
 # msa/services/wc.py
 from __future__ import annotations
 
-from typing import List, Tuple, Optional
 from dataclasses import dataclass
 
 from django.core.exceptions import ValidationError
-from django.db.models import Q
 
-from msa.models import (
-    Tournament, TournamentEntry, EntryType, EntryStatus
-)
-from msa.services.tx import atomic, locked
+from msa.models import EntryStatus, EntryType, Tournament, TournamentEntry
+from msa.services.tx import atomic
 
 
 @dataclass(frozen=True)
@@ -18,7 +14,7 @@ class EntryView:
     id: int
     player_id: int
     entry_type: str
-    wr_snapshot: Optional[int]  # None = NR
+    wr_snapshot: int | None  # None = NR
     is_wc: bool
     is_qwc: bool
     promoted_by_wc: bool
@@ -26,6 +22,7 @@ class EntryView:
 
 
 # ---------- helpers ----------
+
 
 def _eff_wc_slots(t: Tournament) -> int:
     cs = t.category_season
@@ -39,24 +36,24 @@ def _eff_qwc_slots(t: Tournament) -> int:
     return int(t.q_wc_slots) if t.q_wc_slots is not None else base
 
 
-def _collect_entries(t: Tournament) -> List[EntryView]:
-    qs = (
-        TournamentEntry.objects
-        .filter(tournament=t, status=EntryStatus.ACTIVE)
-        .select_related("player")
+def _collect_entries(t: Tournament) -> list[EntryView]:
+    qs = TournamentEntry.objects.filter(tournament=t, status=EntryStatus.ACTIVE).select_related(
+        "player"
     )
-    out: List[EntryView] = []
+    out: list[EntryView] = []
     for te in qs:
-        out.append(EntryView(
-            id=te.id,
-            player_id=te.player_id,
-            entry_type=te.entry_type,
-            wr_snapshot=te.wr_snapshot,
-            is_wc=bool(te.is_wc),
-            is_qwc=bool(te.is_qwc),
-            promoted_by_wc=bool(te.promoted_by_wc),
-            promoted_by_qwc=bool(te.promoted_by_qwc),
-        ))
+        out.append(
+            EntryView(
+                id=te.id,
+                player_id=te.player_id,
+                entry_type=te.entry_type,
+                wr_snapshot=te.wr_snapshot,
+                is_wc=bool(te.is_wc),
+                is_qwc=bool(te.is_qwc),
+                promoted_by_wc=bool(te.promoted_by_wc),
+                promoted_by_qwc=bool(te.promoted_by_qwc),
+            )
+        )
     return out
 
 
@@ -69,7 +66,7 @@ def _rank_key(ev: EntryView):
     )
 
 
-def _sorted_registration_pool(entries: List[EntryView]) -> List[EntryView]:
+def _sorted_registration_pool(entries: list[EntryView]) -> list[EntryView]:
     # Registraci řadíme podle WR; NONE režim (free-drag) UI řeší mimo backend — tady držíme deterministiku.
     return sorted(entries, key=_rank_key)
 
@@ -96,6 +93,7 @@ def _used_qwc_promotions(t: Tournament) -> int:
 
 # ---------- veřejné API ----------
 
+
 @atomic()
 def set_wc_slots(t: Tournament, slots: int) -> None:
     """Nastaví wc_slots na turnaji; nesmí být pod aktuálním využitím (promoted_by_wc)."""
@@ -103,7 +101,9 @@ def set_wc_slots(t: Tournament, slots: int) -> None:
         raise ValidationError("wc_slots nesmí být záporné.")
     used = _used_wc_promotions(t)
     if slots < used:
-        raise ValidationError(f"Nelze snížit wc_slots na {slots}, použito {used}. Nejprve odeber přebytečná WC.")
+        raise ValidationError(
+            f"Nelze snížit wc_slots na {slots}, použito {used}. Nejprve odeber přebytečná WC."
+        )
     t.wc_slots = slots
     t.save(update_fields=["wc_slots"])
 
@@ -115,7 +115,9 @@ def set_q_wc_slots(t: Tournament, slots: int) -> None:
         raise ValidationError("q_wc_slots nesmí být záporné.")
     used = _used_qwc_promotions(t)
     if slots < used:
-        raise ValidationError(f"Nelze snížit q_wc_slots na {slots}, použito {used}. Nejprve odeber přebytečné QWC.")
+        raise ValidationError(
+            f"Nelze snížit q_wc_slots na {slots}, použito {used}. Nejprve odeber přebytečné QWC."
+        )
     t.q_wc_slots = slots
     t.save(update_fields=["q_wc_slots"])
 
@@ -172,7 +174,9 @@ def apply_wc(t: Tournament, entry_id: int) -> None:
             break
     if last_da:
         last_da.entry_type = EntryType.Q
-        last_da.is_wc = bool(last_da.is_wc and index.get(last_da.id, 0) < D)  # pokud byl “nad čarou”, necháme label; jinak klidně drop
+        last_da.is_wc = bool(
+            last_da.is_wc and index.get(last_da.id, 0) < D
+        )  # pokud byl “nad čarou”, necháme label; jinak klidně drop
         last_da.save(update_fields=["entry_type", "is_wc"])
 
 

@@ -1,11 +1,22 @@
 # tests/test_md_band_regen.py
 import pytest
+
 from msa.models import (
-    Season, Category, CategorySeason, Tournament, Player, TournamentEntry,
-    EntryType, EntryStatus, Phase, Match, MatchState, TournamentState
+    Category,
+    CategorySeason,
+    EntryStatus,
+    EntryType,
+    Match,
+    MatchState,
+    Phase,
+    Player,
+    Season,
+    Tournament,
+    TournamentEntry,
+    TournamentState,
 )
-from msa.services.md_confirm import confirm_main_draw
 from msa.services.md_band_regen import regenerate_md_band
+from msa.services.md_confirm import confirm_main_draw
 from msa.services.seed_anchors import md_anchor_map
 
 
@@ -14,11 +25,19 @@ def test_regenerate_seed_band_5_8_permutates_only_that_band():
     s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
     c = Category.objects.create(name="WT")
     cs = CategorySeason.objects.create(category=c, season=s, draw_size=32, md_seeds_count=8)
-    t = Tournament.objects.create(season=s, category=c, category_season=cs, name="T", slug="t", state=TournamentState.MD)
+    t = Tournament.objects.create(
+        season=s, category=c, category_season=cs, name="T", slug="t", state=TournamentState.MD
+    )
 
     players = [Player.objects.create(name=f"P{i}") for i in range(1, 33)]
     for i, p in enumerate(players, start=1):
-        TournamentEntry.objects.create(tournament=t, player=p, entry_type=EntryType.DA, status=EntryStatus.ACTIVE, wr_snapshot=i)
+        TournamentEntry.objects.create(
+            tournament=t,
+            player=p,
+            entry_type=EntryType.DA,
+            status=EntryStatus.ACTIVE,
+            wr_snapshot=i,
+        )
 
     mapping_before = confirm_main_draw(t, rng_seed=123)
     anchors = md_anchor_map(32)
@@ -48,22 +67,36 @@ def test_regenerate_unseeded_soft_does_not_touch_done_pairs():
     s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
     c = Category.objects.create(name="WT")
     cs = CategorySeason.objects.create(category=c, season=s, draw_size=16, md_seeds_count=4)
-    t = Tournament.objects.create(season=s, category=c, category_season=cs, name="T", slug="t", state=TournamentState.MD)
+    t = Tournament.objects.create(
+        season=s, category=c, category_season=cs, name="T", slug="t", state=TournamentState.MD
+    )
 
     players = [Player.objects.create(name=f"P{i}") for i in range(1, 17)]
     for i, p in enumerate(players, start=1):
-        TournamentEntry.objects.create(tournament=t, player=p, entry_type=EntryType.DA, status=EntryStatus.ACTIVE, wr_snapshot=i)
+        TournamentEntry.objects.create(
+            tournament=t,
+            player=p,
+            entry_type=EntryType.DA,
+            status=EntryStatus.ACTIVE,
+            wr_snapshot=i,
+        )
 
     confirm_main_draw(t, rng_seed=1)
 
     # označ první R1 jako DONE
-    m = Match.objects.filter(tournament=t, phase=Phase.MD, round_name="R16").order_by("slot_top").first()
+    m = (
+        Match.objects.filter(tournament=t, phase=Phase.MD, round_name="R16")
+        .order_by("slot_top")
+        .first()
+    )
     m.winner_id = m.player_top_id
     m.state = MatchState.DONE
     m.save(update_fields=["winner", "state"])
 
-    mapping_before = {m.slot_top: TournamentEntry.objects.get(tournament=t, position=m.slot_top).id
-                      for m in Match.objects.filter(tournament=t, phase=Phase.MD, round_name="R16")}
+    mapping_before = {
+        m.slot_top: TournamentEntry.objects.get(tournament=t, position=m.slot_top).id
+        for m in Match.objects.filter(tournament=t, phase=Phase.MD, round_name="R16")
+    }
 
     mapping_after = regenerate_md_band(t, band="Unseeded", rng_seed=999, mode="SOFT")
 

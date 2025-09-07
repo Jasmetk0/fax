@@ -1,5 +1,6 @@
 import pytest
-from msa.services.seed_anchors import md_anchor_map, band_sequence_for_S
+
+from msa.services.seed_anchors import band_sequence_for_S, md_anchor_map
 
 
 @pytest.mark.parametrize("draw_size,total", [(16, 16), (32, 32), (64, 64)])
