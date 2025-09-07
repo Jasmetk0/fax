@@ -65,7 +65,10 @@ ASGI_APPLICATION = "fax_portal.asgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        # nový čistý dev soubor -> nic starého tam nebude
+        "NAME": BASE_DIR / "db_dev.sqlite3",
+        # v devu pomůže proti "database is locked"
+        "OPTIONS": {"timeout": 20},
     }
 }
 
