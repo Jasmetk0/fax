@@ -279,14 +279,14 @@ def compute_md_points(t: Tournament, *, only_completed_rounds: bool = True) -> d
         label = adjusted_label or _md_label_for_losing_round(rsize)
         out[pid] = out.get(pid, 0) + _safe_get(md_table, label)
 
-    # idempotent override for third-place match
+    # idempotent override for third-place match (jen pokud je povoleno)
     third_matches = Match.objects.filter(
         tournament=t,
         phase=Phase.MD,
         round_name=THIRD_PLACE_ROUND_NAME,
         state=MatchState.DONE,
     )
-    if third_matches.exists():
+    if getattr(t, "third_place_enabled", False) and third_matches.exists():
         sc = getattr(t.category_season, "scoring_md", {}) or {}
         third_pts = sc.get("Third")
         fourth_pts = sc.get("Fourth")

@@ -16,7 +16,12 @@ class SetScore:
 
 
 def _round_size_from_name(round_name: str) -> int:
-    # "R16" -> 16, "Q8" -> 8
+    # "R16" -> 16, "Q8" -> 8, "SF" -> 4, "QF" -> 8, "F" -> 2
+    if not round_name or len(round_name) < 2:
+        raise ValidationError(f"Invalid round_name: {round_name}")
+    special = {"SF": 4, "QF": 8, "F": 2}
+    if round_name in special:
+        return special[round_name]
     try:
         return int(round_name[1:])
     except Exception as err:
