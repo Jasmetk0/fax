@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from django.core.exceptions import ValidationError
 
 from msa.models import Match, MatchState
+from msa.services.md_third_place import ensure_third_place_match
 from msa.services.tx import atomic, locked
 
 
@@ -16,7 +17,12 @@ class SetScore:
 
 
 def _round_size_from_name(round_name: str) -> int:
-    # "R16" -> 16, "Q8" -> 8
+    # "R16" -> 16, "Q8" -> 8, "SF" -> 4, "QF" -> 8, "F" -> 2
+    if not round_name or len(round_name) < 2:
+        raise ValidationError(f"Invalid round_name: {round_name}")
+    special = {"SF": 4, "QF": 8, "F": 2}
+    if round_name in special:
+        return special[round_name]
     try:
         return int(round_name[1:])
     except Exception as err:
@@ -258,6 +264,14 @@ def set_result(
                 locked_match.save(update_fields=updated)
 
     _propagate_winner_to_next_round(m)
+
+    # Pokud jsme právě dohráli MD semifinále, pokusme se vytvořit/aktualizovat 3P
+    try:
+        if m.phase == "MD" and m.round_name == "SF" and m.state == MatchState.DONE:
+            ensure_third_place_match(m.tournament)
+    except Exception:
+        # Neblokovat uložení výsledku kvůli vedlejším efektům 3P
+        pass
 
     return m
 
