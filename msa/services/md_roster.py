@@ -6,6 +6,7 @@ from django.db.models import Q
 
 from msa.models import (
     EntryStatus,
+    EntryType,
     Match,
     MatchState,
     Phase,
@@ -13,7 +14,10 @@ from msa.models import (
     Tournament,
     TournamentEntry,
 )
-from msa.services.ll_prefix import fill_vacant_slot_prefer_ll_then_alt
+from msa.services.ll_prefix import (
+    enforce_ll_prefix_in_md,
+    fill_vacant_slot_prefer_ll_then_alt,
+)
 from msa.services.md_embed import r1_name_for_md
 from msa.services.tx import atomic, locked
 
@@ -106,3 +110,38 @@ def ensure_vacancies_filled(t: Tournament) -> int:
                     pass
             filled += 1
     return filled
+
+
+@atomic()
+def use_reserve_now(t: Tournament, slot: int) -> TournamentEntry:
+    """Force ALT to occupy `slot`, even if an LL sits there."""
+    m = _get_r1_match(t, slot)
+    if not m:
+        raise ValidationError("Neplatný MD slot.")
+    if m.winner_id is not None or m.state == MatchState.DONE:
+        raise ValidationError("Nelze měnit obsazení slotu: první kolo má výsledek.")
+
+    occ_qs = TournamentEntry.objects.filter(tournament=t, status=EntryStatus.ACTIVE, position=slot)
+    occ = locked(occ_qs).first()
+    if occ:
+        if occ.entry_type != EntryType.LL:
+            raise ValidationError("Slot je obsazen; nejprve odeber hráče.")
+        occ.position = None
+        occ.save(update_fields=["position"])
+
+    alt_qs = TournamentEntry.objects.filter(
+        tournament=t,
+        status=EntryStatus.ACTIVE,
+        entry_type=EntryType.ALT,
+        position__isnull=True,
+    )
+    alt = locked(alt_qs.order_by("id")).first()
+    if not alt:
+        raise ValidationError("Žádný dostupný ALT pro Use Reserve now.")
+
+    alt.position = slot
+    alt.save(update_fields=["position"])
+
+    _update_match_for_slot(m, slot, alt.player_id)
+    enforce_ll_prefix_in_md(t)
+    return alt
