@@ -1,3 +1,5 @@
+import random
+
 import pytest
 
 from msa.models import (
@@ -9,9 +11,11 @@ from msa.models import (
     Phase,
     Player,
     PlayerLicense,
+    Schedule,
     Season,
     Snapshot,
     Tournament,
+    TournamentEntry,
 )
 from msa.services.md_confirm import confirm_main_draw
 from msa.services.md_reopen import reopen_main_draw
@@ -149,3 +153,105 @@ def test_snapshot_created_on_reopen_md():
     snap = Snapshot.objects.filter(tournament=t, type=Snapshot.SnapshotType.REOPEN).first()
     assert snap is not None
     assert snap.payload and snap.payload.get("kind") == "TOURNAMENT_STATE"
+
+
+@pytest.mark.django_db
+def test_reopen_md_soft_keeps_schedule_if_pair_unchanged():
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    c = Category.objects.create(name="WT")
+    cs = CategorySeason.objects.create(category=c, season=s, draw_size=16, md_seeds_count=4)
+    t = Tournament.objects.create(season=s, category=c, category_season=cs, name="M5", slug="m5")
+
+    players = [Player.objects.create(name=f"P{i}") for i in range(16)]
+    for i, p in enumerate(players):
+        PlayerLicense.objects.create(player=p, season=s)
+        TournamentEntry.objects.create(
+            tournament=t,
+            player=p,
+            entry_type=EntryType.DA,
+            status=EntryStatus.ACTIVE,
+            wr_snapshot=i + 1,
+        )
+
+    confirm_main_draw(t, rng_seed=123)
+
+    m = (
+        Match.objects.filter(tournament=t, phase=Phase.MD, round_name="R16")
+        .order_by("slot_top")
+        .first()
+    )
+    Schedule.objects.create(tournament=t, match=m, play_date="2025-01-01", order=1)
+    m_done = (
+        Match.objects.filter(tournament=t, phase=Phase.MD, round_name="R16")
+        .exclude(pk=m.pk)
+        .first()
+    )
+    set_result(m_done.id, mode="WIN_ONLY", winner=m_done.player_top_id)
+    old_pair = (m.player_top_id, m.player_bottom_id)
+
+    top_entry = TournamentEntry.objects.get(tournament=t, position=m.slot_top)
+    bot_entry = TournamentEntry.objects.get(tournament=t, position=m.slot_bottom)
+    top_entry.seed = 1
+    bot_entry.seed = 2
+    top_entry.save(update_fields=["seed"])
+    bot_entry.save(update_fields=["seed"])
+
+    reopen_main_draw(t, mode="SOFT", rng_seed=0)
+
+    m.refresh_from_db()
+    assert (m.player_top_id, m.player_bottom_id) == old_pair
+    assert Schedule.objects.filter(match=m).exists()
+
+
+@pytest.mark.django_db
+def test_reopen_md_soft_deletes_schedule_if_pair_changed():
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    c = Category.objects.create(name="WT")
+    cs = CategorySeason.objects.create(category=c, season=s, draw_size=16, md_seeds_count=4)
+    t = Tournament.objects.create(season=s, category=c, category_season=cs, name="M6", slug="m6")
+
+    players = [Player.objects.create(name=f"P{i}") for i in range(16)]
+    for i, p in enumerate(players):
+        PlayerLicense.objects.create(player=p, season=s)
+        TournamentEntry.objects.create(
+            tournament=t,
+            player=p,
+            entry_type=EntryType.DA,
+            status=EntryStatus.ACTIVE,
+            wr_snapshot=i + 1,
+        )
+
+    confirm_main_draw(t, rng_seed=123)
+
+    m = (
+        Match.objects.filter(tournament=t, phase=Phase.MD, round_name="R16")
+        .order_by("slot_top")
+        .first()
+    )
+    Schedule.objects.create(tournament=t, match=m, play_date="2025-01-01", order=1)
+    m_done = (
+        Match.objects.filter(tournament=t, phase=Phase.MD, round_name="R16")
+        .exclude(pk=m.pk)
+        .first()
+    )
+    set_result(m_done.id, mode="WIN_ONLY", winner=m_done.player_top_id)
+    old_pair = (m.player_top_id, m.player_bottom_id)
+
+    entries = TournamentEntry.objects.filter(
+        tournament=t, status=EntryStatus.ACTIVE, position__isnull=False, seed__isnull=True
+    ).order_by("position")
+    pool = [e.id for e in entries]
+    seed_change = None
+    for seed in range(1000):
+        arr = pool.copy()
+        random.Random(seed).shuffle(arr)
+        if arr[:2] != pool[:2]:
+            seed_change = seed
+            break
+    assert seed_change is not None
+
+    reopen_main_draw(t, mode="SOFT", rng_seed=seed_change)
+
+    m.refresh_from_db()
+    assert (m.player_top_id, m.player_bottom_id) != old_pair
+    assert not Schedule.objects.filter(match=m).exists()
