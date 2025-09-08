@@ -68,7 +68,7 @@ def regenerate_md_band(
         rng.shuffle(pool_ids)
         # Ulož nové pozice jen pro unseeded
         for s, eid in zip(un_slots, pool_ids, strict=False):
-            te = TournamentEntry.objects.select_for_update().get(pk=eid)
+            te = locked(TournamentEntry.objects.filter(pk=eid)).get()
             if te.position != s:
                 te.position = s
                 te.save(update_fields=["position"])
@@ -101,7 +101,7 @@ def regenerate_md_band(
         rng.shuffle(band_seed_ids)
         # Ulož – přemapuj seed IDs na anchor sloty
         for s, eid in zip(anchor_slots, band_seed_ids, strict=False):
-            te = TournamentEntry.objects.select_for_update().get(pk=eid)
+            te = locked(TournamentEntry.objects.filter(pk=eid)).get()
             if te.position != s:
                 te.position = s
                 te.save(update_fields=["position"])

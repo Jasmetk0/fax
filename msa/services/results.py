@@ -88,6 +88,70 @@ def _collect_downstream_matches_containing_player(m: Match, player_id: int) -> l
     return out
 
 
+def _parent_pair_for_child(m: Match) -> tuple[str, int, int, bool] | None:
+    """Pro daný zápas zjisti parent match v dalším kole.
+
+    Vrací tuple (next_round_name, slot_top, slot_bottom, is_top_slot) nebo None,
+    pokud je m finále nebo round_name neznámé.
+    """
+    try:
+        size = _round_size_from_name(m.round_name)
+    except ValidationError:
+        return None
+    if size <= 2 or m.slot_top is None or m.slot_bottom is None:
+        # finále nemá navazující kolo (Q2/R2)
+        return None
+
+    base = (min(m.slot_top, m.slot_bottom) // 1000) * 1000
+    next_size = size // 2
+    i = min(m.slot_top, m.slot_bottom) - base
+    partner = next_size + 1 - i
+    top_slot = base + min(i, partner)
+    bottom_slot = base + max(i, partner)
+    is_top = i <= partner
+    next_round = f"Q{next_size}" if m.phase == "QUAL" else f"R{next_size}"
+    return next_round, top_slot, bottom_slot, is_top
+
+
+def _propagate_winner_to_next_round(m: Match) -> None:
+    """Dosadí vítěze do navazujícího zápasu, pokud existuje."""
+    if not m.winner_id:
+        return
+    parent = _parent_pair_for_child(m)
+    if not parent:
+        return
+    next_round, slot_top, slot_bottom, is_top = parent
+    qs = Match.objects.filter(
+        tournament=m.tournament,
+        phase=m.phase,
+        round_name=next_round,
+        slot_top=slot_top,
+        slot_bottom=slot_bottom,
+    )
+    next_match = locked(qs).first()
+    if not next_match:
+        return
+
+    updated: list[str] = []
+    if is_top:
+        if next_match.player_top_id != m.winner_id:
+            if next_match.player_top_id:
+                next_match.needs_review = True
+                updated.append("needs_review")
+            next_match.player_top_id = m.winner_id
+            updated.append("player_top")
+    else:
+        if next_match.player_bottom_id != m.winner_id:
+            if next_match.player_bottom_id:
+                next_match.needs_review = True
+                updated.append("needs_review")
+            next_match.player_bottom_id = m.winner_id
+            updated.append("player_bottom")
+
+    if updated:
+        next_match.save(update_fields=updated)
+
+
 @atomic()
 def set_result(
     match_id: int,
@@ -185,6 +249,8 @@ def set_result(
                 x.player_bottom_id = m.winner_id
             x.needs_review = True
             x.save(update_fields=["player_top", "player_bottom", "needs_review"])
+
+    _propagate_winner_to_next_round(m)
 
     return m
 
