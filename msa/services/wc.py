@@ -174,9 +174,9 @@ def apply_wc(t: Tournament, entry_id: int) -> None:
             break
     if last_da:
         last_da.entry_type = EntryType.Q
-        last_da.is_wc = bool(
-            last_da.is_wc and index.get(last_da.id, 0) < D
-        )  # pokud byl “nad čarou”, necháme label; jinak klidně drop
+        # Pozn.: index bereme ze snapshotu před povýšením targetu do DA.
+        # Pokud byl last_da „nad čarou“ (měl index < D), zachováme mu vizuální WC label.
+        last_da.is_wc = bool(last_da.is_wc and index.get(last_da.id, 0) < D)
         last_da.save(update_fields=["entry_type", "is_wc"])
 
 

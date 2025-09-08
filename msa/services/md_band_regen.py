@@ -5,7 +5,7 @@ import random
 
 from django.core.exceptions import ValidationError
 
-from msa.models import EntryStatus, Match, MatchState, Phase, Tournament, TournamentEntry
+from msa.models import EntryStatus, Match, MatchState, Phase, Schedule, Tournament, TournamentEntry
 from msa.services.md_confirm import _pick_seeds_and_unseeded  # reuse interní logiku
 from msa.services.md_embed import effective_template_size_for_md, r1_name_for_md
 from msa.services.seed_anchors import band_sequence_for_S, md_anchor_map
@@ -88,6 +88,12 @@ def regenerate_md_band(
             raise ValidationError(f"Band '{band}' se nepoužívá při S={S}.")
 
         anchor_slots = anchors[band][:]
+        # Sanity: všechny kotvy daného bandu musí být obsazené seedem
+        band_entries = [slot_to_entry.get(s) for s in anchor_slots]
+        if any((e is None or e.id not in seed_ids_in_order) for e in band_entries):
+            raise ValidationError(
+                f"Band '{band}' nelze přelosovat: alespoň jedna kotva neobsahuje seed (pravděpodobně po manuálním zásahu)."
+            )
         # Kteří seed hráči (Entry) aktuálně sedí na těchto kotvách?
         band_seed_ids = [slot_to_entry[s].id for s in anchor_slots]
         # deterministická permutace
@@ -127,6 +133,8 @@ def regenerate_md_band(
         m.player_top_id = new_top
         m.player_bottom_id = new_bot
         m.save(update_fields=["player_top", "player_bottom", "winner", "score", "state"])
+        # Plán už nemusí odpovídat nové dvojici → smaž Schedule pro tento match
+        Schedule.objects.filter(match=m).delete()
 
     hard = mode.upper() == "HARD"
     for m in r1_qs:
