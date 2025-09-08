@@ -133,12 +133,12 @@ def enforce_ll_prefix_in_md(t: Tournament) -> None:
             break
         missing_id = missing_ids.pop(0)
         new_te = TournamentEntry.objects.select_for_update().get(pk=missing_id)
-        # Přebírá slot po „extra“
-        new_te.position = extra_te.position
-        new_te.save(update_fields=["position"])
-        # Extra jde z MD pryč
+        # DŮLEŽITÉ: nejprve uvolni slot „extra“, teprve pak ho předej „missing“
+        slot = extra_te.position
         extra_te.position = None
         extra_te.save(update_fields=["position"])
+        new_te.position = slot
+        new_te.save(update_fields=["position"])
 
 
 @atomic()
@@ -186,12 +186,11 @@ def reinstate_original_player(t: Tournament, original_entry_id: int, slot: int) 
     assert worst_slot is not None
 
     if occupant and occupant.entry_type == EntryType.LL and occupant.id != worst_ll.id:
-        # přesuneme LL ze slotu do slotu „worsta“
-        occupant.position = worst_slot
-        occupant.save(update_fields=["position"])
-        # „worsta“ odstraníme z MD
+        # DŮLEŽITÉ: nejprve uvolni worst slot, pak do něj přesun occupant LL
         worst_ll.position = None
         worst_ll.save(update_fields=["position"])
+        occupant.position = worst_slot
+        occupant.save(update_fields=["position"])
     else:
         # v cílovém slotu není LL (nebo je tam rovnou worst) → jen odstraníme „worsta“
         worst_ll.position = None
