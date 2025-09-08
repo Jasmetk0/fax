@@ -294,16 +294,9 @@ def hard_regenerate_unseeded_md(t: Tournament, rng_seed: int) -> dict[int, int]:
 
     # ulož nové pozice
     id_to_slot = {eid: slot for slot, eid in new_slot_to_entry_id.items()}
-    for te in entries_qs:
-        new_pos = id_to_slot.get(te.id)
-        if new_pos is not None:
-            if te.position != new_pos:
-                te.position = new_pos
-                te.save(update_fields=["position"])
-        else:
-            if te.position is not None:
-                te.position = None
-                te.save(update_fields=["position"])
+    TournamentEntry.objects.filter(pk__in=[te.id for te in entries_qs]).update(position=None)
+    for eid, slot in id_to_slot.items():
+        TournamentEntry.objects.filter(pk=eid).update(position=slot)
 
     # aktualizuj R1
     id2entry = {e.id: e for e in entries}
@@ -355,5 +348,10 @@ def hard_regenerate_unseeded_md(t: Tournament, rng_seed: int) -> dict[int, int]:
     if t.rng_seed_active != rng_seed:
         t.rng_seed_active = rng_seed
         t.save(update_fields=["rng_seed_active"])
+
+    from msa.models import Snapshot
+    from msa.services.archiver import archive_tournament_state
+
+    archive_tournament_state(t, Snapshot.SnapshotType.REGENERATE)
 
     return new_slot_to_entry_id
