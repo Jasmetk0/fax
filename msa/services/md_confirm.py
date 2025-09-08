@@ -11,6 +11,7 @@ from msa.models import (
     Match,
     MatchState,
     Phase,
+    Schedule,
     Tournament,
     TournamentEntry,
 )
@@ -125,11 +126,7 @@ def _pick_seeds_and_unseeded(
     return seeds, unseeded[:needed_unseeded], draw_size
 
 
-def _pairings_round1(draw_size: int) -> list[tuple[int, int]]:
-    """
-    Předpokládáme standardní zrcadlení: (1 vs N), (2 vs N-1), ...; pořadí párů není podstatné.
-    """
-    return [(i, draw_size + 1 - i) for i in range(1, draw_size // 2 + 1)]
+# (odstraněno) Lokální _pairings_round1 – používáme md_embed.pairings_round1
 
 
 def _entry_map_by_id(entries: list[EntryView]) -> dict[int, EntryView]:
@@ -177,7 +174,7 @@ def confirm_main_draw(t: Tournament, rng_seed: int) -> dict[int, int]:
             rng_seed=rng_seed,
         )
         r1_name = f"R{draw_size}"
-        pairs = _pairings_round1(draw_size)
+        pairs = pairings_round1(draw_size)
     else:
         # embed do šablony
         slot_to_entry_id = generate_md_mapping_with_byes(
@@ -269,7 +266,7 @@ def hard_regenerate_unseeded_md(t: Tournament, rng_seed: int) -> dict[int, int]:
             unseeded_players=unseeded_ids,
             rng_seed=rng_seed,
         )
-        pairs = _pairings_round1(draw_size)
+        pairs = pairings_round1(draw_size)
     else:
         new_slot_to_entry_id = generate_md_mapping_with_byes(
             template_size=template_size,
@@ -343,6 +340,8 @@ def hard_regenerate_unseeded_md(t: Tournament, rng_seed: int) -> dict[int, int]:
             m.score = {}
             m.state = MatchState.PENDING
             m.save(update_fields=["player_top", "player_bottom", "winner", "score", "state"])
+            # plán už nemusí odpovídat nové dvojici → smaž Schedule pro tento match
+            Schedule.objects.filter(match=m).delete()
 
     if t.rng_seed_active != rng_seed:
         t.rng_seed_active = rng_seed

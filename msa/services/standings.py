@@ -6,7 +6,7 @@ from datetime import date, datetime, timedelta
 
 from django.core.exceptions import ValidationError
 
-from msa.models import Category, Phase, Season, Tournament
+from msa.models import Category, Season, Tournament
 from msa.services.scoring import compute_tournament_points
 
 # ---------- datové typy ----------
@@ -147,7 +147,7 @@ def _activation_monday_for_tournament(t: Tournament) -> date:
 
 def rolling_standings(
     snapshot_monday: date | str, *, only_completed_rounds: bool = True
-) -> RollingRow | list[RollingRow]:
+) -> list[RollingRow]:
     """
     Rolling k „pondělí“ = snapshot_monday (datum pondělí). Vezme turnaje, které:
       activation_monday <= snapshot_monday < activation_monday + 61 týdnů.
@@ -211,7 +211,7 @@ def rolling_standings(
 
 def _final_winner_player_id(t: Tournament) -> int | None:
     # Finále je R2; pokud existuje zápas s winner, vrátíme vítěze.
-    from msa.models import Match
+    from msa.models import Match, Phase
 
     fin = (
         Match.objects.filter(tournament=t, phase=Phase.MD, round_name="R2")
