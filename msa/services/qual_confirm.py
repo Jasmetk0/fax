@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from django.core.exceptions import ValidationError
 
 from msa.models import EntryStatus, EntryType, Match, MatchState, Phase, Tournament, TournamentEntry
+from msa.services.licenses import assert_all_licensed_or_raise
 from msa.services.qual_generator import generate_qualification_mapping, seeds_per_bracket
 from msa.services.tx import atomic, locked
 
@@ -85,6 +86,9 @@ def confirm_qualification(t: Tournament, rng_seed: int) -> list[dict[int, int]]:
         or not t.category_season.qual_rounds
     ):
         raise ValidationError("CategorySeason.qualifiers_count a qual_rounds musí být nastavené.")
+
+    # Licenční gate — musí mít licenci všichni ACTIVE (MVP: napříč typy)
+    assert_all_licensed_or_raise(t)
 
     K = int(t.category_season.qualifiers_count)
     R = int(t.category_season.qual_rounds)
