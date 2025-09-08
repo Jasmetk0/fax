@@ -6,7 +6,7 @@ from datetime import date, datetime, timedelta
 
 from django.core.exceptions import ValidationError
 
-from msa.models import Category, Season, Tournament
+from msa.models import Category, RankingAdjustment, RankingScope, Season, Tournament
 from msa.services.scoring import compute_tournament_points
 
 # ---------- datové typy ----------
@@ -64,6 +64,26 @@ def _monday_of(d: date) -> date:
     return d - timedelta(days=d.weekday())
 
 
+def _week_window(start_monday, duration_weeks):
+    # vrátí (start_date, end_date_exclusive) pro jednoduché "start <= x < end"
+    if not start_monday or not duration_weeks:
+        return None, None
+    from datetime import timedelta
+
+    return start_monday, start_monday + timedelta(weeks=int(duration_weeks))
+
+
+def _intersects_weekly_window(range_start, range_end, win_start, win_end):
+    # true, pokud [range_start, range_end] (včetně) má průnik s [win_start, win_end) (exclusive)
+    if not (win_start and win_end and range_start and range_end):
+        return False
+    # posuň season range na "pondělí" hranice
+    rs = _monday_of(range_start)
+    re = _monday_of(range_end)
+    # průnik existuje, pokud okna se nepřekrývají opačně
+    return not (re < win_start or rs >= win_end)
+
+
 # ---------- vnitřní sklizeň bodů ----------
 
 
@@ -79,6 +99,55 @@ def _tournament_total_points_map(t: Tournament, *, only_completed_rounds: bool) 
 
 def _sorted_points_desc(points: list[int]) -> list[int]:
     return sorted(points, reverse=True)
+
+
+def _season_adjustments_map(season: Season) -> dict[int, tuple[int, int]]:
+    """
+    Vrátí {player_id: (sum_points_delta, sum_best_n_penalty)} pro úpravy,
+    které mají scope SEASON nebo BOTH a jejich (start_monday, duration) se
+    protíná s oknem sezóny.
+    """
+    if not season.start_date or not season.end_date:
+        return {}
+    rows = RankingAdjustment.objects.all()
+    out: dict[int, tuple[int, int]] = {}
+    for ra in rows:
+        if ra.scope not in (RankingScope.SEASON, RankingScope.BOTH):
+            continue
+        ws, we = _week_window(ra.start_monday, ra.duration_weeks or 0)
+        if not ws or not we:
+            continue
+        if _intersects_weekly_window(season.start_date, season.end_date, ws, we):
+            cur = out.get(ra.player_id, (0, 0))
+            out[ra.player_id] = (
+                cur[0] + int(ra.points_delta or 0),
+                cur[1] + int(ra.best_n_penalty or 0),
+            )
+    return out
+
+
+def _rolling_adjustments_map(snapshot_monday) -> dict[int, tuple[int, int]]:
+    """
+    Vrátí {player_id: (sum_points_delta, sum_best_n_penalty)} pro úpravy,
+    které mají scope ROLLING_ONLY nebo BOTH a jsou AKTIVNÍ v den snapshot_monday:
+    start_monday <= snapshot_monday < start_monday + duration_weeks.
+    """
+    snap = _monday_of(_to_date(snapshot_monday))
+    rows = RankingAdjustment.objects.all()
+    out: dict[int, tuple[int, int]] = {}
+    for ra in rows:
+        if ra.scope not in (RankingScope.ROLLING_ONLY, RankingScope.BOTH):
+            continue
+        ws, we = _week_window(ra.start_monday, ra.duration_weeks or 0)
+        if not ws or not we:
+            continue
+        if ws <= snap < we:
+            cur = out.get(ra.player_id, (0, 0))
+            out[ra.player_id] = (
+                cur[0] + int(ra.points_delta or 0),
+                cur[1] + int(ra.best_n_penalty or 0),
+            )
+    return out
 
 
 def _best_n_for_date(all_seasons: list[Season], snap_day: date) -> int:
@@ -111,6 +180,7 @@ def season_standings(
     if not season.start_date or not season.end_date:
         raise ValidationError("Season musí mít start_date i end_date.")
     N = int(best_n if best_n is not None else (getattr(season, "best_n", 10) or 10))
+    adj = _season_adjustments_map(season)
 
     rows: dict[int, list[int]] = {}
     for t in _tournaments_in_season(season):
@@ -121,10 +191,13 @@ def season_standings(
     out: list[SeasonRow] = []
     for pid, arr in rows.items():
         arr_sorted = _sorted_points_desc(arr)
-        counted = arr_sorted[:N]
-        dropped = arr_sorted[N:]
-        total = sum(counted)
-        avg = (total / len(counted)) if counted else 0.0
+        pen = adj.get(pid, (0, 0))[1]
+        N_eff = max(1, min(len(arr_sorted), N + pen))
+        counted = arr_sorted[:N_eff]
+        dropped = arr_sorted[N_eff:]
+        adj_points = adj.get(pid, (0, 0))[0]
+        total = sum(counted) + adj_points
+        avg = (sum(counted) / len(counted)) if counted else 0.0
         out.append(
             SeasonRow(player_id=pid, total=total, counted=counted, dropped=dropped, average=avg)
         )
@@ -172,6 +245,7 @@ def rolling_standings(
     # Best-N v Rolling: podle sezóny obsahující snap
     seasons = list(Season.objects.exclude(start_date=None).exclude(end_date=None))
     N = _best_n_for_date(seasons, snap)
+    adj = _rolling_adjustments_map(snap)
 
     per_player_points: dict[int, list[int]] = {}
     for t in eligible:
@@ -182,10 +256,13 @@ def rolling_standings(
     out: list[RollingRow] = []
     for pid, arr in per_player_points.items():
         arr_sorted = _sorted_points_desc(arr)
-        counted = arr_sorted[:N]
-        dropped = arr_sorted[N:]
-        total = sum(counted)
-        avg = (total / len(counted)) if counted else 0.0
+        pen = adj.get(pid, (0, 0))[1]
+        N_eff = max(1, min(len(arr_sorted), N + pen))
+        counted = arr_sorted[:N_eff]
+        dropped = arr_sorted[N_eff:]
+        adj_points = adj.get(pid, (0, 0))[0]
+        total = sum(counted) + adj_points
+        avg = (sum(counted) / len(counted)) if counted else 0.0
         # okno per player = průnik (ale pro jednoduchost přidáme globální okno: min act, max end v eligible)
         global_start = min((windows[t.id][0] for t in eligible), default=snap)
         global_end = max((windows[t.id][1] for t in eligible), default=snap)
@@ -198,7 +275,7 @@ def rolling_standings(
                 average=avg,
                 window_start_monday=global_start,
                 window_end_monday=global_end,
-                best_n_used=N,
+                best_n_used=N_eff,
             )
         )
 
