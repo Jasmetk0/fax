@@ -97,6 +97,9 @@ def reopen_main_draw(t: Tournament, mode: str = "AUTO", rng_seed: int | None = N
                 # keep finished pairs intact
                 continue
 
+            # Před úpravou si schovej původní dvojici
+            old_pair = (m.player_top_id, m.player_bottom_id)
+
             top = TournamentEntry.objects.filter(
                 tournament=t, status=EntryStatus.ACTIVE, position=m.slot_top
             ).first()
@@ -112,8 +115,10 @@ def reopen_main_draw(t: Tournament, mode: str = "AUTO", rng_seed: int | None = N
                 m.state = MatchState.PENDING
             m.save(update_fields=["player_top", "player_bottom", "winner", "state"])
 
-            # NOVĚ: pokud se dvojice změnila, plán už nesedí → smaž Schedule řádek
-            Schedule.objects.filter(match=m).delete()
+            # Pokud se dvojice ZMĚNILA, plán už nemusí sedět → smaž Schedule
+            new_pair = (m.player_top_id, m.player_bottom_id)
+            if new_pair != old_pair:
+                Schedule.objects.filter(match=m).delete()
 
         label = "reopen_md_soft" if mode.upper() == "SOFT" else "reopen_md_hard"
         archive(t, type=Snapshot.SnapshotType.REOPEN, label=label, extra={"mode": mode.upper()})
