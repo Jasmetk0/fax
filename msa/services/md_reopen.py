@@ -9,11 +9,13 @@ from msa.models import (
     Match,
     MatchState,
     Phase,
+    Schedule,
     Snapshot,
     Tournament,
     TournamentEntry,
 )
 from msa.services.archiver import archive
+from msa.services.md_embed import r1_name_for_md
 from msa.services.tx import atomic, locked
 
 
@@ -48,11 +50,8 @@ def reopen_main_draw(t: Tournament, mode: str = "AUTO", rng_seed: int | None = N
     if mode.upper() == "AUTO":
         mode = "SOFT"
 
-    # determine R1 name (power of two assumption sufficient for tests)
-    draw_size = (
-        int(t.category_season.draw_size) if t.category_season and t.category_season.draw_size else 0
-    )
-    r1_name = f"R{draw_size}"
+    # Správné R1 i pro embed (např. 24→R32)
+    r1_name = r1_name_for_md(t)
     r1_matches = [m for m in md_matches if m.round_name == r1_name]
 
     if mode.upper() in {"SOFT", "HARD"}:
@@ -110,6 +109,9 @@ def reopen_main_draw(t: Tournament, mode: str = "AUTO", rng_seed: int | None = N
                 m.winner_id = None
                 m.state = MatchState.PENDING
             m.save(update_fields=["player_top", "player_bottom", "winner", "state"])
+
+            # NOVĚ: pokud se dvojice změnila, plán už nesedí → smaž Schedule řádek
+            Schedule.objects.filter(match=m).delete()
 
         label = "reopen_md_soft" if mode.upper() == "SOFT" else "reopen_md_hard"
         archive(t, type=Snapshot.SnapshotType.REOPEN, label=label, extra={"mode": mode.upper()})
