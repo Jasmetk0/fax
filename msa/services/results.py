@@ -242,13 +242,20 @@ def set_result(
     if old_winner and m.winner_id != old_winner:
         # Nahraď old_winner -> new_winner ve všech downstream zápasech téže fáze
         for x in _collect_downstream_matches_containing_player(m, old_winner):
-            # Nepřepisujeme winner/score, jen hráče a flag „needs_review“
-            if x.player_top_id == old_winner:
-                x.player_top_id = m.winner_id
-            if x.player_bottom_id == old_winner:
-                x.player_bottom_id = m.winner_id
-            x.needs_review = True
-            x.save(update_fields=["player_top", "player_bottom", "needs_review"])
+            # Znovu načteme a zamkneme, abychom se vyhnuli lost update
+            locked_match = locked(Match.objects.filter(pk=x.pk)).get()
+            updated: list[str] = []
+            if locked_match.player_top_id == old_winner:
+                locked_match.player_top_id = m.winner_id
+                updated.append("player_top")
+            if locked_match.player_bottom_id == old_winner:
+                locked_match.player_bottom_id = m.winner_id
+                updated.append("player_bottom")
+            if updated and not locked_match.needs_review:
+                locked_match.needs_review = True
+                updated.append("needs_review")
+            if updated:
+                locked_match.save(update_fields=updated)
 
     _propagate_winner_to_next_round(m)
 
