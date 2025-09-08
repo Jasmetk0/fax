@@ -5,7 +5,17 @@ from dataclasses import dataclass
 
 from django.core.exceptions import ValidationError
 
-from msa.models import EntryStatus, EntryType, Match, MatchState, Phase, Tournament, TournamentEntry
+from msa.models import (
+    EntryStatus,
+    EntryType,
+    Match,
+    MatchState,
+    Phase,
+    Snapshot,
+    Tournament,
+    TournamentEntry,
+)
+from msa.services.archiver import archive
 from msa.services.licenses import assert_all_licensed_or_raise
 from msa.services.qual_generator import generate_qualification_mapping, seeds_per_bracket
 from msa.services.tx import atomic, locked
@@ -186,6 +196,9 @@ def confirm_qualification(t: Tournament, rng_seed: int) -> list[dict[int, int]]:
     if t.rng_seed_active != rng_seed:
         t.rng_seed_active = rng_seed
         t.save(update_fields=["rng_seed_active"])
+
+    # archivní snapshot (CONFIRM_QUAL)
+    archive(t, type=Snapshot.SnapshotType.CONFIRM_QUAL, label="confirm_qualification")
 
     return branches
 

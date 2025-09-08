@@ -12,9 +12,11 @@ from msa.models import (
     MatchState,
     Phase,
     Schedule,
+    Snapshot,
     Tournament,
     TournamentEntry,
 )
+from msa.services.archiver import archive
 from msa.services.licenses import assert_all_licensed_or_raise
 from msa.services.md_embed import (
     effective_template_size_for_md,
@@ -236,6 +238,9 @@ def confirm_main_draw(t: Tournament, rng_seed: int) -> dict[int, int]:
     if t.rng_seed_active != rng_seed:
         t.rng_seed_active = rng_seed
         t.save(update_fields=["rng_seed_active"])
+
+    # archivní snapshot (CONFIRM_MD)
+    archive(t, type=Snapshot.SnapshotType.CONFIRM_MD, label="confirm_main_draw")
 
     return slot_to_entry_id
 
