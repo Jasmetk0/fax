@@ -15,6 +15,7 @@ from msa.models import (
     Tournament,
     TournamentEntry,
 )
+from msa.services.licenses import assert_all_licensed_or_raise
 from msa.services.md_embed import (
     effective_template_size_for_md,
     generate_md_mapping_with_byes,
@@ -149,6 +150,9 @@ def confirm_main_draw(t: Tournament, rng_seed: int) -> dict[int, int]:
     # zamkni entries
     entries_qs = locked(TournamentEntry.objects.filter(tournament=t, status=EntryStatus.ACTIVE))
     entries = _collect_active_entries(t)
+
+    # Licenční gate — musí mít licenci všichni ACTIVE
+    assert_all_licensed_or_raise(t)
 
     # parametry
     draw_size = (
