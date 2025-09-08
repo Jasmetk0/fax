@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from django.core.exceptions import ValidationError
 
 from msa.models import Match, MatchState
+from msa.services.md_third_place import ensure_third_place_match
 from msa.services.tx import atomic, locked
 
 
@@ -263,6 +264,14 @@ def set_result(
                 locked_match.save(update_fields=updated)
 
     _propagate_winner_to_next_round(m)
+
+    # Pokud jsme právě dohráli MD semifinále, pokusme se vytvořit/aktualizovat 3P
+    try:
+        if m.phase == "MD" and m.round_name == "SF" and m.state == MatchState.DONE:
+            ensure_third_place_match(m.tournament)
+    except Exception:
+        # Neblokovat uložení výsledku kvůli vedlejším efektům 3P
+        pass
 
     return m
 
