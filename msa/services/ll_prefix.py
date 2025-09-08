@@ -4,6 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from django.core.exceptions import ValidationError
+from django.db.models import F
 
 from msa.models import EntryStatus, EntryType, Tournament, TournamentEntry
 from msa.services.tx import atomic, locked
@@ -56,9 +57,9 @@ def _ll_queue_sorted(qs) -> list[LLEntryView]:
         LLEntryView(
             id=te.id, player_id=te.player_id, wr_snapshot=te.wr_snapshot, position=te.position
         )
-        for te in qs.order_by("wr_snapshot__isnull", "wr_snapshot", "id")
+        for te in qs.order_by(F("wr_snapshot").asc(nulls_last=True), "id")
     ]
-    # Pozn.: order_by("wr_snapshot__isnull", "wr_snapshot", "id") → None (NR) až za čísly.
+    # Nulls last to keep NR after numbered WR.
     return items
 
 
