@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from django.core.exceptions import ValidationError
 
 from msa.models import EntryStatus, EntryType, Tournament, TournamentEntry
-from msa.services.tx import atomic
+from msa.services.tx import atomic, locked
 
 
 @dataclass(frozen=True)
@@ -137,7 +137,7 @@ def apply_wc(t: Tournament, entry_id: int) -> None:
         raise ValidationError("Entry neexistuje nebo není aktivní.")
     i_target = index[entry_id]
 
-    te = TournamentEntry.objects.select_for_update().get(pk=entry_id)
+    te = locked(TournamentEntry.objects.filter(pk=entry_id)).get()
     # mark label
     te.is_wc = True
 
@@ -186,7 +186,7 @@ def remove_wc(t: Tournament, entry_id: int) -> None:
     Odebere WC label. Pokud byl hráč povýšen (promoted_by_wc=True), vrátí ho do Q
     a do DA dosadí nejlepšího mimo čáru (WR nejblíž čáře).
     """
-    te = TournamentEntry.objects.select_for_update().get(pk=entry_id)
+    te = locked(TournamentEntry.objects.filter(pk=entry_id)).get()
     if not te.is_wc:
         return
     was_promoted = bool(te.promoted_by_wc)
@@ -202,7 +202,7 @@ def remove_wc(t: Tournament, entry_id: int) -> None:
         entries = _sorted_registration_pool(_collect_entries(t))
         # kandidáti pod čarou, kteří nejsou promoted_by_wc
         for ev in entries[D:]:
-            cand = TournamentEntry.objects.select_for_update().get(pk=ev.id)
+            cand = locked(TournamentEntry.objects.filter(pk=ev.id)).get()
             if not cand.promoted_by_wc:
                 cand.entry_type = EntryType.DA
                 cand.save(update_fields=["entry_type"])
@@ -216,7 +216,7 @@ def apply_qwc(t: Tournament, entry_id: int) -> None:
       - hráč v Q → jen is_qwc=True (nečerpá slot),
       - hráč v Reserve/ALT → povýší do Q (promoted_by_qwc=True), čerpá q_wc_slots.
     """
-    te = TournamentEntry.objects.select_for_update().get(pk=entry_id)
+    te = locked(TournamentEntry.objects.filter(pk=entry_id)).get()
     te.is_qwc = True
 
     if te.entry_type == EntryType.Q:
@@ -243,7 +243,7 @@ def remove_qwc(t: Tournament, entry_id: int) -> None:
     """
     Odebere QWC label; pokud byl hráč povýšen QWC (ALT→Q), vrátí ho zpět do ALT.
     """
-    te = TournamentEntry.objects.select_for_update().get(pk=entry_id)
+    te = locked(TournamentEntry.objects.filter(pk=entry_id)).get()
     if not te.is_qwc:
         return
     was_promoted = bool(te.promoted_by_qwc)

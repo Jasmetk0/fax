@@ -3,11 +3,12 @@ from functools import wraps
 from django.db import transaction
 
 from msa.models import Tournament
+from msa.services.tx import locked
 
 
 def _lock_tournament_row(tournament):
     pk = getattr(tournament, "pk", tournament)
-    Tournament.objects.select_for_update().filter(pk=pk).exists()
+    locked(Tournament.objects.filter(pk=pk)).exists()
 
 
 def atomic_tournament(fn):
@@ -21,4 +22,4 @@ def atomic_tournament(fn):
 
 
 def lock_qs(qs):
-    return qs.select_for_update()
+    return locked(qs)

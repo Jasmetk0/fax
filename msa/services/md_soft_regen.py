@@ -145,7 +145,7 @@ def soft_regenerate_unseeded_md(t: Tournament, rng_seed: int) -> dict[int, int]:
 
     # Ulož nové pozice (jen pro nenasazené v mutable_unseeded_slots)
     for slot, eid in zip(sorted(mutable_unseeded_slots), shuffled, strict=False):
-        te = TournamentEntry.objects.select_for_update().get(pk=eid)
+        te = locked(TournamentEntry.objects.filter(pk=eid)).get()
         if te.position != slot:
             te.position = slot
             te.save(update_fields=["position"])

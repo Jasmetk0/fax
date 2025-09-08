@@ -143,18 +143,20 @@ def _players_with_bye_in_r1(t: Tournament) -> set[int]:
     if r1:
         # power-of-two: BYE neexistují (v našem modelu)
         return set()
-    # Když R{template} neexistuje, BYE detekujeme nepřímo:
-    # Hráči, kteří se poprvé objeví až v R{template/2}.
-    r2_matches = list(
-        Match.objects.filter(tournament=t, phase=Phase.MD, round_name=f"R{template//2}")
-    )
-    first_round_players = {m.player_top_id for m in r2_matches if m.player_top_id} | {
-        m.player_bottom_id for m in r2_matches if m.player_bottom_id
-    }
-    # Jen „část“ z nich může mít BYE (ti, kdo seděli na kotevních seed slotech), ale pro naše pravidlo
-    # stačí vědět: pokud hráčův první zaznamenaný zápas je až v R{template/2}, a hned prohraje,
-    # dostane body za předchozí kolo.
-    return set(first_round_players)
+    # Když R{template} neexistuje, BYE detekujeme podle prvního výskytu hráče v MD.
+    all_md = Match.objects.filter(tournament=t, phase=Phase.MD)
+    earliest_round: dict[int, int] = {}
+    for m in all_md:
+        if not (m.round_name or "").startswith("R"):
+            continue
+        size = _round_size_from_name(m.round_name)
+        for pid in (m.player_top_id, m.player_bottom_id):
+            if not pid:
+                continue
+            prev = earliest_round.get(pid)
+            if prev is None or size > prev:
+                earliest_round[pid] = size
+    return {pid for pid, size in earliest_round.items() if size == template // 2}
 
 
 def _collect_player_md_matches(t: Tournament) -> dict[int, list[Match]]:
@@ -271,7 +273,7 @@ def compute_md_points(t: Tournament, *, only_completed_rounds: bool = True) -> d
         player_first_played = None
         for m in matches:
             if m.winner_id is not None or (m.player_top_id and m.player_bottom_id):
-                # „odehraný“ = existující zápas v daném kole; najdeme první, co pro daného hráče existoval
+                # díky řazení `matches` je toto skutečně PRVNÍ zápas, kde hráč nastoupil
                 if (m.player_top_id == pid) or (m.player_bottom_id == pid):
                     player_first_played = m
                     break

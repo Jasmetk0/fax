@@ -7,7 +7,7 @@ from typing import Literal
 from django.core.exceptions import ValidationError
 
 from msa.models import EntryStatus, EntryType, SeedingSource, Snapshot, Tournament, TournamentEntry
-from msa.services.tx import atomic
+from msa.services.tx import atomic, locked
 
 Group = Literal["SEED", "DA", "Q", "RESERVE"]
 
@@ -292,7 +292,7 @@ def confirm_recalculate_registration(t: Tournament, preview: Preview) -> None:
     order_index = {r.entry_id: i + 1 for i, r in enumerate(ordered)}  # 1..N
     seed_counter = 0
     for r in ordered:
-        te = TournamentEntry.objects.select_for_update().get(pk=r.entry_id)
+        te = locked(TournamentEntry.objects.filter(pk=r.entry_id)).get()
         if r.group == "SEED":
             seed_counter += 1
             te.entry_type = EntryType.DA

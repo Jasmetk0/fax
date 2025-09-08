@@ -1,10 +1,12 @@
 # msa/services/ll_prefix.py
+from __future__ import annotations
+
 from dataclasses import dataclass
 
 from django.core.exceptions import ValidationError
 
 from msa.models import EntryStatus, EntryType, Tournament, TournamentEntry
-from msa.services.tx import atomic
+from msa.services.tx import atomic, locked
 
 
 @dataclass(frozen=True)
@@ -80,7 +82,7 @@ def fill_vacant_slot_prefer_ll_then_alt(t: Tournament, slot: int) -> TournamentE
     ll_free = _ll_queue_sorted(_free_ll_queryset(t))
     if ll_free:
         chosen_ll_id = ll_free[0].id  # první volný z fronty
-        te = TournamentEntry.objects.select_for_update().get(pk=chosen_ll_id)
+        te = locked(TournamentEntry.objects.filter(pk=chosen_ll_id)).get()
         te.position = slot
         te.save(update_fields=["position"])
         # Po dosazení jen pro jistotu srovnáme prefix (kdyby někdo manuálně přehodil).
@@ -90,7 +92,7 @@ def fill_vacant_slot_prefer_ll_then_alt(t: Tournament, slot: int) -> TournamentE
     # Fallback: ALT
     alt = _alt_queryset(t).order_by("id").first()
     if alt:
-        alt = TournamentEntry.objects.select_for_update().get(pk=alt.pk)
+        alt = locked(TournamentEntry.objects.filter(pk=alt.pk)).get()
         alt.position = slot
         alt.save(update_fields=["position"])
         return alt
@@ -107,7 +109,7 @@ def enforce_ll_prefix_in_md(t: Tournament) -> None:
     a zachová se DOLE slot (tj. nový LL přebere slot toho špatného).
     """
     # Zámek na všech LL v turnaji (aby se v race neděly změny).
-    ll_all = list(_ll_queryset(t).select_for_update())
+    ll_all = list(locked(_ll_queryset(t)))
 
     assigned = [te for te in ll_all if te.position is not None]
     k = len(assigned)
@@ -132,7 +134,7 @@ def enforce_ll_prefix_in_md(t: Tournament) -> None:
         if not missing_ids:
             break
         missing_id = missing_ids.pop(0)
-        new_te = TournamentEntry.objects.select_for_update().get(pk=missing_id)
+        new_te = locked(TournamentEntry.objects.filter(pk=missing_id)).get()
         # DŮLEŽITÉ: nejprve uvolni slot „extra“, teprve pak ho předej „missing“
         slot = extra_te.position
         extra_te.position = None
@@ -154,15 +156,15 @@ def reinstate_original_player(t: Tournament, original_entry_id: int, slot: int) 
     Pokud už v `slot` není LL (tj. je prázdný), jen odeber nejhoršího LL a dej tam původního hráče.
     """
     # Lock všech relevantních řádků
-    ll_assigned = list(_assigned_ll_queryset(t).select_for_update())
+    ll_assigned = list(locked(_assigned_ll_queryset(t)))
     # Pokud není nasazen žádný LL, prostě jen vrať hráče do slotu
     # (ale ověř, že slot není obsazen)
-    original = TournamentEntry.objects.select_for_update().get(pk=original_entry_id)
+    original = locked(TournamentEntry.objects.filter(pk=original_entry_id)).get()
     if _md_slot_taken(t, slot):
         # slot je obsazen – typicky LL, jinak fail
-        occupant = TournamentEntry.objects.select_for_update().get(
-            tournament=t, status=EntryStatus.ACTIVE, position=slot
-        )
+        occupant = locked(
+            TournamentEntry.objects.filter(tournament=t, status=EntryStatus.ACTIVE, position=slot)
+        ).get()
     else:
         occupant = None
 

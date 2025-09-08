@@ -134,7 +134,7 @@ def replace_placeholders_with_qual_winners(t: Tournament) -> int:
             continue  # finále ještě nemá výsledek
 
         # přepiš player v entry (slot zůstává)
-        te = TournamentEntry.objects.select_for_update().get(pk=phi.entry_id)
+        te = locked(TournamentEntry.objects.filter(pk=phi.entry_id)).get()
         if te.player_id == winner_pid:
             continue  # už je nahrazeno
 
