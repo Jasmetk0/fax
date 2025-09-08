@@ -6,6 +6,7 @@ from django.core.exceptions import ValidationError
 from django.db.models import Q
 
 from msa.models import Match, MatchState, Phase, Schedule, Tournament
+from msa.services.admin_gate import require_admin_mode
 from msa.services.qual_generator import bracket_anchor_tiers
 from msa.services.tx import atomic, locked
 
@@ -60,6 +61,7 @@ def _side_is_top(m: Match, slot: int) -> bool:
     raise ValidationError("Slot nepatří danému zápasu.")
 
 
+@require_admin_mode
 @atomic()
 def swap_slots_in_qualification(t: Tournament, slot_a: int, slot_b: int) -> SwapResult:
     """

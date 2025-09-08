@@ -16,6 +16,7 @@ from msa.models import (
     Tournament,
     TournamentEntry,
 )
+from msa.services.admin_gate import require_admin_mode
 from msa.services.archiver import archive
 from msa.services.licenses import assert_all_licensed_or_raise
 from msa.services.md_embed import (
@@ -144,6 +145,7 @@ def _slot_to_entry_id(mapping: dict[int, int]) -> dict[int, int]:
 # ---------- veřejné služby ----------
 
 
+@require_admin_mode
 @atomic()
 def confirm_main_draw(t: Tournament, rng_seed: int) -> dict[int, int]:
     """
@@ -245,6 +247,7 @@ def confirm_main_draw(t: Tournament, rng_seed: int) -> dict[int, int]:
     return slot_to_entry_id
 
 
+@require_admin_mode
 @atomic()
 def hard_regenerate_unseeded_md(t: Tournament, rng_seed: int) -> dict[int, int]:
     """

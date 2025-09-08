@@ -15,6 +15,7 @@ from msa.models import (
     Tournament,
     TournamentEntry,
 )
+from msa.services.admin_gate import require_admin_mode
 from msa.services.tx import atomic, locked
 
 
@@ -44,6 +45,7 @@ def _pick_best_alt_qs(t: Tournament):
     ).order_by(F("wr_snapshot").asc(nulls_last=True), "id")
 
 
+@require_admin_mode
 @atomic()
 def remove_and_replace_in_qualification(t: Tournament, global_slot: int) -> ReplaceResult:
     """

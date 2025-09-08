@@ -13,6 +13,7 @@ from msa.models import (
     Tournament,
     TournamentEntry,
 )
+from msa.services.admin_gate import require_admin_mode
 
 
 @dataclass(frozen=True)
@@ -69,6 +70,7 @@ def assert_all_licensed_or_raise(t: Tournament) -> None:
     )
 
 
+@require_admin_mode
 def grant_license_for_tournament_season(t: Tournament, player_id: int) -> PlayerLicense:
     """
     Rychlá inline akce: vytvoří licenci hráči pro sezónu turnaje (idempotentně).

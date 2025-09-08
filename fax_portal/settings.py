@@ -98,3 +98,6 @@ OFM_STYLE_URL = os.getenv("OFM_STYLE_URL", "")
 
 # Draw engine feature flag
 MSA_DRAW_ENGINE = os.getenv("MSA_DRAW_ENGINE", "v1")
+
+# MSA
+MSA_ADMIN_MODE = True

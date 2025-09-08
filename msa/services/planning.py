@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from django.core.exceptions import ValidationError
 
 from msa.models import Match, Schedule, Snapshot, Tournament
+from msa.services.admin_gate import require_admin_mode
 from msa.services.tx import atomic, locked
 
 
@@ -119,6 +120,7 @@ def list_day_order(t: Tournament, play_date: str) -> list[ScheduledItem]:
     return _serialize_day_items(list(day))
 
 
+@require_admin_mode
 @atomic()
 def insert_match(t: Tournament, match_id: int, play_date: str, order: int) -> None:
     """
@@ -158,6 +160,7 @@ def insert_match(t: Tournament, match_id: int, play_date: str, order: int) -> No
     )
 
 
+@require_admin_mode
 @atomic()
 def swap_matches(t: Tournament, match_id_a: int, match_id_b: int) -> None:
     """
@@ -202,6 +205,7 @@ def swap_matches(t: Tournament, match_id_a: int, match_id_b: int) -> None:
     )
 
 
+@require_admin_mode
 @atomic()
 def normalize_day(t: Tournament, play_date: str) -> None:
     """Normalize Day: přečísluje pořadí na 1..N a uloží snapshot."""
@@ -211,6 +215,7 @@ def normalize_day(t: Tournament, play_date: str) -> None:
     )
 
 
+@require_admin_mode
 @atomic()
 def clear_day(t: Tournament, play_date: str) -> None:
     """Clear: z daného dne vymaže všechny zápasy (Schedule)."""
@@ -220,12 +225,14 @@ def clear_day(t: Tournament, play_date: str) -> None:
     )
 
 
+@require_admin_mode
 @atomic()
 def move_match(t: Tournament, match_id: int, to_play_date: str, to_order: int) -> None:
     """Alias pro Insert — přesune zápas na jiný den a pozici."""
     insert_match(t, match_id, to_play_date, to_order)
 
 
+@require_admin_mode
 @atomic()
 def save_planning_snapshot(t: Tournament, label: str = "manual") -> int:
     """Ulož explicitní snapshot plánu, vrať ID snapshotu."""
@@ -237,6 +244,7 @@ def save_planning_snapshot(t: Tournament, label: str = "manual") -> int:
     return s.id
 
 
+@require_admin_mode
 @atomic()
 def restore_planning_snapshot(t: Tournament, snapshot_id: int) -> None:
     """Obnoví plán z dříve uloženého snapshotu."""

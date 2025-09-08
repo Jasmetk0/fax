@@ -14,11 +14,13 @@ from msa.models import (
     Tournament,
     TournamentEntry,
 )
+from msa.services.admin_gate import require_admin_mode
 from msa.services.archiver import archive
 from msa.services.md_embed import r1_name_for_md
 from msa.services.tx import atomic, locked
 
 
+@require_admin_mode
 @atomic()
 def reopen_main_draw(t: Tournament, mode: str = "AUTO", rng_seed: int | None = None) -> str:
     """Reopen main draw according to mode.

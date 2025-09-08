@@ -15,6 +15,7 @@ from msa.models import (
     Tournament,
     TournamentEntry,
 )
+from msa.services.admin_gate import require_admin_mode
 from msa.services.archiver import archive
 from msa.services.licenses import assert_all_licensed_or_raise
 from msa.services.qual_generator import generate_qualification_mapping, seeds_per_bracket
@@ -78,6 +79,7 @@ def _pairs_for_size(size: int) -> list[tuple[int, int]]:
     return [(i, size + 1 - i) for i in range(1, size // 2 + 1)]
 
 
+@require_admin_mode
 @atomic()
 def confirm_qualification(t: Tournament, rng_seed: int) -> list[dict[int, int]]:
     """
@@ -203,6 +205,7 @@ def confirm_qualification(t: Tournament, rng_seed: int) -> list[dict[int, int]]:
     return branches
 
 
+@require_admin_mode
 @atomic()
 def update_ll_after_qual_finals(t: Tournament) -> int:
     """
