@@ -150,6 +150,8 @@ class Tournament(models.Model):
     wc_slots = models.PositiveSmallIntegerField(null=True, blank=True)
     q_wc_slots = models.PositiveSmallIntegerField(null=True, blank=True)
 
+    third_place_enabled = models.BooleanField(default=False)
+
     seeding_source = models.CharField(
         max_length=16,
         choices=SeedingSource.choices,

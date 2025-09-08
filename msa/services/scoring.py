@@ -6,8 +6,10 @@ from dataclasses import dataclass
 
 from django.core.exceptions import ValidationError
 
-from msa.models import Match, Phase, Tournament
+from msa.models import Match, MatchState, Phase, Tournament
 from msa.services.md_embed import effective_template_size_for_md
+
+THIRD_PLACE_ROUND_NAME = "3P"
 
 # ---------- datové typy ----------
 
@@ -37,9 +39,12 @@ class PointsBreakdown:
 
 
 def _round_size_from_name(round_name: str) -> int:
-    # "R16" -> 16, "Q8" -> 8, "Q2" -> 2
+    # "R16" -> 16, "SF" -> 4, "QF" -> 8, "Q2" -> 2
     if not round_name or len(round_name) < 2:
         raise ValidationError(f"Invalid round_name: {round_name}")
+    special = {"SF": 4, "QF": 8, "F": 2}
+    if round_name in special:
+        return special[round_name]
     try:
         return int(round_name[1:])
     except Exception as err:
@@ -166,11 +171,11 @@ def _collect_player_md_matches(t: Tournament) -> dict[int, list[Match]]:
 
     # řazení podle round_size od největšího (R{template}) k nejmenšímu (R2), 3P necháme úplně nakonec
     def sort_key(m: Match):
-        if (m.round_name or "").startswith("R"):
-            return (0, _round_size_from_name(m.round_name))
-        if m.round_name == "3P":
-            return (1, 0)
-        return (2, 0)
+        if (m.round_name or "").startswith("R") or m.round_name in {"SF", "QF", "F"}:
+            return (2, _round_size_from_name(m.round_name))
+        if m.round_name == THIRD_PLACE_ROUND_NAME:
+            return (0, 0)
+        return (1, 0)
 
     all_md.sort(key=sort_key, reverse=True)
 
@@ -204,8 +209,14 @@ def compute_md_points(t: Tournament, *, only_completed_rounds: bool = True) -> d
     out: dict[int, int] = {}
 
     for pid, matches in by_player.items():
+        matches_no_3p = [m for m in matches if m.round_name != THIRD_PLACE_ROUND_NAME]
+        if not matches_no_3p:
+            continue
+
         # najdi finále, pokud hráč vyhrál celé (R2)
-        final = next((m for m in matches if (m.round_name == "R2" and m.winner_id == pid)), None)
+        final = next(
+            (m for m in matches_no_3p if (m.round_name == "R2" and m.winner_id == pid)), None
+        )
         if final:
             # Pokud limit kol nepovoluje R2, body 0
             if (last_full is None) or (last_full >= 2):
@@ -214,7 +225,11 @@ def compute_md_points(t: Tournament, *, only_completed_rounds: bool = True) -> d
 
         # RunnerUp – prohrál ve finále?
         lost_final = next(
-            (m for m in matches if (m.round_name == "R2" and m.winner_id and m.winner_id != pid)),
+            (
+                m
+                for m in matches_no_3p
+                if (m.round_name == "R2" and m.winner_id and m.winner_id != pid)
+            ),
             None,
         )
         if lost_final:
@@ -222,38 +237,17 @@ def compute_md_points(t: Tournament, *, only_completed_rounds: bool = True) -> d
                 out[pid] = out.get(pid, 0) + _safe_get(md_table, "RunnerUp")
             continue
 
-        # Třetí místo (volitelné): zápas 3P (pokud existuje)
-        third = next((m for m in matches if m.round_name == "3P" and m.winner_id == pid), None)
-        fourth = next(
-            (m for m in matches if m.round_name == "3P" and m.winner_id and m.winner_id != pid),
-            None,
-        )
-        if third:
-            # body za „Third“, pokud tabulka definuje
-            if (last_full is None) or (
-                last_full >= 2
-            ):  # 3P je po SF, takže když je hotové finále/3P, určitě >= R2
-                out[pid] = out.get(pid, 0) + _safe_get(md_table, "Third")
-            continue
-        if fourth:
-            if (last_full is None) or (last_full >= 2):
-                out[pid] = out.get(pid, 0) + _safe_get(md_table, "Fourth")
-            continue
-
         # Jinak hráč někde prohrál před finále – najdi NEJPOZDĚJI hraný zápas s výsledkem
-        played = [m for m in matches if m.winner_id]
+        # „Odehrané“ = jen se známým vítězem (winner_id). DONE bez vítěze se nepočítá.
+        played = [m for m in matches_no_3p if m.winner_id]
         if not played:
             # žádný výsledek → 0 bodů (např. turnaj uprostřed)
             continue
 
         # poslední odehraný (nejblíže finále)
         # díky řazení matches je první v listu nejvyšší kolo; my chceme „nejpozději odehraný“ = nejmenší round_size s výsledkem
-        played_sorted = sorted(
-            played,
-            key=lambda m: (
-                _round_size_from_name(m.round_name) if (m.round_name or "").startswith("R") else 1
-            ),
-        )
+        # Použij mapování i pro SF/QF/F (je pokryté ve _round_size_from_name)
+        played_sorted = sorted(played, key=lambda m: _round_size_from_name(m.round_name))
         last = played_sorted[0]  # nejmenší R (nejblíž finále)
 
         rsize = _round_size_from_name(last.round_name)
@@ -271,7 +265,7 @@ def compute_md_points(t: Tournament, *, only_completed_rounds: bool = True) -> d
         # BYE pravidlo: pokud tenhle last je zároveň PRVNÍ zápas hráče a hráč je v množině „bye_candidates“,
         # přiznáme body za předchozí kolo (dvojnásobný round_size).
         player_first_played = None
-        for m in matches:
+        for m in matches_no_3p:
             if m.winner_id is not None or (m.player_top_id and m.player_bottom_id):
                 # díky řazení `matches` je toto skutečně PRVNÍ zápas, kde hráč nastoupil
                 if (m.player_top_id == pid) or (m.player_bottom_id == pid):
@@ -284,6 +278,29 @@ def compute_md_points(t: Tournament, *, only_completed_rounds: bool = True) -> d
 
         label = adjusted_label or _md_label_for_losing_round(rsize)
         out[pid] = out.get(pid, 0) + _safe_get(md_table, label)
+
+    # idempotent override for third-place match
+    third_matches = Match.objects.filter(
+        tournament=t,
+        phase=Phase.MD,
+        round_name=THIRD_PLACE_ROUND_NAME,
+        state=MatchState.DONE,
+    )
+    if third_matches.exists():
+        sc = getattr(t.category_season, "scoring_md", {}) or {}
+        third_pts = sc.get("Third")
+        fourth_pts = sc.get("Fourth")
+        if third_pts is not None or fourth_pts is not None:
+            for m in third_matches:
+                if m.player_top_id and m.player_bottom_id and m.winner_id:
+                    winner_id = m.winner_id
+                    loser_id = (
+                        m.player_bottom_id if winner_id == m.player_top_id else m.player_top_id
+                    )
+                    if third_pts is not None:
+                        out[winner_id] = third_pts
+                    if fourth_pts is not None:
+                        out[loser_id] = fourth_pts
 
     return out
 
