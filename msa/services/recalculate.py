@@ -7,6 +7,7 @@ from typing import Literal
 from django.core.exceptions import ValidationError
 
 from msa.models import EntryStatus, EntryType, SeedingSource, Snapshot, Tournament, TournamentEntry
+from msa.services.admin_gate import require_admin_mode
 from msa.services.tx import atomic, locked
 
 Group = Literal["SEED", "DA", "Q", "RESERVE"]
@@ -265,6 +266,7 @@ def preview_recalculate_registration(
     return Preview(current=current, proposed=proposed, moves=moves, counters=counters)
 
 
+@require_admin_mode
 @atomic()
 def confirm_recalculate_registration(t: Tournament, preview: Preview) -> None:
     """
@@ -318,6 +320,7 @@ def confirm_recalculate_registration(t: Tournament, preview: Preview) -> None:
             te.save(update_fields=["seed", "position"])
 
 
+@require_admin_mode
 @atomic()
 def brutal_reset_to_registration(t: Tournament, reason: str = "PARAM_CHANGE") -> None:
     """

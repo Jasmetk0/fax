@@ -15,6 +15,7 @@ from msa.models import (
     Tournament,
     TournamentEntry,
 )
+from msa.services.admin_gate import require_admin_mode
 from msa.services.archiver import archive_tournament_state
 from msa.services.md_confirm import _pick_seeds_and_unseeded  # reuse interní logiku
 from msa.services.md_embed import effective_template_size_for_md, r1_name_for_md
@@ -33,6 +34,7 @@ def _default_seeds_count(draw_size: int) -> int:
 
 
 # R1 i kotvy vyhodnocujeme podle embed šablony (power-of-two), ne přímo podle draw_size.
+@require_admin_mode
 @atomic()
 def regenerate_md_band(
     t: Tournament, band: str, rng_seed: int, mode: str = "SOFT"

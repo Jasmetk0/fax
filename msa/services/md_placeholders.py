@@ -15,6 +15,7 @@ from msa.models import (
     Tournament,
     TournamentEntry,
 )
+from msa.services.admin_gate import require_admin_mode
 from msa.services.md_confirm import confirm_main_draw
 from msa.services.md_embed import r1_name_for_md
 from msa.services.tx import atomic, locked
@@ -51,6 +52,7 @@ def _existing_placeholder_entries(t: Tournament) -> list[PlaceholderInfo]:
     return out
 
 
+@require_admin_mode
 @atomic()
 def create_md_placeholders(t: Tournament) -> list[PlaceholderInfo]:
     """
@@ -81,6 +83,7 @@ def create_md_placeholders(t: Tournament) -> list[PlaceholderInfo]:
     return sorted(_existing_placeholder_entries(t), key=lambda x: x.branch_index)
 
 
+@require_admin_mode
 @atomic()
 def confirm_md_with_placeholders(t: Tournament, rng_seed: int) -> dict[int, int]:
     """
@@ -109,6 +112,7 @@ def _final_winner_player_id_for_branch(t: Tournament, branch_index: int) -> int 
     return m.winner_id if m else None
 
 
+@require_admin_mode
 @atomic()
 def replace_placeholders_with_qual_winners(t: Tournament) -> int:
     """

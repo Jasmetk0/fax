@@ -15,6 +15,7 @@ from msa.models import (
     Tournament,
     TournamentEntry,
 )
+from msa.services.admin_gate import require_admin_mode
 from msa.services.archiver import archive_tournament_state
 from msa.services.md_embed import r1_name_for_md
 from msa.services.tx import atomic, locked
@@ -80,6 +81,7 @@ def _seed_ids_by_wr(t: Tournament, all_entries: list[EntryView]) -> list[int]:
 # ---- Soft regenerate: jen nenasazení v R1 bez výsledku ----
 
 
+@require_admin_mode
 @atomic()
 def soft_regenerate_unseeded_md(t: Tournament, rng_seed: int) -> dict[int, int]:
     """

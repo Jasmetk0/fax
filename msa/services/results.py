@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from django.core.exceptions import ValidationError
 
 from msa.models import Match, MatchState
+from msa.services.admin_gate import require_admin_mode
 from msa.services.md_third_place import ensure_third_place_match
 from msa.services.tx import atomic, locked
 
@@ -158,6 +159,7 @@ def _propagate_winner_to_next_round(m: Match) -> None:
         next_match.save(update_fields=updated)
 
 
+@require_admin_mode
 @atomic()
 def set_result(
     match_id: int,
@@ -276,6 +278,7 @@ def set_result(
     return m
 
 
+@require_admin_mode
 @atomic()
 def resolve_needs_review(match_id: int) -> Match:
     """

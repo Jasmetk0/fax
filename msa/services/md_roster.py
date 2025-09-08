@@ -14,6 +14,7 @@ from msa.models import (
     Tournament,
     TournamentEntry,
 )
+from msa.services.admin_gate import require_admin_mode
 from msa.services.ll_prefix import (
     enforce_ll_prefix_in_md,
     fill_vacant_slot_prefer_ll_then_alt,
@@ -44,6 +45,7 @@ def _update_match_for_slot(m: Match, slot: int, player_id: int | None) -> None:
     Schedule.objects.filter(match=m).delete()
 
 
+@require_admin_mode
 @atomic()
 def remove_player_from_md(t: Tournament, slot: int) -> int | None:
     m = _get_r1_match(t, slot)
@@ -72,6 +74,7 @@ def remove_player_from_md(t: Tournament, slot: int) -> int | None:
         return new_te.id
 
 
+@require_admin_mode
 @atomic()
 def ensure_vacancies_filled(t: Tournament) -> int:
     r1 = r1_name_for_md(t)
@@ -112,6 +115,7 @@ def ensure_vacancies_filled(t: Tournament) -> int:
     return filled
 
 
+@require_admin_mode
 @atomic()
 def use_reserve_now(t: Tournament, slot: int) -> TournamentEntry:
     """Force ALT to occupy `slot`, even if an LL sits there."""
