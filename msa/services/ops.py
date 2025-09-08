@@ -5,9 +5,11 @@ from msa.services._concurrency import atomic_tournament, lock_qs
 
 @atomic_tournament
 def replace_slot(tournament, slot, alt_id):
-    from msa.models import TournamentEntry
+    from msa.models import EntryStatus, TournamentEntry
 
-    alt = lock_qs(TournamentEntry.objects).get(pk=alt_id, tournament=tournament)
+    alt = lock_qs(TournamentEntry.objects).get(
+        pk=alt_id, tournament=tournament, status=EntryStatus.ACTIVE
+    )
 
     incumbent = lock_qs(
         TournamentEntry.objects.filter(tournament=tournament, position=slot).exclude(pk=alt.pk)

@@ -80,7 +80,7 @@ class CategorySeason(models.Model):
     category = models.ForeignKey(Category, on_delete=models.PROTECT, null=True, blank=True)
     season = models.ForeignKey(Season, on_delete=models.PROTECT, null=True, blank=True)
     draw_size = models.PositiveSmallIntegerField(
-        choices=[(16, "16"), (32, "32"), (64, "64"), (128, "128")], null=True, blank=True
+        choices=[(16, "16"), (32, "32"), (64, "64")], null=True, blank=True
     )
 
     md_seeds_count = models.PositiveSmallIntegerField(default=8, null=True, blank=True)

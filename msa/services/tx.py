@@ -1,6 +1,6 @@
 from functools import wraps
 
-from django.db import transaction
+from django.db import connections, transaction
 
 
 def atomic(_fn=None):
@@ -26,5 +26,11 @@ def atomic(_fn=None):
 
 
 def locked(qs):
-    """SELECT FOR UPDATE; na SQLite no-op, na Postgresu skutečný lock."""
-    return qs.select_for_update()
+    """SELECT FOR UPDATE; na SQLite fallback na no-op, na Postgresu skutečný lock."""
+    try:
+        conn = connections[qs.db]
+        if getattr(conn.features, "has_select_for_update", False):
+            return qs.select_for_update()
+    except Exception:
+        pass
+    return qs

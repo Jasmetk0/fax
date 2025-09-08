@@ -107,13 +107,9 @@ def soft_regenerate_unseeded_md(t: Tournament, rng_seed: int) -> dict[int, int]:
 
     # Sestavíme množinu MUTABLE slotů = sloty R1 zápasů bez výsledku
     mutable_slots: list[int] = []
-    fixed_slots: set[int] = set()
     for m in r1_qs:
         has_result = (m.winner_id is not None) or (m.state == MatchState.DONE)
-        if has_result:
-            fixed_slots.add(m.slot_top)
-            fixed_slots.add(m.slot_bottom)
-        else:
+        if not has_result:
             mutable_slots.append(m.slot_top)
             mutable_slots.append(m.slot_bottom)
 
