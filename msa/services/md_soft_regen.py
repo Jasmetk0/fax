@@ -11,9 +11,11 @@ from msa.models import (
     MatchState,
     Phase,
     Schedule,
+    Snapshot,
     Tournament,
     TournamentEntry,
 )
+from msa.services.archiver import archive_tournament_state
 from msa.services.md_embed import r1_name_for_md
 from msa.services.tx import atomic, locked
 
@@ -144,11 +146,9 @@ def soft_regenerate_unseeded_md(t: Tournament, rng_seed: int) -> dict[int, int]:
     rnd.shuffle(shuffled)
 
     # Ulož nové pozice (jen pro nenasazené v mutable_unseeded_slots)
+    TournamentEntry.objects.filter(pk__in=pool_entry_ids).update(position=None)
     for slot, eid in zip(sorted(mutable_unseeded_slots), shuffled, strict=False):
-        te = locked(TournamentEntry.objects.filter(pk=eid)).get()
-        if te.position != slot:
-            te.position = slot
-            te.save(update_fields=["position"])
+        TournamentEntry.objects.filter(pk=eid).update(position=slot)
 
     # Aktualizuj R1 páry: u bezvýsledkových zápasů nastav hráče podle nových slotů,
     # a pokud se dvojice změnila, smaž případnou Schedule (ponecháme volný pořad).
@@ -176,9 +176,11 @@ def soft_regenerate_unseeded_md(t: Tournament, rng_seed: int) -> dict[int, int]:
             Schedule.objects.filter(match=m).delete()
 
     # Aktuální mapping
-    return {
+    mapping = {
         int(te.position): te.id
         for te in TournamentEntry.objects.filter(
             tournament=t, status=EntryStatus.ACTIVE, position__isnull=False
         )
     }
+    archive_tournament_state(t, Snapshot.SnapshotType.REGENERATE)
+    return mapping

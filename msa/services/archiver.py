@@ -83,3 +83,30 @@ def archive(
         payload.update(extra)
     s = Snapshot.objects.create(tournament=t, type=type, payload=payload)
     return s.id
+
+
+def archive_tournament_state(
+    t: Tournament,
+    snapshot_type: Snapshot.SnapshotType,
+    *,
+    label: str | None = None,
+    extra: dict | None = None,
+) -> int:
+    """Convenience wrapper for archiving the whole tournament state.
+
+    Parameters
+    ----------
+    t:
+        Tournament instance to archive.
+    snapshot_type:
+        Type of the snapshot, e.g. ``Snapshot.SnapshotType.REGENERATE``.
+    label, extra:
+        Optional label and extra payload forwarded to :func:`archive`.
+
+    Returns
+    -------
+    int
+        ID of the created snapshot.
+    """
+
+    return archive(t, type=snapshot_type, label=label, extra=extra)
