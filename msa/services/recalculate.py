@@ -39,7 +39,7 @@ class Preview:
     current: list[Row]
     proposed: list[Row]
     moves: list[tuple[int, Group, Group]]  # (entry_id, from_group, to_group)
-    counters: dict[str, int]  # S / D / Q_draw_size / WC_used / WC_limit
+    counters: dict[str, int]  # S / D / Q_draw_size / WC_used / WC_limit / QWC_used / QWC_limit
 
 
 # --------- utils ---------
@@ -80,6 +80,12 @@ def _eff_wc_limit(t: Tournament) -> int:
     cs = t.category_season
     base = int(cs.wc_slots_default or 0)
     return int(t.wc_slots) if getattr(t, "wc_slots", None) is not None else base
+
+
+def _eff_qwc_limit(t: Tournament) -> int:
+    cs = t.category_season
+    base = int(cs.q_wc_slots_default or 0)
+    return int(t.q_wc_slots) if getattr(t, "q_wc_slots", None) is not None else base
 
 
 def _entries_active(t: Tournament) -> list[EntryState]:
@@ -205,26 +211,57 @@ def _proposed_layout(
     # 4) Zbytek DA = DA_all bez seeds (po WR)
     da_rest = [e for e in _sort_by_wr(da_all) if e.id not in seed_ids]
 
-    # 5) Q = další Qdraw hráčů z `ordered` mimo DA_all
+    # 5) Q = další Qdraw hráčů z `ordered` mimo DA_all, s povýšením QWC
     taken_ids = {e.id for e in da_all}
-    q_pool = [e for e in ordered if e.id not in taken_ids][:Qdraw]
+    q_base_pool = [e for e in ordered if e.id not in taken_ids]
+    q_initial = q_base_pool[:Qdraw]
+    # QWC povýšení: každý s promoted_by_qwc=True MUSÍ být v Q (pokud je místo),
+    # QWC, kteří by byli v Q i bez povýšení, limit NEčerpají (flag promoted_by_qwc=True by neměl být nastaven).
+    promoted_qwc = [e for e in q_base_pool if e.promoted_by_qwc]
+    q_final = list(q_initial)
+    for e in promoted_qwc:
+        if e not in q_final and len(q_final) < Qdraw:
+            q_final.append(e)
+    if len(q_final) > Qdraw:
+        # drop nejhorší NE-QWC, aby se vešli povýšení; pokud i tak přetéká (všichni jsou QWC),
+        # zkrať stabilně podle WR (MVP tolerance).
+        q_final_sorted = _sort_by_wr(q_final)  # best→worst
+        keep: list[EntryState] = []
+        to_keep = Qdraw
+        # nejdřív přidej všechny QWC (v WR pořadí)
+        for e in [x for x in q_final_sorted if x.promoted_by_qwc]:
+            if len(keep) < to_keep:
+                keep.append(e)
+        # doplň zbytkem ne-QWC v WR pořadí
+        for e in [x for x in q_final_sorted if not x.promoted_by_qwc]:
+            if len(keep) < to_keep:
+                keep.append(e)
+        q_final = keep
+    q_final = _sort_by_wr(q_final)
+    q_ids = {e.id for e in q_final}
 
     # 6) RESERVE = zbytek
-    taken_ids |= {e.id for e in q_pool}
+    taken_ids |= q_ids
     reserve = [e for e in ordered if e.id not in taken_ids]
 
     rows: list[Row] = []
     rows += [Row(entry_id=e.id, group="SEED", index=i) for i, e in enumerate(seeds_sorted)]
     rows += [Row(entry_id=e.id, group="DA", index=i) for i, e in enumerate(da_rest)]
-    rows += [Row(entry_id=e.id, group="Q", index=i) for i, e in enumerate(q_pool)]
+    rows += [Row(entry_id=e.id, group="Q", index=i) for i, e in enumerate(q_final)]
     rows += [Row(entry_id=e.id, group="RESERVE", index=i) for i, e in enumerate(reserve)]
+
+    # počty WC/QWC (počítáme skutečně využité – v navržených blocích)
+    wc_used = sum(1 for e in da_all if e.promoted_by_wc)
+    qwc_used = sum(1 for e in q_final if e.promoted_by_qwc)
 
     counters = dict(
         S=S,
         D=D,
         Q_draw_size=Qdraw,
-        WC_used=sum(1 for e in entries if e.promoted_by_wc),
+        WC_used=wc_used,
         WC_limit=_eff_wc_limit(t),
+        QWC_used=qwc_used,
+        QWC_limit=_eff_qwc_limit(t),
     )
     return rows, counters
 
@@ -287,6 +324,19 @@ def confirm_recalculate_registration(t: Tournament, preview: Preview) -> None:
         raise ValidationError(
             "Preview neodpovídá aktuálním registracím (změnily se položky). Vygeneruj znovu."
         )
+
+    # Limity WC/QWC – blokace uložení při překročení
+    wc_used = int(preview.counters.get("WC_used", 0))
+    wc_limit = int(preview.counters.get("WC_limit", 0))
+    qwc_used = int(preview.counters.get("QWC_used", 0))
+    qwc_limit = int(preview.counters.get("QWC_limit", 0))
+    errs: list[str] = []
+    if wc_used > wc_limit:
+        errs.append(f"WC limit exceeded: used {wc_used} > limit {wc_limit}.")
+    if qwc_used > qwc_limit:
+        errs.append(f"QWC limit exceeded: used {qwc_used} > limit {qwc_limit}.")
+    if errs:
+        raise ValidationError(" | ".join(errs))
 
     # 1) aplikuj typy a seedy
     # pořadí pro position

@@ -27,7 +27,13 @@ def test_preview_and_confirm_apply_groups_and_seeds_with_wc_respected():
     s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
     c = Category.objects.create(name="WT")
     cs = CategorySeason.objects.create(
-        category=c, season=s, draw_size=32, md_seeds_count=8, qualifiers_count=4, qual_rounds=3
+        category=c,
+        season=s,
+        draw_size=32,
+        md_seeds_count=8,
+        qualifiers_count=4,
+        qual_rounds=3,
+        wc_slots_default=1,
     )
     t = Tournament.objects.create(
         season=s,
@@ -93,6 +99,67 @@ def test_preview_and_confirm_apply_groups_and_seeds_with_wc_respected():
     assert len(q_ids) == prev.counters["Q_draw_size"]
     qs_after = TournamentEntry.objects.filter(pk__in=q_ids)
     assert all(te.entry_type == EntryType.Q for te in qs_after)
+
+
+@pytest.mark.django_db
+def test_confirm_blocks_when_wc_or_qwc_limit_exceeded():
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    c = Category.objects.create(name="WT")
+    cs = CategorySeason.objects.create(
+        category=c,
+        season=s,
+        draw_size=32,
+        qualifiers_count=2,
+        qual_rounds=2,
+        wc_slots_default=0,
+        q_wc_slots_default=0,
+    )
+    t = Tournament.objects.create(
+        season=s,
+        category=c,
+        category_season=cs,
+        name="Tour C",
+        slug="tour-c",
+        state=TournamentState.REG,
+        seeding_source=SeedingSource.SNAPSHOT,
+        wc_slots=0,
+        q_wc_slots=0,
+    )
+
+    # 40 registrations WR 1..40
+    players = [Player.objects.create(name=f"P{i}") for i in range(1, 41)]
+    entries = []
+    for i, p in enumerate(players, start=1):
+        entries.append(
+            TournamentEntry.objects.create(
+                tournament=t,
+                player=p,
+                entry_type=EntryType.ALT,
+                status=EntryStatus.ACTIVE,
+                wr_snapshot=i,
+            )
+        )
+
+    # WC promotion for WR=30
+    e_wc = entries[29]
+    e_wc.promoted_by_wc = True
+    e_wc.is_wc = True
+    e_wc.entry_type = EntryType.DA
+    e_wc.save(update_fields=["promoted_by_wc", "is_wc", "entry_type"])
+
+    # QWC promotion for WR=40 (would normally be reserve)
+    e_qwc = entries[39]
+    e_qwc.promoted_by_qwc = True
+    e_qwc.is_qwc = True
+    e_qwc.entry_type = EntryType.Q
+    e_qwc.save(update_fields=["promoted_by_qwc", "is_qwc", "entry_type"])
+
+    prev = preview_recalculate_registration(t)
+    assert prev.counters["WC_used"] == 1 and prev.counters["WC_limit"] == 0
+    assert prev.counters["QWC_used"] == 1 and prev.counters["QWC_limit"] == 0
+
+    with pytest.raises(Exception):
+        confirm_recalculate_registration(t, prev)
 
 
 @pytest.mark.django_db
