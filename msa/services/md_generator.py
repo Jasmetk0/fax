@@ -1,7 +1,9 @@
-import random
+from types import SimpleNamespace
 from typing import Any
 
 from msa.services.seed_anchors import band_sequence_for_S, md_anchor_map
+
+from .randoms import rng_for, seeded_shuffle
 
 
 def generate_main_draw_mapping(
@@ -35,9 +37,8 @@ def generate_main_draw_mapping(
     if len(unseeded_players) > len(remaining_slots):
         unseeded_players = unseeded_players[: len(remaining_slots)]
 
-    rnd = random.Random(rng_seed)
-    shuffled = unseeded_players[:]
-    rnd.shuffle(shuffled)
+    rng = rng_for(SimpleNamespace(rng_seed_active=rng_seed))
+    shuffled = seeded_shuffle(unseeded_players, rng)
 
     for slot, player in zip(remaining_slots, shuffled, strict=False):
         slot_to_player[slot] = player
