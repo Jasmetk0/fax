@@ -76,10 +76,76 @@ def build_ics_for_days(tournament: Tournament, days: list[str]) -> str:
     return "\n".join(lines)
 
 
+def build_match_vevent(match: Match, play_date: str) -> str:
+    """
+    VEVENT pro jeden zápas (all-day):
+      - UID: f"msa-match-{match.id}"
+      - DTSTAMP: UTC nyní (YYYYMMDDTHHMMSSZ)
+      - DTSTART;VALUE=DATE:{YYYYMMDD}  # all-day (čas neřeš)
+      - SUMMARY: "<round> – <Ptop> vs <Pbot>"  (P… = jméno nebo 'TBD')
+      - DESCRIPTION: "Slot: [<slot_top> vs <slot_bottom>], Order: <order>"
+    Všechny texty escapuj escape_ics().
+    """
+
+    dtstamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+    dtstart = play_date.replace("-", "")
+
+    ptop = match.player_top.name if match.player_top and match.player_top.name else "TBD"
+    pbot = match.player_bottom.name if match.player_bottom and match.player_bottom.name else "TBD"
+    summary = escape_ics(f"{match.round_name or 'R?'} – {ptop} vs {pbot}")
+
+    st = match.slot_top if match.slot_top is not None else "-"
+    sb = match.slot_bottom if match.slot_bottom is not None else "-"
+    order = (
+        match.schedule.order
+        if getattr(match, "schedule", None) and match.schedule.order is not None
+        else "-"
+    )
+    description = escape_ics(f"Slot: [{st} vs {sb}], Order: {order}")
+
+    lines = [
+        "BEGIN:VEVENT",
+        f"UID:msa-match-{match.id}",
+        f"DTSTAMP:{dtstamp}",
+        f"DTSTART;VALUE=DATE:{dtstart}",
+        f"SUMMARY:{summary}",
+        f"DESCRIPTION:{description}",
+        "END:VEVENT",
+    ]
+    return "\n".join(lines)
+
+
+def build_ics_for_matches(tournament: Tournament, days: list[str]) -> str:
+    """
+    Vrátí VCALENDAR s VEVENT pro všechny zápasy, které mají záznam v Schedule
+    na některý z 'days'. Respektuj is_enabled() – pokud False, vrať "".
+    """
+
+    if not is_enabled():
+        return ""
+
+    matches = Match.objects.filter(tournament=tournament, schedule__play_date__in=days).order_by(
+        "schedule__play_date", "schedule__order"
+    )
+    events = [build_match_vevent(m, m.schedule.play_date.isoformat()) for m in matches]
+    lines = [
+        "BEGIN:VCALENDAR",
+        "PRODID:-//MSA//Matches//EN",
+        "VERSION:2.0",
+        "CALSCALE:GREGORIAN",
+        "METHOD:PUBLISH",
+        *events,
+        "END:VCALENDAR",
+    ]
+    return "\n".join(lines)
+
+
 __all__ = [
     "day_order_description",
     "is_enabled",
     "escape_ics",
     "build_dayorder_vevent",
     "build_ics_for_days",
+    "build_match_vevent",
+    "build_ics_for_matches",
 ]
