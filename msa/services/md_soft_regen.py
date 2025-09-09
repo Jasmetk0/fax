@@ -18,6 +18,7 @@ from msa.models import (
 from msa.services.admin_gate import require_admin_mode
 from msa.services.archiver import archive_tournament_state
 from msa.services.md_embed import r1_name_for_md
+from msa.services.randoms import rng_for, seeded_shuffle
 from msa.services.tx import atomic, locked
 
 # ---- Pomocné typy ----
@@ -83,7 +84,7 @@ def _seed_ids_by_wr(t: Tournament, all_entries: list[EntryView]) -> list[int]:
 
 @require_admin_mode
 @atomic()
-def soft_regenerate_unseeded_md(t: Tournament, rng_seed: int) -> dict[int, int]:
+def soft_regenerate_unseeded_md(t: Tournament, rng_seed: int | None = None) -> dict[int, int]:
     """
     Přelosuje **jen nenasazené** hráče v těch R1 zápasech, kde ještě není výsledek.
     Zachová:
@@ -141,11 +142,8 @@ def soft_regenerate_unseeded_md(t: Tournament, rng_seed: int) -> dict[int, int]:
         return {int(te.position): te.id for te in entries_qs}
 
     # Deterministicky zamíchat pool a znovu je přiřadit do STEJNÉ množiny slotů (jiné pořadí)
-    import random
-
-    rnd = random.Random(rng_seed)
-    shuffled = pool_entry_ids[:]
-    rnd.shuffle(shuffled)
+    rng = rng_for(t)
+    shuffled = seeded_shuffle(pool_entry_ids, rng)
 
     # Ulož nové pozice (jen pro nenasazené v mutable_unseeded_slots)
     TournamentEntry.objects.filter(pk__in=pool_entry_ids).update(position=None)

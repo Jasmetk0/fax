@@ -1,8 +1,6 @@
 # msa/services/md_band_regen.py
 from __future__ import annotations
 
-import random
-
 from django.core.exceptions import ValidationError
 
 from msa.models import (
@@ -19,6 +17,7 @@ from msa.services.admin_gate import require_admin_mode
 from msa.services.archiver import archive_tournament_state
 from msa.services.md_confirm import _pick_seeds_and_unseeded  # reuse interní logiku
 from msa.services.md_embed import effective_template_size_for_md, r1_name_for_md
+from msa.services.randoms import rng_for, seeded_shuffle
 from msa.services.seed_anchors import band_sequence_for_S, md_anchor_map
 from msa.services.tx import atomic, locked
 
@@ -37,7 +36,7 @@ def _default_seeds_count(draw_size: int) -> int:
 @require_admin_mode
 @atomic()
 def regenerate_md_band(
-    t: Tournament, band: str, rng_seed: int, mode: str = "SOFT"
+    t: Tournament, band: str, rng_seed: int | None = None, mode: str = "SOFT"
 ) -> dict[int, int]:
     """
     Přelosuje **vybraný band** seedů v MD (např. '3-4','5-8','9-16','17-32') nebo 'Unseeded'.
@@ -72,12 +71,12 @@ def regenerate_md_band(
     seeds, unseeded, _ = _pick_seeds_and_unseeded(t, evs)
     seed_ids_in_order = [e.id for e in seeds]
 
+    rng = rng_for(t)
     if band == "Unseeded":
         # Přelosovat nenasazené mezi jejich aktuálními sloty
         un_slots = sorted([s for s, te in slot_to_entry.items() if te.id not in seed_ids_in_order])
         pool_ids = [slot_to_entry[s].id for s in un_slots]
-        rng = random.Random(rng_seed)
-        rng.shuffle(pool_ids)
+        pool_ids = seeded_shuffle(pool_ids, rng)
         # Ulož nové pozice jen pro unseeded
         TournamentEntry.objects.filter(pk__in=pool_ids).update(position=None)
         for s, eid in zip(un_slots, pool_ids, strict=False):
@@ -107,8 +106,7 @@ def regenerate_md_band(
         # Kteří seed hráči (Entry) aktuálně sedí na těchto kotvách?
         band_seed_ids = [slot_to_entry[s].id for s in anchor_slots]
         # deterministická permutace
-        rng = random.Random(rng_seed)
-        rng.shuffle(band_seed_ids)
+        band_seed_ids = seeded_shuffle(band_seed_ids, rng)
         TournamentEntry.objects.filter(pk__in=band_seed_ids).update(position=None)
         # Ulož – přemapuj seed IDs na anchor sloty
         for s, eid in zip(anchor_slots, band_seed_ids, strict=False):
