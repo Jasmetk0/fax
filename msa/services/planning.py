@@ -7,6 +7,7 @@ from django.core.exceptions import ValidationError
 
 from msa.models import Match, Schedule, Snapshot, Tournament
 from msa.services.admin_gate import require_admin_mode
+from msa.services.planning_undo import push_planning_snapshot
 from msa.services.tx import atomic, locked
 
 
@@ -234,13 +235,14 @@ def move_match(t: Tournament, match_id: int, to_play_date: str, to_order: int) -
 
 @require_admin_mode
 @atomic()
-def save_planning_snapshot(t: Tournament, label: str = "manual") -> int:
-    """Ulož explicitní snapshot plánu, vrať ID snapshotu."""
+def save_planning_snapshot(t: Tournament, day: str, label: str = "manual") -> int:
+    """Ulož explicitní snapshot plánu, vrať ID snapshotu a pushni ho na undo stack."""
     s = Snapshot.objects.create(
         tournament=t,
         type=Snapshot.SnapshotType.MANUAL,
         payload=dict(label=label, **_snapshot_payload(t)),
     )
+    push_planning_snapshot(t, day, s.id)
     return s.id
 
 

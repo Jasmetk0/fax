@@ -143,7 +143,7 @@ def test_save_and_restore_planning_snapshot():
     insert_match(t, m1.id, "2025-08-01", 1)
     insert_match(t, m2.id, "2025-08-01", 2)
 
-    snap_id = save_planning_snapshot(t, label="before-change")
+    snap_id = save_planning_snapshot(t, "2025-08-01", label="before-change")
 
     # změna plánu
     clear_day(t, "2025-08-01")

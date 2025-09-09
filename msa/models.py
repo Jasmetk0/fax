@@ -331,6 +331,19 @@ class Snapshot(models.Model):
         ordering = ["-created_at"]
 
 
+class PlanningUndoState(models.Model):
+    tournament = models.ForeignKey(Tournament, on_delete=models.CASCADE)
+    day = models.DateField()
+    undo_stack = models.JSONField(default=list)
+    redo_stack = models.JSONField(default=list)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["tournament", "day"], name="uniq_planning_undo_state")
+        ]
+
+
 class RankingAdjustment(models.Model):
     player = models.ForeignKey(Player, on_delete=models.CASCADE, null=True, blank=True)
     scope = models.CharField(
