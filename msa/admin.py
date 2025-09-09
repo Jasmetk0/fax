@@ -51,6 +51,10 @@ class TournamentAdmin(admin.ModelAdmin):
     list_filter = ("state", "season", "category")
     prepopulated_fields = {"slug": ("name",)}
 
+    @admin.display(description="Active RNG seed")
+    def rng_seed_active_display(self, obj):
+        return obj.rng_seed_active
+
     @admin.action(description="Preview RNG diff")
     def preview_rng_diff(self, request, queryset):
         for t in queryset:
@@ -99,6 +103,21 @@ class TournamentAdmin(admin.ModelAdmin):
         "regenerate_rng_seed",
         "apply_preview_changes",
     ]
+
+
+# --- append fields safely (after the class definition) ---
+try:
+    # readonly_fields
+    ro = tuple(getattr(TournamentAdmin, "readonly_fields", ()))
+    if "rng_seed_active" not in ro:
+        TournamentAdmin.readonly_fields = ro + ("rng_seed_active",)
+
+    # list_display
+    ld = tuple(getattr(TournamentAdmin, "list_display", ()))
+    if "rng_seed_active_display" not in ld:
+        TournamentAdmin.list_display = ld + ("rng_seed_active_display",)
+except Exception:
+    pass
 
 
 @admin.register(TournamentEntry)
