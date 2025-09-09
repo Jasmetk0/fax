@@ -1,6 +1,8 @@
-import random
 from collections import OrderedDict
+from types import SimpleNamespace
 from typing import Any
+
+from .randoms import rng_for, seeded_shuffle
 
 # --- Anchor map pro JEDNU kvalifikační větev (bracket) o velikosti 2^R ---
 # Tiers v přesném pořadí plnění globálními Q-seedy: TOP → BOTTOM → MIDDLE_A → MIDDLE_B → ...
@@ -97,9 +99,8 @@ def generate_qualification_mapping(
             brackets[b][local_slot] = block[b]
 
     # 2) Nenasazení – deterministicky zamíchat a vyplnit zbytek slotů
-    rnd = random.Random(rng_seed)
-    pool = unseeded_players[:remaining_needed]
-    rnd.shuffle(pool)
+    rng = rng_for(SimpleNamespace(rng_seed_active=rng_seed))
+    pool = seeded_shuffle(unseeded_players[:remaining_needed], rng)
 
     it = iter(pool)
     for b in range(K):
