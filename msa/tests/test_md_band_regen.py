@@ -106,3 +106,41 @@ def test_regenerate_unseeded_soft_does_not_touch_done_pairs():
     eid_top_after = mapping_after[m.slot_top]
     eid_bot_after = mapping_after[m.slot_bottom]
     assert eid_top_before == eid_top_after and eid_bot_before == eid_bot_after
+
+
+@pytest.mark.django_db
+def test_band_regen_changes_with_rng_seed_active():
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    c = Category.objects.create(name="WT")
+    cs = CategorySeason.objects.create(category=c, season=s, draw_size=16, md_seeds_count=8)
+    t = Tournament.objects.create(
+        season=s, category=c, category_season=cs, name="T", slug="t", state=TournamentState.MD
+    )
+
+    players = [Player.objects.create(name=f"P{i}") for i in range(1, 17)]
+    for i, p in enumerate(players, start=1):
+        TournamentEntry.objects.create(
+            tournament=t,
+            player=p,
+            entry_type=EntryType.DA,
+            status=EntryStatus.ACTIVE,
+            wr_snapshot=i,
+        )
+
+    confirm_main_draw(t, rng_seed=123)
+    anchors = md_anchor_map(16)
+    band_slots = anchors["5-8"]
+    top_seed_slots = [anchors["1"][0], anchors["2"][0]] + anchors["3-4"]
+
+    t.rng_seed_active = 111
+    mapping1 = regenerate_md_band(t, band="5-8")
+    t.rng_seed_active = 999
+    mapping2 = regenerate_md_band(t, band="5-8")
+
+    band1 = [mapping1[s] for s in band_slots]
+    band2 = [mapping2[s] for s in band_slots]
+    assert band1 != band2 and set(band1) == set(band2)
+
+    top1 = [mapping1[s] for s in top_seed_slots]
+    top2 = [mapping2[s] for s in top_seed_slots]
+    assert top1 == top2
