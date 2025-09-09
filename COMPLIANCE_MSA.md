@@ -1,6 +1,6 @@
 # MSA Compliance Report
-Generated: 2025-09-09 16:52:16 UTC
-Spec: /workspace/fax/docs/MSA_SPEC.yaml (version: 1.0)
+Generated: 2025-09-09 16:57:10 UTC
+Spec: C:/Users/Kluci/Projects/fax/docs/MSA_SPEC.yaml (version: 1.0)
 
 ## Summary
 - Features: 10/11 PASS (90%)
