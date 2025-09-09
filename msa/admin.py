@@ -16,6 +16,7 @@ from .models import (
     Tournament,
     TournamentEntry,
 )
+from .services.audit_badges import audit_badges_for_tournament
 
 
 @admin.register(Season)
@@ -48,9 +49,40 @@ class PlayerLicenseAdmin(admin.ModelAdmin):
 
 @admin.register(Tournament)
 class TournamentAdmin(admin.ModelAdmin):
-    list_display = ("name", "slug", "season", "category", "state", "start_date", "end_date")
+    list_display = (
+        "name",
+        "slug",
+        "season",
+        "category",
+        "state",
+        "start_date",
+        "end_date",
+        "seeding_badge",
+        "snapshot_badge",
+    )
     list_filter = ("state", "season", "category")
     prepopulated_fields = {"slug": ("name",)}
+    readonly_fields = ("seeding_badge", "snapshot_badge")
+
+    @staticmethod
+    def _render_badge(badge: dict) -> str:
+        color_map = {"ok": "#5cb85c", "warn": "#f0ad4e", "unknown": "#777"}
+        color = color_map.get(badge.get("status"), "#777")
+        return format_html(
+            '<span style="border-radius:3px;padding:2px 4px;color:#fff;background:{};">{}</span>',
+            color,
+            badge.get("label", ""),
+        )
+
+    @admin.display(description="Seeding")
+    def seeding_badge(self, obj):
+        badges = audit_badges_for_tournament(obj)
+        return self._render_badge(badges["seeding"])
+
+    @admin.display(description="Snapshot")
+    def snapshot_badge(self, obj):
+        badges = audit_badges_for_tournament(obj)
+        return self._render_badge(badges["snapshot"])
 
     def rng_seed_active_display(self, obj):
         seed = getattr(obj, "rng_seed_active", 0) or 0
