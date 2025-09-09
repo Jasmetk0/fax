@@ -1,0 +1,14 @@
+answers:
+  AR-REG-002:
+    rank_buckets:
+      entry_type_groups: ["SEEDS","DA","Q","RESERVE"]
+      allow_cross_group_reorder: false
+      allow_within_tie_bucket: true
+      reserve_is_free_block: true
+  AR-REG-003: yes
+  AR-REC-002: yes
+  AR-REC-003:
+    require_fields: ["rng_seed","anchors","unseeded","matches_changed"]
+  AR-QUAL-001: yes
+  AR-SCO-002: yes
+  AR-CAL-001: yes
