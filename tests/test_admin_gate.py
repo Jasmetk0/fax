@@ -27,7 +27,7 @@ def expect_admin_block(callable, *args, **kwargs):
     with pytest.raises(Exception) as e:
         callable(*args, **kwargs)
     msg = str(e.value).lower()
-    assert isinstance(e.value, ValidationError | PermissionDenied | Exception)
+    assert isinstance(e.value, (ValidationError, PermissionDenied, Exception))
     assert ("admin" in msg) or ("mode" in msg) or ("not allowed" in msg)
 
 
