@@ -6,7 +6,9 @@ from dataclasses import dataclass
 from django.core.exceptions import ValidationError
 
 from msa.models import EntryStatus, EntryType, Tournament, TournamentEntry
-from msa.services.tx import atomic, locked
+
+from .admin_gate import require_admin_mode
+from .tx import atomic, locked
 
 
 @dataclass(frozen=True)
@@ -94,6 +96,7 @@ def _used_qwc_promotions(t: Tournament) -> int:
 # ---------- veřejné API ----------
 
 
+@require_admin_mode
 @atomic()
 def set_wc_slots(t: Tournament, slots: int) -> None:
     """Nastaví wc_slots na turnaji; nesmí být pod aktuálním využitím (promoted_by_wc)."""
@@ -108,6 +111,7 @@ def set_wc_slots(t: Tournament, slots: int) -> None:
     t.save(update_fields=["wc_slots"])
 
 
+@require_admin_mode
 @atomic()
 def set_q_wc_slots(t: Tournament, slots: int) -> None:
     """Nastaví q_wc_slots; nesmí být pod aktuálním využitím (promoted_by_qwc)."""
@@ -122,6 +126,7 @@ def set_q_wc_slots(t: Tournament, slots: int) -> None:
     t.save(update_fields=["q_wc_slots"])
 
 
+@require_admin_mode
 @atomic()
 def apply_wc(t: Tournament, entry_id: int) -> None:
     """
@@ -180,6 +185,7 @@ def apply_wc(t: Tournament, entry_id: int) -> None:
         last_da.save(update_fields=["entry_type", "is_wc"])
 
 
+@require_admin_mode
 @atomic()
 def remove_wc(t: Tournament, entry_id: int) -> None:
     """
@@ -209,6 +215,7 @@ def remove_wc(t: Tournament, entry_id: int) -> None:
                 break
 
 
+@require_admin_mode
 @atomic()
 def apply_qwc(t: Tournament, entry_id: int) -> None:
     """
@@ -238,6 +245,7 @@ def apply_qwc(t: Tournament, entry_id: int) -> None:
     te.save(update_fields=["is_qwc", "promoted_by_qwc", "entry_type"])
 
 
+@require_admin_mode
 @atomic()
 def remove_qwc(t: Tournament, entry_id: int) -> None:
     """
