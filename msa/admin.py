@@ -17,6 +17,7 @@ from .models import (
     TournamentEntry,
 )
 from .services.audit_badges import audit_badges_for_tournament
+from .services.player_dedup import merge_players
 
 
 @admin.register(Season)
@@ -39,6 +40,33 @@ class CategorySeasonAdmin(admin.ModelAdmin):
 class PlayerAdmin(admin.ModelAdmin):
     search_fields = ("name",)
     list_display = ("name", "country")
+
+    @admin.action(description="Merge selected players into the first")
+    def merge_selected_into_first(self, request, queryset):
+        ids = list(queryset.order_by("id").values_list("id", flat=True))
+        if len(ids) < 2:
+            messages.warning(request, "Select at least two players to merge.")
+            return
+        master_id = ids[0]
+        summary = {"updated": {}, "licenses": 0, "adjustments": 0}
+        for dup_id in ids[1:]:
+            try:
+                result = merge_players(master_id, dup_id)
+            except Exception as e:  # pragma: no cover - admin feedback
+                messages.error(request, f"Merge {dup_id} failed: {e!r}")
+                continue
+            for k, v in result.get("updated", {}).items():
+                summary["updated"][k] = summary["updated"].get(k, 0) + v
+            summary["licenses"] += result.get("licenses_merged", 0)
+            summary["adjustments"] += result.get("adjustments_merged", 0)
+        msg = (
+            f"Merged into {master_id}. Updated: {summary['updated']}, "
+            f"licenses merged: {summary['licenses']}, adjustments merged: {summary['adjustments']}. "
+            "This action cannot be undone."
+        )
+        messages.success(request, msg)
+
+    actions = ["merge_selected_into_first"]
 
 
 @admin.register(PlayerLicense)
