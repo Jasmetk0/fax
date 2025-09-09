@@ -1,0 +1,71 @@
+spec_version: "1.0"
+features:
+  admin_mode_gate: required
+  deterministic_seeding: required
+  no_bye_templates: required
+  ll_prefix_invariant: required
+  wc_qwc_limits: required
+  snapshots_archive: required
+  planning_day: required
+  recalculate_with_diff: required
+  rankings_61w_monday: required
+  license_gate_required: required
+  needs_review_flow: required
+models:
+  CategorySeason:
+    unique_constraints:
+      - [category, season, draw_size]
+  Match:
+    unique_constraints:
+      - [tournament, phase, round_name, slot_top, slot_bottom]
+      - [tournament, round, position]
+  PlayerLicense:
+    unique_constraints:
+      - [player, season]
+  Schedule:
+    unique_constraints:
+      - [tournament, play_date, order]
+  TournamentEntry:
+    unique_constraints:
+      - [tournament, player]
+      - [tournament, position]
+  Tournament:
+    fields_required:
+      - draw_size
+      - q_best_of
+      - md_best_of
+      - wc_slots
+      - q_wc_slots
+      - rng_seed_active
+      - third_place_enabled
+services:
+  # Modules where public mutating ops should be admin-gated (require_admin_mode) and atomic
+  must_be_admin_gated:
+    - msa/services/md_confirm.py
+    - msa/services/md_soft_regen.py
+    - msa/services/md_reopen.py
+    - msa/services/md_placeholders.py
+    - msa/services/wc.py
+    - msa/services/qual_confirm.py
+    - msa/services/qual_edit.py
+    - msa/services/qual_replace.py
+    - msa/services/planning.py
+    - msa/services/results.py
+    - msa/services/recalculate.py
+  use_central_rng:
+    - msa/services/md_generator.py
+    - msa/services/qual_generator.py
+    - msa/services/md_band_regen.py
+    - msa/services/md_soft_regen.py
+tests_expected:
+  - msa/tests/test_ll_prefix.py
+  - msa/tests/test_md_embed.py
+  - msa/tests/test_md_generator.py
+  - msa/tests/test_qual_generator.py
+  - msa/tests/test_wc_qwc.py
+  - msa/tests/test_recalculate.py
+  - msa/tests/test_planning.py
+  - msa/tests/test_results_needs_review.py
+  - msa/tests/test_standings.py
+notes:
+  fax_calendar_integration: "All weekly/snapshot logic should run on fax_calendar (to be checked later)."
