@@ -1,4 +1,6 @@
-from django.contrib import admin
+import random
+
+from django.contrib import admin, messages
 
 from .models import (
     Category,
@@ -48,6 +50,55 @@ class TournamentAdmin(admin.ModelAdmin):
     list_display = ("name", "slug", "season", "category", "state", "start_date", "end_date")
     list_filter = ("state", "season", "category")
     prepopulated_fields = {"slug": ("name",)}
+
+    @admin.action(description="Preview RNG diff")
+    def preview_rng_diff(self, request, queryset):
+        for t in queryset:
+            try:
+                from .services.recalculate import preview_recalculate_registration
+
+                preview = preview_recalculate_registration(t)
+                summary = str(preview)
+                lines = summary.splitlines()
+                count = len(lines) if lines else len(summary)
+                if len(lines) > 5:
+                    summary = "\n".join(lines[:5]) + "\n…"
+                messages.info(
+                    request,
+                    f"[{getattr(t, 'slug', t.pk)}] {count} change(s):\n{summary}",
+                )
+            except Exception as e:
+                messages.error(request, f"[{getattr(t, 'slug', t.pk)}] Preview failed: {e!r}")
+
+    @admin.action(description="Regenerate RNG seed")
+    def regenerate_rng_seed(self, request, queryset):
+        for t in queryset:
+            try:
+                t.rng_seed_active = random.getrandbits(63)
+                t.save(update_fields=["rng_seed_active"])
+                messages.success(
+                    request,
+                    f"[{getattr(t, 'slug', t.pk)}] RNG seed set to {t.rng_seed_active}",
+                )
+            except Exception as e:
+                messages.error(request, f"[{getattr(t, 'slug', t.pk)}] Seed failed: {e!r}")
+
+    @admin.action(description="Apply preview changes")
+    def apply_preview_changes(self, request, queryset):
+        for t in queryset:
+            try:
+                from .services.recalculate import confirm_recalculate_registration
+
+                confirm_recalculate_registration(t)
+                messages.success(request, f"[{getattr(t, 'slug', t.pk)}] Preview applied")
+            except Exception as e:
+                messages.error(request, f"[{getattr(t, 'slug', t.pk)}] Apply failed: {e!r}")
+
+    actions = [
+        "preview_rng_diff",
+        "regenerate_rng_seed",
+        "apply_preview_changes",
+    ]
 
 
 @admin.register(TournamentEntry)
