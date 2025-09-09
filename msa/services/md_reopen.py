@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import random
+from types import SimpleNamespace
 
 from django.core.exceptions import ValidationError
 
@@ -17,6 +17,7 @@ from msa.models import (
 from msa.services.admin_gate import require_admin_mode
 from msa.services.archiver import archive
 from msa.services.md_embed import r1_name_for_md
+from msa.services.randoms import rng_for, seeded_shuffle
 from msa.services.tx import atomic, locked
 
 
@@ -81,9 +82,9 @@ def reopen_main_draw(t: Tournament, mode: str = "AUTO", rng_seed: int | None = N
             pool_entry_ids.append(te.id)
 
         if len(pool_entry_ids) > 1:
-            rnd = random.Random(rng_seed or (t.rng_seed_active or 0))
-            shuffled = pool_entry_ids[:]
-            rnd.shuffle(shuffled)
+            rng_source = SimpleNamespace(rng_seed_active=rng_seed) if rng_seed is not None else t
+            rng = rng_for(rng_source)
+            shuffled = seeded_shuffle(pool_entry_ids, rng)
 
             # free positions to avoid unique constraint and then assign shuffled positions
             TournamentEntry.objects.filter(pk__in=pool_entry_ids).update(position=None)
