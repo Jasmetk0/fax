@@ -1,6 +1,7 @@
 import random
 
 from django.contrib import admin, messages
+from django.utils.html import format_html
 
 from .models import (
     Category,
@@ -51,9 +52,23 @@ class TournamentAdmin(admin.ModelAdmin):
     list_filter = ("state", "season", "category")
     prepopulated_fields = {"slug": ("name",)}
 
-    @admin.display(description="Active RNG seed")
     def rng_seed_active_display(self, obj):
-        return obj.rng_seed_active
+        seed = getattr(obj, "rng_seed_active", 0) or 0
+        onclick = (
+            f"navigator.clipboard.writeText('{seed}');"
+            "this.textContent='Copied';"
+            "setTimeout(()=>this.textContent='Copy',1000);"
+            "return false;"
+        )
+        return format_html(
+            '<code id="rng-seed">{}</code> '
+            '<button type="button" class="button" onclick="{}">Copy</button>',
+            seed,
+            onclick,
+        )
+
+    rng_seed_active_display.short_description = "RNG seed (copy)"
+    rng_seed_active_display.admin_order_field = "rng_seed_active"
 
     @admin.action(description="Preview RNG diff")
     def preview_rng_diff(self, request, queryset):
