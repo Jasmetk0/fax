@@ -45,11 +45,47 @@ jobs:
       - name: Pytest
         run: pytest -q
 
-      - name: Compliance
+      - name: Compliance (generate reports)
         run: |
+          # Generate reports; ignore exit code here
           python dev/check_msa_compliance.py --strict \
             --verify-out VERIFICATION_FULL_MSA.md \
-            --json-out VERIFICATION_FULL_MSA.json
+            --json-out VERIFICATION_FULL_MSA.json || true
+
+      - name: Gate on reports (no FAIL allowed)
+        run: |
+          python - <<'PY'
+          import json, sys, pathlib, re
+
+          ok = True
+
+          vf = pathlib.Path("VERIFICATION_FULL_MSA.json")
+          if vf.exists():
+              try:
+                  data = json.loads(vf.read_text(encoding="utf-8"))
+                  fails = [r.get("id") for r in data.get("ars", []) if r.get("status") == "FAIL"]
+                  if fails:
+                      print("AR FAILS:", fails)
+                      ok = False
+              except Exception as e:
+                  print("Could not parse VERIFICATION_FULL_MSA.json:", e)
+                  ok = False
+          else:
+              print("Missing VERIFICATION_FULL_MSA.json")
+              ok = False
+
+          cf = pathlib.Path("COMPLIANCE_MSA.md")
+          if cf.exists():
+              md = cf.read_text(encoding="utf-8")
+              if re.search(r"^\\s*-\\s*Exit status:\\s*PASS\\b", md, flags=re.IGNORECASE|re.MULTILINE) is None:
+                  print("Compliance exit status is not PASS")
+                  ok = False
+          else:
+              print("Missing COMPLIANCE_MSA.md")
+              ok = False
+
+          sys.exit(0 if ok else 1)
+          PY
 
       - name: Upload reports
         uses: actions/upload-artifact@v4
