@@ -153,7 +153,7 @@ def scan_msa(msa_path: Path) -> dict:
                 finfo.decorators.update(decs)
         files[rel] = finfo
         if "services" in path.parts:
-            services[path.relative_to(msa_path).as_posix()] = {
+            services[path.relative_to(root).as_posix()] = {
                 fn: finfo.functions[fn] for fn in sorted(finfo.functions)
             }
         if "tests" in path.parts:
@@ -198,6 +198,75 @@ def scan_msa(msa_path: Path) -> dict:
         "ALT": any(c["ALT"] > 0 for c in keyword_counts.values()),
         "needs_review": any(c["needs_review"] > 0 for c in keyword_counts.values()),
     }
+
+    def _has_service(path: str) -> bool:
+        return any(k.startswith(path) for k in services)
+
+    def _has_test(mod: str) -> bool:
+        return any(p.endswith(mod) for p in tests)
+
+    def _has_test_name(substr: str) -> bool:
+        return any(
+            any(substr in m for m in tinfo.get("functions", []))
+            or any(
+                any(substr in mm for mm in methods) for methods in tinfo.get("classes", {}).values()
+            )
+            for tinfo in tests.values()
+        )
+
+    def _file_contains(path: str, substr: str) -> bool:
+        return any(
+            substr in (Path(root / p).read_text(encoding="utf-8"))
+            for p in files
+            if p.endswith(path)
+        )
+
+    features = {
+        "det_seeding": (
+            (
+                _has_service("msa/services/md_generator.py")
+                or _has_service("msa/services/qual_generator.py")
+            )
+            and (
+                _has_test("msa/tests/test_md_generator.py")
+                or _has_test("msa/tests/test_qual_generator.py")
+                or _has_test_name("seed_positions_deterministic")
+                or _has_test_name("unseeded_determinism")
+            )
+        ),
+        "no_bye": (
+            _has_service("msa/services/md_embed.py") and _has_test("msa/tests/test_md_embed.py")
+        ),
+        "ll_prefix": (
+            _has_service("msa/services/ll_prefix.py") and _has_test("msa/tests/test_ll_prefix.py")
+        ),
+        "wc_qwc": (_has_service("msa/services/wc.py") and _has_test("msa/tests/test_wc_qwc.py")),
+        "snapshots": (
+            ("Snapshot" in models or _has_service("msa/services/archiver.py"))
+            and _has_test("msa/tests/test_recalculate.py")
+        ),
+        "planning": (
+            _has_service("msa/services/planning.py") and _has_test("msa/tests/test_planning.py")
+        ),
+        "recalculate": (
+            _has_service("msa/services/recalculate.py")
+            and _has_test("msa/tests/test_recalculate.py")
+        ),
+        "rankings": (
+            _has_service("msa/services/standings.py") and _has_test("msa/tests/test_standings.py")
+        ),
+        "license_gate": (
+            _has_service("msa/services/licenses.py")
+            and (
+                _has_test("msa/tests/test_md_confirm.py")
+                or _has_test("msa/tests/test_qual_confirm.py")
+            )
+        ),
+        "needs_review": (
+            _has_service("msa/services/results.py")
+            and _has_test("msa/tests/test_results_needs_review.py")
+        ),
+    }
     return {
         "files": files,
         "models": models,
@@ -206,6 +275,7 @@ def scan_msa(msa_path: Path) -> dict:
         "keyword_counts": keyword_counts,
         "metrics": metrics,
         "evidence": evidence,
+        "features": features,
     }
 
 
@@ -292,39 +362,49 @@ def write_markdown(out: Path, msa_path: Path, data: dict | None) -> None:
         lines.append(f"| {path} | " + " | ".join(row) + " |")
     lines.append("")
     lines.append('## Gaps vs "MSA 1.0 – kompletní specifikace"')
-    ev = data["evidence"]
-    gaps = [
+    checks = [
         (
             "Deterministic seeding (rng_seed + generate_draw)",
-            ev["rng_seed"] and ev["generate_draw"],
+            data["features"]["det_seeding"],
         ),
         (
             "No-BYE templates (embed non-power-of-two)",
-            ev["BYE"],
+            data["features"]["no_bye"],
         ),
         (
             "LL queue + prefix invariant, ALT flow",
-            ev["LL"] and ev["ALT"],
+            data["features"]["ll_prefix"],
         ),
-        ("WC/QWC capacity validation", False),
+        (
+            "WC/QWC capacity validation",
+            data["features"]["wc_qwc"],
+        ),
         (
             "Snapshots (Confirm/Generate/Regenerate/Reopen/Manual) + audit",
-            False,
+            data["features"]["snapshots"],
         ),
         (
             "Planning day (swap/insert) with locks + preview",
-            False,
+            data["features"]["planning"],
         ),
-        ("Recalculate with diff preview", False),
         (
-            "Rankings (61-week rolling, Monday activation/expiry, Season/RtF,"
-            " best-N penalty, adjustments)",
-            False,
+            "Recalculate with diff preview",
+            data["features"]["recalculate"],
         ),
-        ("License gate (season license required)", False),
-        ("needs_review propagation on results", ev["needs_review"]),
+        (
+            "Rankings (61-week rolling, Monday activation/expiry, Season/RtF, best-N penalty, adjustments)",
+            data["features"]["rankings"],
+        ),
+        (
+            "License gate (season license required)",
+            data["features"]["license_gate"],
+        ),
+        (
+            "needs_review propagation on results",
+            data["features"]["needs_review"],
+        ),
     ]
-    for text, ok in gaps:
+    for text, ok in checks:
         mark = "x" if ok else " "
         lines.append(f"- [{mark}] {text}")
     out.write_text("\n".join(lines))
