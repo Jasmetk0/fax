@@ -87,6 +87,15 @@ def load_spec(path: Path) -> dict[str, Any]:
     return data
 
 
+def load_answers(path: Path) -> dict[str, Any]:
+    """Return mapping with clarifications for AR checks."""
+    if not path.exists():
+        return {}
+    data = load_spec(path)
+    ans = data.get("answers")
+    return ans if isinstance(ans, dict) else {}
+
+
 # ---------------------------------------------------------------------------
 # Data collection
 
@@ -470,6 +479,276 @@ def risky_patterns(files: dict[str, FileData]) -> list[tuple[str, dict[str, int]
 
 
 # ---------------------------------------------------------------------------
+# Atomic requirements verification
+
+
+def build_atomic_requirements() -> list[dict[str, str]]:
+    """Return deterministic list of Atomic Requirements."""
+    return [
+        {"id": "AR-REG-001", "title": "Seeding source sorting"},
+        {"id": "AR-REG-002", "title": "Manual reordering constraints"},
+        {"id": "AR-REG-003", "title": "Seeds power-of-two"},
+        {"id": "AR-REC-001", "title": "Recalculate preview/confirm"},
+        {"id": "AR-REC-002", "title": "Brutal reset archives snapshot first"},
+        {
+            "id": "AR-REC-003",
+            "title": "Preview fields: rng_seed, anchors, unseeded, matches_changed",
+        },
+        {"id": "AR-QUAL-001", "title": "Qual seeding tiers 2^(R-2) across K"},
+        {"id": "AR-LL-001", "title": "LL queue & order"},
+        {"id": "AR-LL-002", "title": "LL prefix invariant & reinstatement rules"},
+        {"id": "AR-MD-001", "title": "Canonical seed anchors MD16/32/64"},
+        {"id": "AR-MD-004", "title": "Non power-of-two embed, no BYE matches"},
+        {"id": "AR-PLN-001", "title": "Planning day operations & unique key"},
+        {"id": "AR-RES-001", "title": "Best-of defaults by phase"},
+        {"id": "AR-RES-004", "title": "Needs review propagation"},
+        {"id": "AR-SCO-002", "title": "BYE rule & cancellation award-up-to"},
+        {"id": "AR-CAL-001", "title": "Calendar sync day-order when enabled"},
+    ]
+
+
+def verify_atomic_requirements(
+    ar_list: list[dict[str, str]],
+    files: dict[str, FileData],
+    tests: dict[str, list[str]],
+    answers: dict[str, Any],
+    _strict: bool,
+) -> list[dict[str, str]]:
+    """Evaluate ARs and return list with status/evidence/proposed_fix."""
+
+    def has_file(path: str) -> bool:
+        return path in files
+
+    def test_exists(path: str) -> bool:
+        return path in files or path in tests
+
+    def contains(path: str, substr: str) -> bool:
+        fd = files.get(path)
+        return bool(fd and substr in fd.text)
+
+    results: list[dict[str, str]] = []
+    for ar in ar_list:
+        ar_id = ar["id"]
+        status = "UNKNOWN"
+        evidence = ""
+        fix = ""
+        if ar_id == "AR-REG-001":
+            if contains("msa/services/recalculate.py", "_sort_by_wr"):
+                status = "PASS"
+                evidence = "recalculate.py:_sort_by_wr"
+            else:
+                status = "FAIL"
+                evidence = "missing _sort_by_wr"
+                fix = "add sort-by-WR test"
+        elif ar_id == "AR-REG-002":
+            status = "FAIL"
+            evidence = "no rank-bucket enforcement"
+            fix = "add test msa/tests/test_registration_reorder.py"
+        elif ar_id == "AR-REG-003":
+            found = any("md_seeds_count" in fd.text and "power" in fd.text for fd in files.values())
+            if found:
+                status = "PASS"
+                evidence = "power-of-two hint"
+            else:
+                status = "FAIL"
+                evidence = "no power-of-two validation"
+                fix = "add test msa/tests/test_seed_power_of_two.py"
+        elif ar_id == "AR-REC-001":
+            if has_file("msa/services/recalculate.py") and test_exists(
+                "msa/tests/test_recalculate.py"
+            ):
+                status = "PASS"
+                evidence = "recalculate.py & test_recalculate.py"
+            else:
+                status = "FAIL"
+                evidence = "missing recalc module or test"
+                fix = "add recalc preview test"
+        elif ar_id == "AR-REC-002":
+            fd = files.get("msa/services/recalculate.py")
+            if fd and "brutal_reset_to_registration" in fd.text and "Snapshot" in fd.text:
+                status = "PASS"
+                evidence = "brutal_reset_to_registration saves Snapshot"
+            else:
+                status = "FAIL"
+                evidence = "missing snapshot before reset"
+                fix = "add test msa/tests/test_recalc_snapshot.py"
+        elif ar_id == "AR-REC-003":
+            req = answers.get("AR-REC-003", {}).get(
+                "require_fields", ["rng_seed", "anchors", "unseeded", "matches_changed"]
+            )
+            missing = [f for f in req if not any(f in fd.text for fd in files.values())]
+            if not missing:
+                status = "PASS"
+                evidence = ", ".join(req)
+            else:
+                status = "FAIL"
+                evidence = "missing: " + ", ".join(missing)
+                fix = "add test msa/tests/test_recalc_preview_fields.py"
+        elif ar_id == "AR-QUAL-001":
+            if contains("msa/services/qual_generator.py", "2^(R-2)") or contains(
+                "msa/services/qual_generator.py", "seeds_per_bracket"
+            ):
+                status = "PASS"
+                evidence = "qual_generator tier formula"
+            else:
+                status = "FAIL"
+                evidence = "missing tier formula"
+                fix = "add test msa/tests/test_qual_seed_tiers.py"
+        elif ar_id == "AR-LL-001":
+            if has_file("msa/services/ll_prefix.py") and test_exists("msa/tests/test_ll_prefix.py"):
+                status = "PASS"
+                evidence = "ll_prefix.py & test_ll_prefix.py"
+            else:
+                status = "FAIL"
+                evidence = "missing LL queue code or test"
+                fix = "add test msa/tests/test_ll_queue.py"
+        elif ar_id == "AR-LL-002":
+            if has_file("msa/services/ll_prefix.py") and test_exists("msa/tests/test_ll_prefix.py"):
+                status = "PASS"
+                evidence = "ll_prefix prefix enforcement"
+            else:
+                status = "FAIL"
+                evidence = "missing LL prefix logic"
+                fix = "add test msa/tests/test_ll_prefix.py"
+        elif ar_id == "AR-MD-001":
+            if has_file("msa/services/seed_anchors.py") and test_exists(
+                "msa/tests/test_seed_anchors.py"
+            ):
+                status = "PASS"
+                evidence = "seed_anchors.py & test_seed_anchors.py"
+            else:
+                status = "FAIL"
+                evidence = "missing seed anchors"
+                fix = "add test msa/tests/test_seed_anchors.py"
+        elif ar_id == "AR-MD-004":
+            if has_file("msa/services/md_embed.py") and test_exists("msa/tests/test_md_embed.py"):
+                status = "PASS"
+                evidence = "md_embed.py & test_md_embed.py"
+            else:
+                status = "FAIL"
+                evidence = "missing md embed test"
+                fix = "add test msa/tests/test_md_embed.py"
+        elif ar_id == "AR-PLN-001":
+            if has_file("msa/services/planning.py") and test_exists("msa/tests/test_planning.py"):
+                status = "PASS"
+                evidence = "planning.py & test_planning.py"
+            else:
+                status = "FAIL"
+                evidence = "missing planning ops"
+                fix = "add test msa/tests/test_planning.py"
+        elif ar_id == "AR-RES-001":
+            if has_file("msa/services/results.py") and test_exists("tests/test_best_of_policy.py"):
+                status = "PASS"
+                evidence = "results.py & test_best_of_policy.py"
+            else:
+                status = "FAIL"
+                evidence = "missing best-of policy"
+                fix = "add test tests/test_best_of_policy.py"
+        elif ar_id == "AR-RES-004":
+            if has_file("msa/services/results.py") and test_exists(
+                "msa/tests/test_results_needs_review.py"
+            ):
+                status = "PASS"
+                evidence = "results.py & test_results_needs_review.py"
+            else:
+                status = "FAIL"
+                evidence = "missing needs review test"
+                fix = "add test msa/tests/test_results_needs_review.py"
+        elif ar_id == "AR-SCO-002":
+            if has_file("msa/services/scoring.py") and test_exists("msa/tests/test_scoring.py"):
+                status = "PASS"
+                evidence = "scoring.py & test_scoring.py"
+            else:
+                status = "FAIL"
+                evidence = "missing scoring policy"
+                fix = "add test msa/tests/test_scoring_policy.py"
+        elif ar_id == "AR-CAL-001":
+            if any(
+                "calendar_sync" in fd.text and rel.startswith("fax_calendar/")
+                for rel, fd in files.items()
+            ):
+                status = "PASS"
+                evidence = "calendar sync references"
+            else:
+                status = "FAIL"
+                evidence = "no calendar sync code"
+                fix = "add test msa/tests/test_calendar_sync.py"
+        results.append(
+            {
+                "id": ar_id,
+                "status": status,
+                "evidence": evidence,
+                "proposed_fix": fix,
+            }
+        )
+    return results
+
+
+def write_verification_report(
+    out_md: Path,
+    spec_path: Path,
+    spec_version: str,
+    ar_results: list[dict[str, str]],
+    model_errors: list[str],
+    model_warns: list[str],
+    tests_present: list[str],
+    tests_missing: list[str],
+    rng_off: list[str],
+    rng_results: dict[str, bool],
+    strict: bool,
+) -> None:
+    ts = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
+    ar_pass = sum(1 for r in ar_results if r["status"] == "PASS")
+    ar_total = len(ar_results)
+    ar_pct = int(100 * ar_pass / ar_total) if ar_total else 100
+    test_pct = (
+        int(100 * len(tests_present) / (len(tests_present) + len(tests_missing)))
+        if (tests_present or tests_missing)
+        else 100
+    )
+    rng_status = "OK"
+    if rng_off or any(not v for v in rng_results.values()):
+        rng_status = "ERROR" if strict or any(not v for v in rng_results.values()) else "WARN"
+
+    lines: list[str] = []
+    lines.append("# Full Verification — MSA")
+    lines.append(f"Generated: {ts}")
+    lines.append(f"Spec: {spec_path.as_posix()} (version: {spec_version})")
+    lines.append("")
+    lines.append("## Scoreboard")
+    lines.append(f"- ARs: {ar_pass}/{ar_total} PASS ({ar_pct}%)")
+    lines.append(f"- Models: {len(model_errors)} errors / {len(model_warns)} warns")
+    lines.append(
+        f"- Tests: {len(tests_present)}/{len(tests_present)+len(tests_missing)} present ({test_pct}%)"
+    )
+    lines.append(f"- RNG hygiene: {rng_status}")
+    lines.append("- Reseed policy: N/A")
+    lines.append("")
+    lines.append("## Results (all ARs)")
+    lines.append("| AR | Status | Evidence | Proposed fix |")
+    lines.append("|---|---|---|---|")
+    for r in sorted(ar_results, key=lambda x: x["id"]):
+        lines.append(f"| {r['id']} | {r['status']} | {r['evidence']} | {r['proposed_fix']} |")
+    lines.append("")
+    lines.append("## Proposed Fixes")
+    fails = [r for r in ar_results if r["status"] != "PASS"]
+    if fails:
+        for r in fails:
+            lines.append(f"- {r['id']}: {r['proposed_fix']}")
+    else:
+        lines.append("- none")
+    lines.append("")
+    lines.append("## Open Questions")
+    lines.append("- none")
+    out_md.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def write_verification_json(path: Path, timestamp: str, ar_results: list[dict[str, str]]) -> None:
+    data = {"timestamp": timestamp, "ars": ar_results}
+    path.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+
+
+# ---------------------------------------------------------------------------
 # Report generation
 
 
@@ -637,7 +916,10 @@ def main() -> int:
     parser.add_argument("--msa-dir", default="msa")
     parser.add_argument("--spec", default="docs/MSA_SPEC.yaml")
     parser.add_argument("--out", default="COMPLIANCE_MSA.md")
+    parser.add_argument("--verify-out", default="VERIFICATION_FULL_MSA.md")
+    parser.add_argument("--answers", default="docs/MSA_ANSWERS.yaml")
     parser.add_argument("--json-out")
+    parser.add_argument("--strict", action="store_true")
     parser.add_argument("--fail-on-warn", action="store_true")
     args = parser.parse_args()
 
@@ -682,20 +964,31 @@ def main() -> int:
         all_warns,
         exit_status,
     )
-    if args.json_out:
-        write_json(
-            ROOT / args.json_out,
-            ts,
-            features,
-            model_info,
-            rng_off,
-            rng_required,
-            tests_present,
-            tests_missing,
-            exit_status,
-        )
     print(f"Compliance report written to: {out_md.as_posix()}")
-    if all_errors or (args.fail_on_warn and all_warns):
+
+    answers = load_answers(ROOT / args.answers)
+    ars = build_atomic_requirements()
+    ar_results = verify_atomic_requirements(ars, files, tests, answers, args.strict)
+    verify_md = ROOT / args.verify_out
+    write_verification_report(
+        verify_md,
+        spec_path,
+        spec.get("spec_version", ""),
+        ar_results,
+        model_errors,
+        model_warns,
+        tests_present,
+        tests_missing,
+        rng_off,
+        rng_required,
+        args.strict,
+    )
+    if args.json_out:
+        write_verification_json(ROOT / args.json_out, ts, ar_results)
+    print(f"Verification report written to: {verify_md.as_posix()}")
+
+    ar_fail = any(r["status"] != "PASS" for r in ar_results)
+    if all_errors or ar_fail or (args.fail_on_warn and all_warns):
         return 1
     return 0
 
