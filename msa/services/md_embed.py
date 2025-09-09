@@ -1,11 +1,12 @@
 # msa/services/md_embed.py
 from __future__ import annotations
 
-import random
+from types import SimpleNamespace
 
 from django.core.exceptions import ValidationError
 
 from msa.models import Tournament
+from msa.services.randoms import rng_for, seeded_shuffle
 from msa.services.seed_anchors import band_sequence_for_S, md_anchor_map
 
 
@@ -89,9 +90,8 @@ def generate_md_mapping_with_byes(
         raise ValidationError("Příliš mnoho nenasazených pro dostupné sloty (BYE konfigurace).")
 
     # 4) deterministicky promíchej a naplň
-    rnd = random.Random(rng_seed)
-    pool = unseeded_players[:]
-    rnd.shuffle(pool)
+    rng = rng_for(SimpleNamespace(rng_seed_active=rng_seed))
+    pool = seeded_shuffle(unseeded_players, rng)
     for slot, eid in zip(available_unseeded_slots, pool, strict=False):
         mapping[int(slot)] = int(eid)
 
