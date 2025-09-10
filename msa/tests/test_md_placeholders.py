@@ -30,10 +30,16 @@ def test_placeholders_lock_slots_and_later_swap_to_real_winners():
     s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
     c = Category.objects.create(name="World Tour")
     cs = CategorySeason.objects.create(
-        category=c, season=s, draw_size=32, md_seeds_count=8, qualifiers_count=2, qual_rounds=3
+        category=c, season=s, draw_size=32, md_seeds_count=8, qual_rounds=3
     )
     t = Tournament.objects.create(
-        season=s, category=c, category_season=cs, name="T", slug="t", state=TournamentState.REG
+        season=s,
+        category=c,
+        category_season=cs,
+        name="T",
+        slug="t",
+        state=TournamentState.REG,
+        qualifiers_count=2,
     )
 
     # Registrace do kvaldy (16 hráčů Q)

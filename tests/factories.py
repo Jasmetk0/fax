@@ -10,10 +10,10 @@ def make_player(name: str = "P") -> Player:
 def make_category_season(
     *,
     draw_size=24,
-    qualifiers_count=0,
     qual_rounds=0,
     scoring_md=None,
     scoring_qual_win=None,
+    qualifiers_count=0,
 ):
     from msa.models import Category, Season
 
@@ -28,7 +28,6 @@ def make_category_season(
         category=cat,
         season=season,
         draw_size=draw_size,
-        qualifiers_count=qualifiers_count,
         qual_rounds=qual_rounds,
         scoring_md=scoring_md or {},
         scoring_qual_win=scoring_qual_win or {},
@@ -36,7 +35,7 @@ def make_category_season(
     return cs, season, cat
 
 
-def make_tournament(*, cs=None):
+def make_tournament(*, cs=None, qualifiers_count=0):
     cs = cs or make_category_season()[0]
     return Tournament.objects.create(
         name="T",
@@ -47,4 +46,5 @@ def make_tournament(*, cs=None):
         md_best_of=5,
         q_best_of=3,
         third_place_enabled=False,
+        qualifiers_count=qualifiers_count,
     )

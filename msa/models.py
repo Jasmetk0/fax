@@ -1,5 +1,7 @@
+import math
+
 from django.core.exceptions import ValidationError
-from django.core.validators import MinValueValidator
+from django.core.validators import MinValueValidator, RegexValidator
 from django.db import models
 from django.utils import timezone
 
@@ -9,6 +11,11 @@ def validate_power_of_two(value: int | None) -> None:
         return
     if value < 1 or value & (value - 1):
         raise ValidationError("md_seeds_count must be power of two")
+
+
+def auto_md_seeds(draw_size: int) -> int:
+    base = math.ceil(draw_size / 4)
+    return 1 << (base - 1).bit_length()
 
 
 """
@@ -63,7 +70,13 @@ class RankingScope(models.TextChoices):
 
 
 class Season(models.Model):
-    name = models.CharField(max_length=32, unique=True, null=True, blank=True)
+    name = models.CharField(
+        max_length=32,
+        unique=True,
+        null=True,
+        blank=True,
+        validators=[RegexValidator(r"^\d{4}/\d{2}$", message="Season name must be YYYY/NN")],
+    )
     start_date = models.DateField(null=True, blank=True)
     end_date = models.DateField(null=True, blank=True)
     best_n = models.PositiveSmallIntegerField(default=16, null=True, blank=True)
@@ -75,11 +88,35 @@ class Season(models.Model):
         return self.name or "<Season>"
 
 
-class Category(models.Model):
-    name = models.CharField(max_length=64, unique=True, null=True, blank=True)
+class Tour(models.Model):
+    name = models.CharField(max_length=64, unique=True)
+    rank = models.PositiveSmallIntegerField(default=100)
+    code = models.CharField(max_length=16, unique=True, null=True, blank=True)
 
     class Meta:
-        ordering = ["name"]
+        ordering = ["rank", "name"]
+
+    def __str__(self):
+        return self.name
+
+
+class Category(models.Model):
+    class Kind(models.TextChoices):
+        STANDARD = "STANDARD", "Standard"
+        FINALS = "FINALS", "Finals"
+        TEAM = "TEAM", "Team"
+        EXHIBITION = "EXHIBITION", "Exhibition"
+        WC_QUALIFICATION = "WC_QUALIFICATION", "WC Qualification"
+
+    name = models.CharField(max_length=64, unique=True, null=True, blank=True)
+    tour = models.ForeignKey(Tour, on_delete=models.PROTECT, null=True, blank=True)
+    rank = models.PositiveSmallIntegerField(null=True, blank=True)
+    kind = models.CharField(
+        max_length=32, choices=Kind.choices, default=Kind.STANDARD, null=True, blank=True
+    )
+
+    class Meta:
+        ordering = ["tour__rank", "rank", "name"]
 
     def __str__(self):
         return self.name or "<Category>"
@@ -88,14 +125,30 @@ class Category(models.Model):
 class CategorySeason(models.Model):
     category = models.ForeignKey(Category, on_delete=models.PROTECT, null=True, blank=True)
     season = models.ForeignKey(Season, on_delete=models.PROTECT, null=True, blank=True)
+    name = models.CharField(max_length=120, null=True, blank=True)
     draw_size = models.PositiveSmallIntegerField(
-        choices=[(16, "16"), (32, "32"), (64, "64")], null=True, blank=True
+        choices=[
+            (16, "16"),
+            (24, "24"),
+            (28, "28"),
+            (32, "32"),
+            (48, "48"),
+            (56, "56"),
+            (60, "60"),
+            (64, "64"),
+            (96, "96"),
+            (112, "112"),
+            (120, "120"),
+            (124, "124"),
+            (128, "128"),
+        ],
+        null=True,
+        blank=True,
     )
 
     md_seeds_count = models.PositiveSmallIntegerField(
         default=8, null=True, blank=True, validators=[validate_power_of_two]
     )
-    qualifiers_count = models.PositiveSmallIntegerField(default=0, null=True, blank=True)
     qual_rounds = models.PositiveSmallIntegerField(default=0, null=True, blank=True)
     qual_seeds_per_bracket = models.PositiveSmallIntegerField(default=0, null=True, blank=True)
 
@@ -117,16 +170,70 @@ class CategorySeason(models.Model):
     def __str__(self):
         return f"{self.category or '?'} {self.season or '?'} (draw {self.draw_size or '?'} )"
 
+    def save(self, *args, **kwargs):
+        if self.draw_size:
+            self.md_seeds_count = auto_md_seeds(int(self.draw_size))
+        super().save(*args, **kwargs)
+
+
+class Country(models.Model):
+    iso3 = models.CharField(max_length=3, unique=True)
+    iso2 = models.CharField(max_length=2, null=True, blank=True)
+    name = models.CharField(max_length=80, null=True, blank=True)
+
+    class Meta:
+        ordering = ["iso3"]
+
+    def __str__(self):
+        return self.name or self.iso3
+
 
 class Player(models.Model):
     name = models.CharField(max_length=120, null=True, blank=True)
-    country = models.CharField(max_length=3, blank=True, null=True, default=None)  # ISO3 volitelné
+    full_name = models.CharField(max_length=160, null=True, blank=True)
+    first_name = models.CharField(max_length=80, null=True, blank=True)
+    last_name = models.CharField(max_length=80, null=True, blank=True)
+    birthdate = models.DateField(null=True, blank=True)
+    country = models.ForeignKey(Country, null=True, blank=True, on_delete=models.SET_NULL)
 
     class Meta:
         ordering = ["name"]
+        constraints = [
+            models.CheckConstraint(
+                name="player_name_parts_or_full",
+                check=(
+                    models.Q(full_name__isnull=False) & ~models.Q(full_name="")
+                    | (
+                        models.Q(first_name__isnull=False)
+                        & ~models.Q(first_name="")
+                        & models.Q(last_name__isnull=False)
+                        & ~models.Q(last_name="")
+                    )
+                ),
+            )
+        ]
 
     def __str__(self):
         return self.name or "<Player>"
+
+    def clean(self):
+        if not self.full_name and self.name:
+            self.full_name = self.name
+        if not (
+            (self.full_name and self.full_name.strip())
+            or (
+                self.first_name
+                and self.first_name.strip()
+                and self.last_name
+                and self.last_name.strip()
+            )
+        ):
+            raise ValidationError("Either full_name or first_name and last_name must be provided.")
+
+    def save(self, *args, **kwargs):
+        if not self.full_name and self.name:
+            self.full_name = self.name
+        super().save(*args, **kwargs)
 
 
 class PlayerLicense(models.Model):
@@ -155,14 +262,25 @@ class Tournament(models.Model):
     end_date = models.DateField(null=True, blank=True)
     draw_size = models.PositiveSmallIntegerField(null=True, blank=True)
 
-    q_best_of = models.PositiveSmallIntegerField(default=3, null=True, blank=True)
-    md_best_of = models.PositiveSmallIntegerField(default=5, null=True, blank=True)
+    qualifiers_count = models.PositiveSmallIntegerField(null=True, blank=True)
+    q_best_of = models.PositiveSmallIntegerField(
+        choices=[(3, "3"), (5, "5")], default=3, null=True, blank=True
+    )
+    md_best_of = models.PositiveSmallIntegerField(
+        choices=[(3, "3"), (5, "5")], default=5, null=True, blank=True
+    )
 
     wc_slots = models.PositiveSmallIntegerField(null=True, blank=True)
     q_wc_slots = models.PositiveSmallIntegerField(null=True, blank=True)
     third_place_enabled = models.BooleanField(default=False)
     calendar_sync_enabled = models.BooleanField(default=False)
     is_finals = models.BooleanField(default=False)
+    kind = models.CharField(
+        max_length=32,
+        choices=Category.Kind.choices,
+        null=True,
+        blank=True,
+    )
     scoring_md = models.JSONField(default=dict, blank=True, null=True)
     scoring_qual_win = models.JSONField(default=dict, blank=True, null=True)
 
@@ -199,6 +317,29 @@ class Tournament(models.Model):
             self.scoring_md = (cs.scoring_md or {}).copy()
             self.scoring_qual_win = (cs.scoring_qual_win or {}).copy()
         super().save(*args, **kwargs)
+
+
+class RoundFormat(models.Model):
+    class PhaseChoices(models.TextChoices):
+        QUAL = Phase.QUAL, "Qualification"
+        MD = Phase.MD, "Main Draw"
+
+    tournament = models.ForeignKey(Tournament, on_delete=models.CASCADE)
+    phase = models.CharField(max_length=8, choices=PhaseChoices.choices)
+    round_name = models.CharField(max_length=16)
+    best_of = models.PositiveSmallIntegerField(choices=[(3, "3"), (5, "5")])
+    win_by_two = models.BooleanField(default=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["tournament", "phase", "round_name"],
+                name="uniq_round_format",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.tournament_id}:{self.phase}:{self.round_name}"
 
 
 class TournamentEntry(models.Model):

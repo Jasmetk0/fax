@@ -26,6 +26,7 @@ from msa.services.md_embed import (
     r1_name_for_md,
 )
 from msa.services.md_generator import generate_main_draw_mapping
+from msa.services.round_format import get_round_format
 from msa.services.tx import atomic, locked
 
 # ---------- pomocné datové struktury ----------
@@ -220,6 +221,7 @@ def confirm_main_draw(t: Tournament, rng_seed: int) -> dict[int, int]:
         if pa is None or pb is None:
             # BYE zápasy se nevytváří — vítěz „čeká“ do dalšího kola.
             continue
+        bo, wbt = get_round_format(t, Phase.MD, r1_name)
         bulk.append(
             Match(
                 tournament=t,
@@ -229,8 +231,8 @@ def confirm_main_draw(t: Tournament, rng_seed: int) -> dict[int, int]:
                 slot_bottom=b,
                 player_top_id=pa,
                 player_bottom_id=pb,
-                best_of=t.md_best_of or 5,
-                win_by_two=True,
+                best_of=bo,
+                win_by_two=wbt,
                 state=MatchState.PENDING,
             )
         )
@@ -325,6 +327,7 @@ def hard_regenerate_unseeded_md(t: Tournament, rng_seed: int) -> dict[int, int]:
         m = existing_by_pair.get((a, b))
         if not m:
             # dříve BYE, nyní plný — u embed by se to stát nemělo (BYE závisí jen na seedech), ale pro úplnost:
+            bo, wbt = get_round_format(t, Phase.MD, r1_name)
             m = Match.objects.create(
                 tournament=t,
                 phase=Phase.MD,
@@ -333,8 +336,8 @@ def hard_regenerate_unseeded_md(t: Tournament, rng_seed: int) -> dict[int, int]:
                 slot_bottom=b,
                 player_top_id=pa,
                 player_bottom_id=pb,
-                best_of=t.md_best_of or 5,
-                win_by_two=True,
+                best_of=bo,
+                win_by_two=wbt,
                 state=MatchState.PENDING,
             )
         else:
