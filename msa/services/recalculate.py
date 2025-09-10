@@ -32,6 +32,7 @@ class Row:
     entry_id: int
     group: Group
     index: int  # pořadí uvnitř skupiny (0-based)
+    separator_after: bool = False
 
 
 @dataclass(frozen=True)
@@ -40,6 +41,7 @@ class Preview:
     proposed: list[Row]
     moves: list[tuple[int, Group, Group]]  # (entry_id, from_group, to_group)
     counters: dict[str, int]  # S / D / Q_draw_size / WC_used / WC_limit / QWC_used / QWC_limit
+    rng_seed: int | None = None
 
 
 # --------- utils ---------
@@ -244,11 +246,17 @@ def _proposed_layout(
     taken_ids |= q_ids
     reserve = [e for e in ordered if e.id not in taken_ids]
 
+    def _rows(group: Group, items: list[EntryState]) -> list[Row]:
+        return [
+            Row(entry_id=e.id, group=group, index=i, separator_after=(i == len(items) - 1))
+            for i, e in enumerate(items)
+        ]
+
     rows: list[Row] = []
-    rows += [Row(entry_id=e.id, group="SEED", index=i) for i, e in enumerate(seeds_sorted)]
-    rows += [Row(entry_id=e.id, group="DA", index=i) for i, e in enumerate(da_rest)]
-    rows += [Row(entry_id=e.id, group="Q", index=i) for i, e in enumerate(q_final)]
-    rows += [Row(entry_id=e.id, group="RESERVE", index=i) for i, e in enumerate(reserve)]
+    rows += _rows("SEED", seeds_sorted)
+    rows += _rows("DA", da_rest)
+    rows += _rows("Q", q_final)
+    rows += _rows("RESERVE", reserve)
 
     # počty WC/QWC (počítáme skutečně využité – v navržených blocích)
     wc_used = sum(1 for e in da_all if e.promoted_by_wc)
@@ -300,7 +308,13 @@ def preview_recalculate_registration(
     proposed, counters = _proposed_layout(t, entries, src)
     moves = _diff(current, proposed)
 
-    return Preview(current=current, proposed=proposed, moves=moves, counters=counters)
+    return Preview(
+        current=current,
+        proposed=proposed,
+        moves=moves,
+        counters=counters,
+        rng_seed=t.rng_seed_active,
+    )
 
 
 @require_admin_mode
@@ -396,6 +410,9 @@ def brutal_reset_to_registration(t: Tournament, reason: str = "PARAM_CHANGE") ->
         ),
     )
     Snapshot.objects.create(tournament=t, type=Snapshot.SnapshotType.BRUTAL, payload=payload)
+    from msa.services.archiver import enforce_archive_limits
+
+    enforce_archive_limits(t)
 
     # 1) smaž zápasy (cascade smaže Schedule)
     from msa.models import Match
