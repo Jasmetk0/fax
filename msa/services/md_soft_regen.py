@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from types import SimpleNamespace
 
 from django.core.exceptions import ValidationError
 
@@ -19,7 +18,7 @@ from msa.models import (
 from msa.services.admin_gate import require_admin_mode
 from msa.services.archiver import archive_tournament_state
 from msa.services.md_embed import r1_name_for_md
-from msa.services.randoms import rng_for, seeded_shuffle
+from msa.services.randoms import rng_from_seed_or_tournament_and_persist, seeded_shuffle
 from msa.services.tx import atomic, locked
 
 # ---- Pomocné typy ----
@@ -143,12 +142,7 @@ def soft_regenerate_unseeded_md(t: Tournament, rng_seed: int | None = None) -> d
         return {int(te.position): te.id for te in entries_qs}
 
     # Deterministicky zamíchat pool a znovu je přiřadit do STEJNÉ množiny slotů (jiné pořadí)
-    # Respect explicit rng_seed if provided; persist it for auditability
-    rng_source = SimpleNamespace(rng_seed_active=rng_seed) if rng_seed is not None else t
-    rng = rng_for(rng_source)
-    if rng_seed is not None and getattr(t, "rng_seed_active", None) != rng_seed:
-        t.rng_seed_active = rng_seed
-        t.save(update_fields=["rng_seed_active"])
+    rng, _ = rng_from_seed_or_tournament_and_persist(t, rng_seed)
     shuffled = seeded_shuffle(pool_entry_ids, rng)
 
     # Ulož nové pozice (jen pro nenasazené v mutable_unseeded_slots)
