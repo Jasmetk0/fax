@@ -7,7 +7,13 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Q
 
-from msa.models import Match, Player, PlayerLicense, RankingAdjustment, TournamentEntry
+from msa.models import (
+    Match,
+    Player,
+    PlayerLicense,
+    RankingAdjustment,
+    TournamentEntry,
+)
 from msa.services.admin_gate import require_admin_mode
 
 
