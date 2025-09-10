@@ -1,3 +1,4 @@
+import hashlib
 import random
 from collections.abc import Sequence
 from types import SimpleNamespace
@@ -8,7 +9,8 @@ def rng_for(tournament) -> random.Random:
     seed = int(getattr(tournament, "rng_seed_active", 0) or 0)
     if not seed:
         base = f"{getattr(tournament, 'slug', '')}:{getattr(tournament, 'start_date', '')}"
-        seed = abs(hash(base)) % (2**31)
+        digest = hashlib.sha256(base.encode("utf-8")).hexdigest()
+        seed = int(digest[:8], 16) % (2**31)
     return random.Random(seed)
 
 
