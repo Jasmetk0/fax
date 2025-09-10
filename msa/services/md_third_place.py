@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from msa.models import Match, MatchState, Phase, Schedule, Tournament
+from msa.services.round_format import get_round_format
 from msa.services.tx import atomic
 
 THIRD_PLACE_ROUND_NAME = "3P"
@@ -86,6 +87,7 @@ def ensure_third_place_match(t: Tournament) -> Match | None:
         return keep
 
     # Vytvoř nový 3P (sloty 1 a 2; unikát round_name+sloty držíme konzistentní)
+    bo, wbt = get_round_format(t, Phase.MD, THIRD_PLACE_ROUND_NAME)
     m3p = Match.objects.create(
         tournament=t,
         phase=Phase.MD,
@@ -94,8 +96,8 @@ def ensure_third_place_match(t: Tournament) -> Match | None:
         slot_bottom=2,
         player_top_id=losers[0],
         player_bottom_id=losers[1],
-        best_of=t.md_best_of or 5,
-        win_by_two=True,
+        best_of=bo,
+        win_by_two=wbt,
         state=MatchState.PENDING,
     )
     return m3p

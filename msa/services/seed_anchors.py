@@ -3,43 +3,46 @@ from collections import OrderedDict
 BandMap = dict[str, list[int]]
 
 
+def _serpentine_positions(draw_size: int) -> list[int]:
+    """Return slot order for seeds 1..draw_size using serpentine seeding."""
+    if draw_size == 1:
+        return [1]
+    prev = _serpentine_positions(draw_size // 2)
+    out: list[int] = []
+    for p in prev:
+        out.append(p)
+        out.append(draw_size + 1 - p)
+    return out
+
+
+def _band_ranges(n: int) -> list[tuple[str, int, int]]:
+    """Generate band labels and start/end seed numbers."""
+    ranges: list[tuple[str, int, int]] = []
+    start = 1
+    prev_size = 1
+    while start <= n:
+        size = 1 if start <= 2 else prev_size * 2
+        end = min(n, start + size - 1)
+        label = str(start) if start == end else f"{start}-{end}"
+        ranges.append((label, start, end))
+        prev_size = size
+        start = end + 1
+    return ranges
+
+
 def md_anchor_map(draw_size: int) -> BandMap:
-    """
-    Kanonické kotvy pro seedy v MD dle specifikace (1-indexované sloty).
-    Podporované: 16, 32, 64. (MD128+ doplníme později.)
-    """
-    if draw_size == 16:
-        return OrderedDict(
-            {
-                "1": [1],
-                "2": [16],
-                "3-4": [9, 8],
-                "5-8": [4, 5, 12, 13],
-                "9-16": [2, 3, 6, 7, 10, 11, 14, 15],
-            }
-        )
-    if draw_size == 32:
-        return OrderedDict(
-            {
-                "1": [1],
-                "2": [32],
-                "3-4": [17, 16],
-                "5-8": [8, 9, 24, 25],
-                "9-16": [4, 5, 12, 13, 20, 21, 28, 29],
-            }
-        )
-    if draw_size == 64:
-        return OrderedDict(
-            {
-                "1": [1],
-                "2": [64],
-                "3-4": [33, 32],
-                "5-8": [16, 17, 48, 49],
-                "9-16": [8, 9, 24, 25, 40, 41, 56, 57],
-                "17-32": [4, 5, 12, 13, 20, 21, 28, 29, 36, 37, 44, 45, 52, 53, 60, 61],
-            }
-        )
-    raise ValueError(f"Unsupported draw_size {draw_size}. Use 16/32/64 for now.")
+    """Kanonické kotvy pro seedy v MD dle specifikace (1-indexované sloty)."""
+    if draw_size not in {16, 32, 64, 128}:
+        raise ValueError("Unsupported draw_size {draw_size}. Use 16/32/64/128.")
+    positions = _serpentine_positions(draw_size)
+    mid = draw_size // 2
+    anchors: BandMap = OrderedDict()
+    for label, start, end in _band_ranges(draw_size):
+        subset = positions[start - 1 : end]
+        top = sorted(p for p in subset if p <= mid)
+        bottom = sorted(p for p in subset if p > mid)
+        anchors[label] = bottom + top if label == "3-4" else top + bottom
+    return anchors
 
 
 def band_sequence_for_S(draw_size: int, seeds_count: int) -> list[str]:

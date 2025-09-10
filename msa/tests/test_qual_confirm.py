@@ -23,11 +23,15 @@ def test_confirm_qualification_creates_full_tree_and_seeds_on_tiers():
     s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
     c = Category.objects.create(name="World Tour")
     # K=2 kvalifikanti, R=3 → každá větev má 8 hráčů, seeds_per_bracket=2
-    cs = CategorySeason.objects.create(
-        category=c, season=s, draw_size=32, qualifiers_count=2, qual_rounds=3
-    )
+    cs = CategorySeason.objects.create(category=c, season=s, draw_size=32, qual_rounds=3)
     t = Tournament.objects.create(
-        season=s, category=c, category_season=cs, name="T", slug="t", state=TournamentState.QUAL
+        season=s,
+        category=c,
+        category_season=cs,
+        name="T",
+        slug="t",
+        state=TournamentState.QUAL,
+        qualifiers_count=2,
     )
 
     # 16 hráčů do kvaldy (Q), WR: 1..16
@@ -61,10 +65,16 @@ def test_update_ll_after_qual_finals_promotes_final_losers():
     s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
     c = Category.objects.create(name="World Tour")
     cs = CategorySeason.objects.create(
-        category=c, season=s, draw_size=32, qualifiers_count=2, qual_rounds=2
+        category=c, season=s, draw_size=32, qual_rounds=2
     )  # K=2, R=2 → Q4,Q2
     t = Tournament.objects.create(
-        season=s, category=c, category_season=cs, name="T", slug="t", state=TournamentState.QUAL
+        season=s,
+        category=c,
+        category_season=cs,
+        name="T",
+        slug="t",
+        state=TournamentState.QUAL,
+        qualifiers_count=2,
     )
 
     # 8 hráčů do kvaldy (Q)
