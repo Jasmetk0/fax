@@ -46,8 +46,8 @@ class QualificationView(TemplateView):
         cs = t.category_season
         branches: list[list[str]] = []
         try:
-            K = cs.qualifiers_count
-            R = cs.qual_rounds
+            K = t.qualifiers_count
+            R = cs.qual_rounds if cs else None
             if K and R:
                 seeds = list(
                     TournamentEntry.objects.filter(tournament=t, entry_type="Q", seed__isnull=False)

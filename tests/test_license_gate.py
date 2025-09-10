@@ -21,10 +21,15 @@ from msa.services.qual_confirm import confirm_qualification
 def test_confirm_qualification_blocks_when_any_active_player_missing_license():
     s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
     c = Category.objects.create(name="WT")
-    cs = CategorySeason.objects.create(
-        category=c, season=s, draw_size=16, qualifiers_count=4, qual_rounds=2
+    cs = CategorySeason.objects.create(category=c, season=s, draw_size=16, qual_rounds=2)
+    t = Tournament.objects.create(
+        season=s,
+        category=c,
+        category_season=cs,
+        name="T",
+        slug="t",
+        qualifiers_count=4,
     )
-    t = Tournament.objects.create(season=s, category=c, category_season=cs, name="T", slug="t")
 
     # 16 hráčů v kvalifikaci, jednomu licenci nedáme
     players = [Player.objects.create(name=f"Q{i}") for i in range(16)]
@@ -41,7 +46,7 @@ def test_confirm_qualification_blocks_when_any_active_player_missing_license():
     # Přidáme chybějící licenci a projde
     grant_license_for_tournament_season(t, players[7].id)
     branches = confirm_qualification(t, rng_seed=123)
-    assert len(branches) == cs.qualifiers_count
+    assert len(branches) == t.qualifiers_count
 
 
 @pytest.mark.django_db

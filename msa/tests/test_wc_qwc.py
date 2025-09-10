@@ -20,11 +20,15 @@ def test_wc_above_cutline_is_label_only_does_not_consume():
     # MD32, qualifiers=4 → D = 28
     s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
     c = Category.objects.create(name="WT")
-    cs = CategorySeason.objects.create(
-        category=c, season=s, draw_size=32, qualifiers_count=4, wc_slots_default=2
-    )
+    cs = CategorySeason.objects.create(category=c, season=s, draw_size=32, wc_slots_default=2)
     t = Tournament.objects.create(
-        season=s, category=c, category_season=cs, name="T", slug="t", state=TournamentState.REG
+        season=s,
+        category=c,
+        category_season=cs,
+        name="T",
+        slug="t",
+        state=TournamentState.REG,
+        qualifiers_count=4,
     )
 
     # 40 registrací: 1..40 (1 nejlepší). DA/Q/ALT neřešíme, rozhoduje WR.
@@ -52,11 +56,15 @@ def test_wc_above_cutline_is_label_only_does_not_consume():
 def test_wc_below_cutline_promotes_and_demotes_last_DA_and_respects_limit():
     s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
     c = Category.objects.create(name="WT")
-    cs = CategorySeason.objects.create(
-        category=c, season=s, draw_size=32, qualifiers_count=4, wc_slots_default=1
-    )
+    cs = CategorySeason.objects.create(category=c, season=s, draw_size=32, wc_slots_default=1)
     t = Tournament.objects.create(
-        season=s, category=c, category_season=cs, name="T", slug="t", state=TournamentState.REG
+        season=s,
+        category=c,
+        category_season=cs,
+        name="T",
+        slug="t",
+        state=TournamentState.REG,
+        qualifiers_count=4,
     )
 
     players = [Player.objects.create(name=f"P{i}") for i in range(1, 41)]
@@ -92,11 +100,15 @@ def test_wc_below_cutline_promotes_and_demotes_last_DA_and_respects_limit():
 def test_qwc_promotes_alt_to_q_and_respects_limit_label_only_in_q():
     s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
     c = Category.objects.create(name="WT")
-    cs = CategorySeason.objects.create(
-        category=c, season=s, draw_size=32, qualifiers_count=4, q_wc_slots_default=1
-    )
+    cs = CategorySeason.objects.create(category=c, season=s, draw_size=32, q_wc_slots_default=1)
     t = Tournament.objects.create(
-        season=s, category=c, category_season=cs, name="T", slug="t", state=TournamentState.REG
+        season=s,
+        category=c,
+        category_season=cs,
+        name="T",
+        slug="t",
+        state=TournamentState.REG,
+        qualifiers_count=4,
     )
 
     P = [Player.objects.create(name=f"P{i}") for i in range(1, 10)]

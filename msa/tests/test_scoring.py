@@ -26,9 +26,7 @@ def test_q_wins_and_md_points_with_bye_rule_draw24():
     # MD24 embed do R32, S=8 → top8 má BYE v "R32"
     s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
     c = Category.objects.create(name="WT")
-    cs = CategorySeason.objects.create(
-        category=c, season=s, draw_size=24, md_seeds_count=8, qualifiers_count=0
-    )
+    cs = CategorySeason.objects.create(category=c, season=s, draw_size=24, md_seeds_count=8)
 
     # scoring tabulky jen v paměti (měkké modely)
     cs.scoring_md = {"Winner": 1000, "RunnerUp": 600, "SF": 360, "QF": 180, "R16": 90, "R32": 45}
@@ -84,14 +82,20 @@ def test_q_wins_accumulate_and_total_combines_with_md():
     s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
     c = Category.objects.create(name="WT")
     cs = CategorySeason.objects.create(
-        category=c, season=s, draw_size=16, md_seeds_count=4, qualifiers_count=1, qual_rounds=2
+        category=c, season=s, draw_size=16, md_seeds_count=4, qual_rounds=2
     )
 
     cs.scoring_md = {"Winner": 100, "RunnerUp": 60, "SF": 36, "QF": 18, "R16": 9}
     cs.scoring_qual_win = {"Q4": 10, "Q2": 20}
 
     t = Tournament.objects.create(
-        season=s, category=c, category_season=cs, name="T16", slug="t16", state=TournamentState.QUAL
+        season=s,
+        category=c,
+        category_season=cs,
+        name="T16",
+        slug="t16",
+        state=TournamentState.QUAL,
+        qualifiers_count=1,
     )
 
     # 4 hráči do kvaldy

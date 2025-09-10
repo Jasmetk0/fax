@@ -8,7 +8,7 @@ from tests.factories import make_category_season, make_player, make_tournament
 @pytest.mark.django_db
 def test_preview_recalculate_preserves_order_when_seeding_source_none():
     cs, _season, _cat = make_category_season(draw_size=16, qualifiers_count=4, qual_rounds=1)
-    t = make_tournament(cs=cs)
+    t = make_tournament(cs=cs, qualifiers_count=4)
     t.seeding_source = SeedingSource.NONE
     t.state = TournamentState.REG
     t.save(update_fields=["seeding_source", "state"])

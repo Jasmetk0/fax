@@ -167,11 +167,15 @@ def test_admin_off_blocks_grant_license():
 def test_admin_off_blocks_apply_qwc():
     s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
     c = Category.objects.create(name="WT")
-    cs = CategorySeason.objects.create(
-        category=c, season=s, draw_size=16, qualifiers_count=4, q_wc_slots_default=1
-    )
+    cs = CategorySeason.objects.create(category=c, season=s, draw_size=16, q_wc_slots_default=1)
     t = Tournament.objects.create(
-        season=s, category=c, category_season=cs, name="T5", slug="t5", state=TournamentState.REG
+        season=s,
+        category=c,
+        category_season=cs,
+        name="T5",
+        slug="t5",
+        state=TournamentState.REG,
+        qualifiers_count=4,
     )
 
     p = Player.objects.create(name="ALT")
