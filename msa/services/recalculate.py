@@ -62,7 +62,7 @@ def _eff_draw_params(t: Tournament) -> tuple[int, int, int]:
     if not cs.draw_size:
         raise ValidationError("CategorySeason.draw_size není nastaven.")
     draw_size = int(cs.draw_size)
-    qualifiers_count = int(cs.qualifiers_count or 0)
+    qualifiers_count = int(getattr(t, "qualifiers_count", 0) or 0)
     qual_rounds = int(cs.qual_rounds or 0)
     return draw_size, qualifiers_count, qual_rounds
 

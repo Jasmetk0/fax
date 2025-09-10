@@ -12,7 +12,7 @@ def test_wc_limits_and_moves():
     cs.wc_slots_default = 1
     cs.q_wc_slots_default = 1
     cs.save(update_fields=["wc_slots_default", "q_wc_slots_default"])
-    t = make_tournament(cs=cs)
+    t = make_tournament(cs=cs, qualifiers_count=2)
 
     players = [make_player(f"P{i}") for i in range(1, 9)]
     for i, p in enumerate(players, start=1):
@@ -68,7 +68,7 @@ def test_qwc_limits_and_moves():
     cs.wc_slots_default = 1
     cs.q_wc_slots_default = 1
     cs.save(update_fields=["wc_slots_default", "q_wc_slots_default"])
-    t = make_tournament(cs=cs)
+    t = make_tournament(cs=cs, qualifiers_count=2)
 
     p_q1, _p_q2, p_alt1, p_alt2 = [make_player() for _ in range(4)]
     q1 = TournamentEntry.objects.create(

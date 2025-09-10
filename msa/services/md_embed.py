@@ -75,21 +75,38 @@ def generate_md_mapping_with_byes(
     for slot, eid in zip(seed_slots, seeds_in_order, strict=False):
         mapping[int(slot)] = int(eid)
 
-    # 2) vyrob množinu BYE protislots pro top `bye_count` seedů
+    # 2) připrav BYE sloty pro top seedy (opponent slots)
     bye_opponent_slots = set()
-    for slot in seed_slots[: max(0, bye_count)]:
+    bye_for_seeds = min(max(0, bye_count), S)
+    for slot in seed_slots[:bye_for_seeds]:
         bye_opponent_slots.add(_opponent_slot(template_size, slot))
+
+    remaining_byes = max(0, bye_count - bye_for_seeds)
 
     # 3) připrav dostupné unseeded sloty: všechny kromě seed_slots a bye_opponent_slots
     all_slots = list(range(1, template_size + 1))
     blocked = set(seed_slots) | set(bye_opponent_slots)
-    available_unseeded_slots = [s for s in all_slots if s not in blocked]
+    available_set = {s for s in all_slots if s not in blocked}
+
+    # 4) pokud zbývají BYE sloty, přidej je jako protislots k dalším hráčům
+    if remaining_byes:
+        for slot in sorted(available_set):
+            if remaining_byes == 0:
+                break
+            opp = _opponent_slot(template_size, slot)
+            if opp in available_set:
+                available_set.remove(opp)
+                bye_opponent_slots.add(opp)
+                remaining_byes -= 1
+        if remaining_byes != 0:
+            raise ValidationError("Příliš mnoho BYE slotů pro dostupné pozice.")
+
+    available_unseeded_slots = sorted(available_set)
 
     if len(unseeded_players) > len(available_unseeded_slots):
-        # tohle by nemělo nastat: N = S + len(unseeded) = template_size - bye_count → len(unseeded)=available_slots
         raise ValidationError("Příliš mnoho nenasazených pro dostupné sloty (BYE konfigurace).")
 
-    # 4) deterministicky promíchej a naplň
+    # 5) deterministicky promíchej a naplň
     rng = rng_for(SimpleNamespace(rng_seed_active=rng_seed))
     pool = seeded_shuffle(unseeded_players, rng)
     for slot, eid in zip(available_unseeded_slots, pool, strict=False):

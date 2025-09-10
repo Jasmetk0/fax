@@ -15,7 +15,7 @@ def test_confirm_blocks_with_combined_limit_messages():
     cs.wc_slots_default = 0
     cs.q_wc_slots_default = 0
     cs.save(update_fields=["wc_slots_default", "q_wc_slots_default"])
-    t = make_tournament(cs=cs)
+    t = make_tournament(cs=cs, qualifiers_count=2)
 
     players = [make_player(f"P{i}") for i in range(1, 21)]
     entries = []
