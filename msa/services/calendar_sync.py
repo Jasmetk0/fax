@@ -131,8 +131,10 @@ def build_ics_for_matches(tournament: Tournament, days: list[str]) -> str:
     if not is_enabled():
         return ""
 
-    matches = Match.objects.filter(tournament=tournament, schedule__play_date__in=days).order_by(
-        "schedule__play_date", "schedule__order"
+    matches = (
+        Match.objects.filter(tournament=tournament, schedule__play_date__in=days)
+        .select_related("player_top", "player_bottom", "schedule")
+        .order_by("schedule__play_date", "schedule__order")
     )
     events = [build_match_vevent(m, m.schedule.play_date.isoformat()) for m in matches]
     lines = [

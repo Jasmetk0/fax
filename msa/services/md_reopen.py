@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from types import SimpleNamespace
-
 from django.core.exceptions import ValidationError
 
 from msa.models import (
@@ -17,7 +15,7 @@ from msa.models import (
 from msa.services.admin_gate import require_admin_mode
 from msa.services.archiver import archive
 from msa.services.md_embed import r1_name_for_md
-from msa.services.randoms import rng_for, seeded_shuffle
+from msa.services.randoms import rng_from_seed_or_tournament_and_persist, seeded_shuffle
 from msa.services.tx import atomic, locked
 
 
@@ -81,9 +79,8 @@ def reopen_main_draw(t: Tournament, mode: str = "AUTO", rng_seed: int | None = N
             mutable_unseeded_slots.append(slot)
             pool_entry_ids.append(te.id)
 
+        rng, _ = rng_from_seed_or_tournament_and_persist(t, rng_seed)
         if len(pool_entry_ids) > 1:
-            rng_source = SimpleNamespace(rng_seed_active=rng_seed) if rng_seed is not None else t
-            rng = rng_for(rng_source)
             shuffled = seeded_shuffle(pool_entry_ids, rng)
 
             # free positions to avoid unique constraint and then assign shuffled positions
@@ -121,10 +118,6 @@ def reopen_main_draw(t: Tournament, mode: str = "AUTO", rng_seed: int | None = N
             if new_pair != old_pair:
                 Schedule.objects.filter(match=m).delete()
 
-        # If an explicit rng_seed was used, persist it for auditability
-        if rng_seed is not None and getattr(t, "rng_seed_active", None) != rng_seed:
-            t.rng_seed_active = rng_seed
-            t.save(update_fields=["rng_seed_active"])
         label = "reopen_md_soft" if mode.upper() == "SOFT" else "reopen_md_hard"
         archive(t, type=Snapshot.SnapshotType.REOPEN, label=label, extra={"mode": mode.upper()})
         msg = (

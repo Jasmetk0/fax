@@ -1,8 +1,6 @@
 # msa/services/md_band_regen.py
 from __future__ import annotations
 
-from types import SimpleNamespace
-
 from django.core.exceptions import ValidationError
 
 from msa.models import (
@@ -19,7 +17,7 @@ from msa.services.admin_gate import require_admin_mode
 from msa.services.archiver import archive_tournament_state
 from msa.services.md_confirm import _pick_seeds_and_unseeded  # reuse interní logiku
 from msa.services.md_embed import effective_template_size_for_md, r1_name_for_md
-from msa.services.randoms import rng_for, seeded_shuffle
+from msa.services.randoms import rng_from_seed_or_tournament_and_persist, seeded_shuffle
 from msa.services.seed_anchors import band_sequence_for_S, md_anchor_map
 from msa.services.tx import atomic, locked
 
@@ -74,11 +72,7 @@ def regenerate_md_band(
     seed_ids_in_order = [e.id for e in seeds]
 
     # Respect explicit rng_seed if provided; persist it for auditability
-    rng_source = SimpleNamespace(rng_seed_active=rng_seed) if rng_seed is not None else t
-    rng = rng_for(rng_source)
-    if rng_seed is not None and getattr(t, "rng_seed_active", None) != rng_seed:
-        t.rng_seed_active = rng_seed
-        t.save(update_fields=["rng_seed_active"])
+    rng, _ = rng_from_seed_or_tournament_and_persist(t, rng_seed)
     if band == "Unseeded":
         # Přelosovat nenasazené mezi jejich aktuálními sloty
         un_slots = sorted([s for s, te in slot_to_entry.items() if te.id not in seed_ids_in_order])
