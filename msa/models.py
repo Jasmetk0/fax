@@ -367,6 +367,29 @@ class RoundFormat(models.Model):
         return f"{self.tournament_id}:{self.phase}:{self.round_name}"
 
 
+class RoundFormat(models.Model):
+    class PhaseChoices(models.TextChoices):
+        QUAL = Phase.QUAL, "Qualification"
+        MD = Phase.MD, "Main Draw"
+
+    tournament = models.ForeignKey(Tournament, on_delete=models.CASCADE)
+    phase = models.CharField(max_length=8, choices=PhaseChoices.choices)
+    round_name = models.CharField(max_length=16)
+    best_of = models.PositiveSmallIntegerField(choices=[(3, "3"), (5, "5")])
+    win_by_two = models.BooleanField(default=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["tournament", "phase", "round_name"],
+                name="uniq_round_format",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.tournament_id}:{self.phase}:{self.round_name}"
+
+
 class TournamentEntry(models.Model):
     Status = EntryStatus
     tournament = models.ForeignKey(
