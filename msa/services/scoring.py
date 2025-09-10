@@ -39,12 +39,14 @@ class PointsBreakdown:
 
 
 def _round_size_from_name(round_name: str) -> int:
-    # "R16" -> 16, "SF" -> 4, "QF" -> 8, "Q2" -> 2
-    if not round_name or len(round_name) < 2:
+    # "R16" -> 16, "SF" -> 4, "QF" -> 8, "Q2" -> 2, "F" -> 2
+    if not round_name:
         raise ValidationError(f"Invalid round_name: {round_name}")
     special = {"SF": 4, "QF": 8, "F": 2}
     if round_name in special:
         return special[round_name]
+    if len(round_name) < 2:
+        raise ValidationError(f"Invalid round_name: {round_name}")
     try:
         return int(round_name[1:])
     except Exception as err:
@@ -55,6 +57,14 @@ def _is_round_fully_completed(matches: Iterable[Match]) -> bool:
     """Kolo je „fully completed“, pokud KAŽDÝ zápas v něm má winner."""
     ms = list(matches)
     return len(ms) > 0 and all(m.winner_id for m in ms)
+
+
+MD_ALIAS_BY_SIZE = {8: "QF", 4: "SF", 2: "F"}
+
+
+def _md_round_names_for_size(size: int) -> list[str]:
+    alias = MD_ALIAS_BY_SIZE.get(size)
+    return [f"R{size}"] + ([alias] if alias else [])
 
 
 def _last_completed_md_round_size(t: Tournament) -> int | None:
@@ -70,7 +80,11 @@ def _last_completed_md_round_size(t: Tournament) -> int | None:
         n //= 2
     # R{template}, R{template/2}, ..., R2
     for s in sizes:
-        ms = Match.objects.filter(tournament=t, phase=Phase.MD, round_name=f"R{s}")
+        ms = Match.objects.filter(
+            tournament=t,
+            phase=Phase.MD,
+            round_name__in=_md_round_names_for_size(s),
+        )
         if not ms.exists():
             # kolo ani neexistuje → pokud je to první kolo (R{template}), znamená embed/bye — to je OK,
             # „fully completed“ posoudíme podle existujících kol; chybějící kolo nepovažujeme za stop.
@@ -83,7 +97,11 @@ def _last_completed_md_round_size(t: Tournament) -> int | None:
     # pokud vše, co existuje, je hotové, poslední dokončené je nejnižší existující (typicky R2)
     # najdi nejnižší R s nějakým zápasem
     for s in reversed(sizes):
-        ms = Match.objects.filter(tournament=t, phase=Phase.MD, round_name=f"R{s}")
+        ms = Match.objects.filter(
+            tournament=t,
+            phase=Phase.MD,
+            round_name__in=_md_round_names_for_size(s),
+        )
         if ms.exists():
             return s
     return None
@@ -215,7 +233,8 @@ def compute_md_points(t: Tournament, *, only_completed_rounds: bool = True) -> d
 
         # najdi finále, pokud hráč vyhrál celé (R2)
         final = next(
-            (m for m in matches_no_3p if (m.round_name == "R2" and m.winner_id == pid)), None
+            (m for m in matches_no_3p if (m.round_name in {"R2", "F"} and m.winner_id == pid)),
+            None,
         )
         if final:
             # Pokud limit kol nepovoluje R2, body 0
@@ -228,7 +247,7 @@ def compute_md_points(t: Tournament, *, only_completed_rounds: bool = True) -> d
             (
                 m
                 for m in matches_no_3p
-                if (m.round_name == "R2" and m.winner_id and m.winner_id != pid)
+                if (m.round_name in {"R2", "F"} and m.winner_id and m.winner_id != pid)
             ),
             None,
         )
