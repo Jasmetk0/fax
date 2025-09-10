@@ -26,8 +26,11 @@ def day_order_description(matches: Iterable[_MatchLike]) -> str:
     return "\n".join(lines)
 
 
-def is_enabled() -> bool:
-    return bool(getattr(settings, "MSA_CALENDAR_SYNC_ENABLED", False))
+def is_enabled(tournament: Tournament | None = None) -> bool:
+    return bool(
+        getattr(settings, "MSA_CALENDAR_SYNC_ENABLED", False)
+        or (tournament and getattr(tournament, "calendar_sync_enabled", False))
+    )
 
 
 def escape_ics(text: str) -> str:
@@ -61,7 +64,7 @@ def build_dayorder_vevent(tournament: Tournament, play_date: str) -> str:
 def build_ics_for_days(tournament: Tournament, days: list[str]) -> str:
     """Return full VCALENDAR string with VEVENTs for all provided days."""
 
-    if not is_enabled():
+    if not is_enabled(tournament):
         return ""
     events = [build_dayorder_vevent(tournament, d) for d in days]
     lines = [
@@ -128,7 +131,7 @@ def build_ics_for_matches(tournament: Tournament, days: list[str]) -> str:
     na některý z 'days'. Respektuj is_enabled() – pokud False, vrať "".
     """
 
-    if not is_enabled():
+    if not is_enabled(tournament):
         return ""
 
     matches = (

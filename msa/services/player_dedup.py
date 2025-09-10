@@ -43,6 +43,13 @@ def find_duplicate_candidates(
     return results
 
 
+def quick_add(name: str, country: str) -> str | None:
+    for p in Player.objects.filter(country=country):
+        if similarity(p.name or "", name) >= 0.9:
+            return f"Possible duplicate: {p.name} ({country})"
+    return None
+
+
 @require_admin_mode
 @transaction.atomic
 def merge_players(master_id: int, dup_id: int, dry_run: bool = False) -> dict:
