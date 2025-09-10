@@ -93,7 +93,9 @@ def confirm_qualification(t: Tournament, rng_seed: int) -> list[dict[int, int]]:
     Každá větev používá globálně unikátní sloty díky offsetu base = branch_index * 1000.
     Vrací seznam K dictů {local_slot -> entry_id} (mapping kvalifikací).
     """
-    if (not t.qualifiers_count) or not (t.category_season and t.category_season.qual_rounds):
+    if (not t.qualifiers_count_effective) or not (
+        t.category_season and t.category_season.qual_rounds
+    ):
         raise ValidationError(
             "Tournament.qualifiers_count a CategorySeason.qual_rounds musí být nastavené."
         )
@@ -101,7 +103,7 @@ def confirm_qualification(t: Tournament, rng_seed: int) -> list[dict[int, int]]:
     # Licenční gate — musí mít licenci všichni ACTIVE (MVP: napříč typy)
     assert_all_licensed_or_raise(t)
 
-    K = int(t.qualifiers_count or 0)
+    K = t.qualifiers_count_effective
     R = int(t.category_season.qual_rounds)
     size = 2**R
     spb = seeds_per_bracket(R)  # 2^(R-2) nebo 0
