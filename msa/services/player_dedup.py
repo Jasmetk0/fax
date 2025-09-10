@@ -50,7 +50,7 @@ def find_duplicate_candidates(
 
 
 def quick_add(name: str, country: str) -> str | None:
-    for p in Player.objects.filter(country=country):
+    for p in Player.objects.filter(country__iso3=country):
         if similarity(p.name or "", name) >= 0.9:
             return f"Possible duplicate: {p.name} ({country})"
     return None

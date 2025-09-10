@@ -77,7 +77,7 @@ def _cutline_D(t: Tournament) -> int:
     cs = t.category_season
     if not cs or not cs.draw_size:
         raise ValidationError("Chybí CategorySeason.draw_size.")
-    qualifiers_count = int(cs.qualifiers_count or 0)
+    qualifiers_count = int(getattr(t, "qualifiers_count", 0) or 0)
     return int(cs.draw_size) - qualifiers_count
 
 

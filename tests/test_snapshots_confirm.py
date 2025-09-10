@@ -19,10 +19,15 @@ from msa.services.qual_confirm import confirm_qualification
 def test_snapshot_created_on_confirm_qualification():
     s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
     c = Category.objects.create(name="WT")
-    cs = CategorySeason.objects.create(
-        category=c, season=s, draw_size=16, qualifiers_count=2, qual_rounds=2
+    cs = CategorySeason.objects.create(category=c, season=s, draw_size=16, qual_rounds=2)
+    t = Tournament.objects.create(
+        season=s,
+        category=c,
+        category_season=cs,
+        name="Q",
+        slug="q",
+        qualifiers_count=2,
     )
-    t = Tournament.objects.create(season=s, category=c, category_season=cs, name="Q", slug="q")
 
     # naplníme kvalifikaci (K * 2^R = 2 * 4 = 8 hráčů)
     players = [Player.objects.create(name=f"P{i}") for i in range(8)]

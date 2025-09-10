@@ -32,7 +32,7 @@ class CategoryAdmin(admin.ModelAdmin):
 
 @admin.register(CategorySeason)
 class CategorySeasonAdmin(admin.ModelAdmin):
-    list_display = ("category", "season", "draw_size", "md_seeds_count", "qualifiers_count")
+    list_display = ("category", "season", "name", "draw_size", "md_seeds_count")
     list_filter = ("category", "season")
 
 

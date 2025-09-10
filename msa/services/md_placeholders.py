@@ -59,10 +59,10 @@ def create_md_placeholders(t: Tournament) -> list[PlaceholderInfo]:
     Vytvoří K placeholder hráčů a TournamentEntry typu Q bez WR (NR),
     pokud ještě neexistují. Vrátí seznam placeholderů.
     """
-    if not t.category_season or not t.category_season.qualifiers_count:
-        raise ValidationError("CategorySeason.qualifiers_count musí být nastaveno.")
+    if not t.qualifiers_count:
+        raise ValidationError("Tournament.qualifiers_count musí být nastaveno.")
 
-    K = int(t.category_season.qualifiers_count)
+    K = int(t.qualifiers_count or 0)
 
     existing = {phi.branch_index for phi in _existing_placeholder_entries(t)}
     created: list[PlaceholderInfo] = []
