@@ -64,6 +64,20 @@ def _monday_of(d: date) -> date:
     return d - timedelta(days=d.weekday())
 
 
+def weekly_snapshot_dates(start: date, end: date) -> list[date]:
+    """Return all Mondays in [start, end] interval, inclusive."""
+    if start > end:
+        return []
+    cur = start
+    if cur.weekday() != 0:
+        cur = cur + timedelta(days=(7 - cur.weekday()) % 7)
+    out: list[date] = []
+    while cur <= end:
+        out.append(cur)
+        cur += timedelta(days=7)
+    return out
+
+
 def _week_window(start_monday, duration_weeks):
     # vrátí (start_date, end_date_exclusive) pro jednoduché "start <= x < end"
     if not start_monday or not duration_weeks:

@@ -1,18 +1,13 @@
-from importlib import reload
-
 import pytest
+from django.conf import settings
 from django.test import override_settings
 
-import fax_portal.settings as project_settings
 from msa.models import Snapshot
 from msa.services.archiver import enforce_archive_limits
 from tests.factories import make_category_season, make_tournament
 
 
 def test_defaults():
-    reload(project_settings)
-    from django.conf import settings
-
     assert settings.MSA_ARCHIVE_LIMIT_COUNT == 50
     assert settings.MSA_ARCHIVE_LIMIT_MB == 50
 
