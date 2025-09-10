@@ -181,6 +181,11 @@ class CategorySeason(models.Model):
             self.scoring_qual_win = build_qual_skeleton(int(self.qual_rounds))
         super().save(*args, **kwargs)
 
+    @property
+    def qualifiers_count(self) -> int | None:  # pragma: no cover - shim only
+        """Temporary shim for legacy UI expecting CategorySeason.qualifiers_count."""
+        return None
+
 
 class Country(models.Model):
     iso3 = models.CharField(max_length=3, unique=True)
