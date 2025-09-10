@@ -12,6 +12,7 @@ from msa.models import (
     Phase,
     Player,
     PlayerLicense,
+    Schedule,
     Season,
     Tournament,
     TournamentEntry,
@@ -126,3 +127,37 @@ def test_remove_and_replace_uses_best_wr_alt():
     )
     assert m is not None
     assert res.replacement_player_id in (m.player_top_id, m.player_bottom_id)
+
+
+@pytest.mark.django_db
+def test_remove_and_replace_blocks_when_no_alt():
+    t, _ = _mk_base(K=1, R=2, pool=4)
+    confirm_qualification(t, rng_seed=1)
+    slot = 1
+    with pytest.raises(ValidationError):
+        remove_and_replace_in_qualification(t, slot)
+
+
+@pytest.mark.django_db
+def test_remove_and_replace_deletes_schedule_on_success():
+    t, _ = _mk_base(K=1, R=2, pool=8)
+    confirm_qualification(t, rng_seed=1)
+    slot = 2
+    alt_player = Player.objects.create(name="ALT")
+    alt = TournamentEntry.objects.create(
+        tournament=t,
+        player=alt_player,
+        entry_type=EntryType.ALT,
+        status=EntryStatus.ACTIVE,
+        wr_snapshot=50,
+    )
+    m = (
+        Match.objects.filter(tournament=t, phase=Phase.QUAL, round_name="Q4")
+        .filter(Q(slot_top=slot) | Q(slot_bottom=slot))
+        .first()
+    )
+    Schedule.objects.create(tournament=t, play_date="2025-06-01", order=1, match=m)
+    assert Schedule.objects.filter(match=m).exists()
+    res = remove_and_replace_in_qualification(t, slot)
+    assert res.replacement_entry_id == alt.id
+    assert not Schedule.objects.filter(match=m).exists()

@@ -128,3 +128,21 @@ def test_block_when_result_exists():
 
     with pytest.raises(ValidationError):
         _ = swap_slots_in_qualification(t, 1, 2)
+
+
+@pytest.mark.django_db
+def test_r1_swaps_without_anchors_allowed_any_slots():
+    t, size = _mk_base(K=2, R=1)
+    slot_a = 1
+    slot_b = 1002
+    ma_before = _match_for_slot(t, size, slot_a)
+    mb_before = _match_for_slot(t, size, slot_b)
+    pa = ma_before.player_top_id if ma_before.slot_top == slot_a else ma_before.player_bottom_id
+    pb = mb_before.player_top_id if mb_before.slot_top == slot_b else mb_before.player_bottom_id
+    res = swap_slots_in_qualification(t, slot_a, slot_b)
+    assert res.slot_a == slot_a and res.slot_b == slot_b
+    ma_after = _match_for_slot(t, size, slot_a)
+    mb_after = _match_for_slot(t, size, slot_b)
+    pa_after = ma_after.player_top_id if ma_after.slot_top == slot_a else ma_after.player_bottom_id
+    pb_after = mb_after.player_top_id if mb_after.slot_top == slot_b else mb_after.player_bottom_id
+    assert pa_after == pb and pb_after == pa
