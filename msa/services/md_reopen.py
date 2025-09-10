@@ -121,6 +121,10 @@ def reopen_main_draw(t: Tournament, mode: str = "AUTO", rng_seed: int | None = N
             if new_pair != old_pair:
                 Schedule.objects.filter(match=m).delete()
 
+        # If an explicit rng_seed was used, persist it for auditability
+        if rng_seed is not None and getattr(t, "rng_seed_active", None) != rng_seed:
+            t.rng_seed_active = rng_seed
+            t.save(update_fields=["rng_seed_active"])
         label = "reopen_md_soft" if mode.upper() == "SOFT" else "reopen_md_hard"
         archive(t, type=Snapshot.SnapshotType.REOPEN, label=label, extra={"mode": mode.upper()})
         msg = (

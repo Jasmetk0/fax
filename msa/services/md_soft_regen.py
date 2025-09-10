@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from types import SimpleNamespace
 
 from django.core.exceptions import ValidationError
 
@@ -142,7 +143,12 @@ def soft_regenerate_unseeded_md(t: Tournament, rng_seed: int | None = None) -> d
         return {int(te.position): te.id for te in entries_qs}
 
     # Deterministicky zamíchat pool a znovu je přiřadit do STEJNÉ množiny slotů (jiné pořadí)
-    rng = rng_for(t)
+    # Respect explicit rng_seed if provided; persist it for auditability
+    rng_source = SimpleNamespace(rng_seed_active=rng_seed) if rng_seed is not None else t
+    rng = rng_for(rng_source)
+    if rng_seed is not None and getattr(t, "rng_seed_active", None) != rng_seed:
+        t.rng_seed_active = rng_seed
+        t.save(update_fields=["rng_seed_active"])
     shuffled = seeded_shuffle(pool_entry_ids, rng)
 
     # Ulož nové pozice (jen pro nenasazené v mutable_unseeded_slots)
