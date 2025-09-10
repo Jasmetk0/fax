@@ -6,6 +6,7 @@ from datetime import date, datetime, timedelta
 
 from django.core.exceptions import ValidationError
 
+from fax_calendar.utils import monday_of as cal_monday_of
 from msa.models import Category, RankingAdjustment, RankingScope, Season, Tournament
 from msa.services.scoring import compute_tournament_points
 
@@ -146,7 +147,7 @@ def _rolling_adjustments_map(snapshot_monday) -> dict[int, tuple[int, int]]:
     které mají scope ROLLING_ONLY nebo BOTH a jsou AKTIVNÍ v den snapshot_monday:
     start_monday <= snapshot_monday < start_monday + duration_weeks.
     """
-    snap = _monday_of(_to_date(snapshot_monday))
+    snap = cal_monday_of(_to_date(snapshot_monday))  # TODO: use utils.monday_of everywhere
     rows = RankingAdjustment.objects.all()
     out: dict[int, tuple[int, int]] = {}
     for ra in rows:

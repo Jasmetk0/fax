@@ -26,11 +26,15 @@ def _mk_base(K=1, R=2, pool=8):
     # size = 2^R na větev
     s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
     c = Category.objects.create(name="WT")
-    cs = CategorySeason.objects.create(
-        category=c, season=s, draw_size=16, qualifiers_count=K, qual_rounds=R
-    )
+    cs = CategorySeason.objects.create(category=c, season=s, draw_size=16, qual_rounds=R)
     t = Tournament.objects.create(
-        season=s, category=c, category_season=cs, name="T", slug="t", state=TournamentState.QUAL
+        season=s,
+        category=c,
+        category_season=cs,
+        name="T",
+        slug="t",
+        state=TournamentState.QUAL,
+        qualifiers_count=K,
     )
     # vytvoř hráče: dost pro Q + pár ALT
     players = [Player.objects.create(name=f"P{i}") for i in range(pool)]

@@ -31,7 +31,6 @@ def test_preview_and_confirm_apply_groups_and_seeds_with_wc_respected():
         season=s,
         draw_size=32,
         md_seeds_count=8,
-        qualifiers_count=4,
         qual_rounds=3,
         wc_slots_default=1,
     )
@@ -43,6 +42,7 @@ def test_preview_and_confirm_apply_groups_and_seeds_with_wc_respected():
         slug="tour-a",
         state=TournamentState.REG,
         seeding_source=SeedingSource.SNAPSHOT,
+        qualifiers_count=4,
     )
 
     # 40 registrací podle WR 1..40 (1 nejlepší)
@@ -109,7 +109,6 @@ def test_confirm_blocks_when_wc_or_qwc_limit_exceeded():
         category=c,
         season=s,
         draw_size=32,
-        qualifiers_count=2,
         qual_rounds=2,
         wc_slots_default=0,
         q_wc_slots_default=0,
@@ -124,6 +123,7 @@ def test_confirm_blocks_when_wc_or_qwc_limit_exceeded():
         seeding_source=SeedingSource.SNAPSHOT,
         wc_slots=0,
         q_wc_slots=0,
+        qualifiers_count=2,
     )
 
     # 40 registrations WR 1..40
