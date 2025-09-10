@@ -1,0 +1,6 @@
+<ul>
+{% for row, entry in rows %}
+  <li>{% if entry %}{{ entry.player }}{% endif %}</li>
+  {% if row.separator_after %}<hr class="my-3 opacity-40">{% endif %}
+{% endfor %}
+</ul>

@@ -1,0 +1,9 @@
+{% extends 'msa/base_public.html' %}
+{% block content %}
+<h1 class="text-xl mb-2">Season Standings</h1>
+<ul>
+  {% for row, name in rows %}
+  <li>{{ name }} - {{ row.total }}</li>
+  {% endfor %}
+</ul>
+{% endblock %}

@@ -1,6 +1,15 @@
+from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models
 from django.utils import timezone
+
+
+def validate_power_of_two(value: int | None) -> None:
+    if value is None:
+        return
+    if value < 1 or value & (value - 1):
+        raise ValidationError("md_seeds_count must be power of two")
+
 
 """
 SOFT SCHEMA (MVP):
@@ -83,7 +92,9 @@ class CategorySeason(models.Model):
         choices=[(16, "16"), (32, "32"), (64, "64")], null=True, blank=True
     )
 
-    md_seeds_count = models.PositiveSmallIntegerField(default=8, null=True, blank=True)
+    md_seeds_count = models.PositiveSmallIntegerField(
+        default=8, null=True, blank=True, validators=[validate_power_of_two]
+    )
     qualifiers_count = models.PositiveSmallIntegerField(default=0, null=True, blank=True)
     qual_rounds = models.PositiveSmallIntegerField(default=0, null=True, blank=True)
     qual_seeds_per_bracket = models.PositiveSmallIntegerField(default=0, null=True, blank=True)
@@ -149,8 +160,11 @@ class Tournament(models.Model):
 
     wc_slots = models.PositiveSmallIntegerField(null=True, blank=True)
     q_wc_slots = models.PositiveSmallIntegerField(null=True, blank=True)
-
     third_place_enabled = models.BooleanField(default=False)
+    calendar_sync_enabled = models.BooleanField(default=False)
+    is_finals = models.BooleanField(default=False)
+    scoring_md = models.JSONField(default=dict, blank=True, null=True)
+    scoring_qual_win = models.JSONField(default=dict, blank=True, null=True)
 
     seeding_source = models.CharField(
         max_length=16,
@@ -178,6 +192,13 @@ class Tournament(models.Model):
 
     def __str__(self):
         return self.name or self.slug or "<Tournament>"
+
+    def save(self, *args, **kwargs):
+        if self._state.adding and self.category_season:
+            cs = self.category_season
+            self.scoring_md = (cs.scoring_md or {}).copy()
+            self.scoring_qual_win = (cs.scoring_qual_win or {}).copy()
+        super().save(*args, **kwargs)
 
 
 class TournamentEntry(models.Model):

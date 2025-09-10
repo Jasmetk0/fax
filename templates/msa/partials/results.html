@@ -1,0 +1,9 @@
+{% if matches %}
+<ul>
+  {% for m in matches %}
+  <li>{{ m.round_name }}: {{ m.player_top }} vs {{ m.player_bottom }}</li>
+  {% endfor %}
+</ul>
+{% else %}
+<p>No results.</p>
+{% endif %}
