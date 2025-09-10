@@ -64,6 +64,20 @@ def _monday_of(d: date) -> date:
     return d - timedelta(days=d.weekday())
 
 
+def weekly_snapshot_dates(start: date, end: date) -> list[date]:
+    """Return all Mondays in [start, end] interval, inclusive."""
+    if start > end:
+        return []
+    cur = start
+    if cur.weekday() != 0:
+        cur = cur + timedelta(days=(7 - cur.weekday()) % 7)
+    out: list[date] = []
+    while cur <= end:
+        out.append(cur)
+        cur += timedelta(days=7)
+    return out
+
+
 def _week_window(start_monday, duration_weeks):
     # vrátí (start_date, end_date_exclusive) pro jednoduché "start <= x < end"
     if not start_monday or not duration_weeks:
@@ -171,7 +185,11 @@ def _best_n_for_date(all_seasons: list[Season], snap_day: date) -> int:
 
 
 def season_standings(
-    season: Season, *, best_n: int | None = None, only_completed_rounds: bool = True
+    season: Season,
+    *,
+    best_n: int | None = None,
+    only_completed_rounds: bool = True,
+    end_date_limit: date | None = None,
 ) -> list[SeasonRow]:
     """
     Sezónní tabulka: bere turnaje s end_date uvnitř sezóny.
@@ -184,6 +202,8 @@ def season_standings(
 
     rows: dict[int, list[int]] = {}
     for t in _tournaments_in_season(season):
+        if end_date_limit and t.end_date and t.end_date > end_date_limit:
+            continue
         pts = _tournament_total_points_map(t, only_completed_rounds=only_completed_rounds)
         for pid, val in pts.items():
             rows.setdefault(pid, []).append(val)
@@ -309,7 +329,21 @@ def rtf_standings(
     RtF = stejné body jako Season mode (top N), ale vítězové turnajů z auto-TOP kategorií jsou „připíchnuti“ nahoře,
     v pořadí kategorií. Uvnitř pinned sekce řazení podle bodů/average.
     """
-    base = season_standings(season, best_n=None, only_completed_rounds=only_completed_rounds)
+    finals = (
+        Tournament.objects.filter(season=season, is_finals=True)
+        .exclude(end_date=None)
+        .order_by("-end_date")
+        .first()
+    )
+    if finals:
+        base = season_standings(
+            season,
+            best_n=None,
+            only_completed_rounds=only_completed_rounds,
+            end_date_limit=finals.end_date,
+        )
+    else:
+        base = season_standings(season, best_n=None, only_completed_rounds=only_completed_rounds)
     base_by_player = {r.player_id: r for r in base}
 
     auto = [a.strip() for a in (auto_top_categories or []) if a and isinstance(a, str)]
