@@ -61,3 +61,31 @@ def test_replace_slot_concurrent():
 
     prev.refresh_from_db()
     assert not (prev.status == "ACTIVE" and prev.position == SLOT)
+
+
+@pytest.mark.django_db
+def test_replace_slot_idempotent_when_alt_already_on_slot():
+    t = Tournament.objects.create(name="T2", slug="t2", draw_size=16)
+    p1 = Player.objects.create(name="A")
+    p2 = Player.objects.create(name="B")
+    incumbent = TournamentEntry.objects.create(
+        tournament=t,
+        player=p1,
+        status="ACTIVE",
+        entry_type="DA",
+        position=3,
+    )
+    alt = TournamentEntry.objects.create(
+        tournament=t,
+        player=p2,
+        status="ACTIVE",
+        entry_type="ALT",
+        position=None,
+    )
+    replace_slot(t, 3, alt.pk)
+    replace_slot(t, 3, alt.pk)
+    alt.refresh_from_db()
+    incumbent.refresh_from_db()
+    assert alt.position == 3
+    assert incumbent.position is None
+    assert TournamentEntry.objects.filter(tournament=t, position=3).count() == 1

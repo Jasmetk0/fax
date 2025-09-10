@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
 from typing import Any
 
+from django.conf import settings
 from django.utils import timezone
 
 from msa.models import Match, Schedule, Snapshot, Tournament, TournamentEntry
@@ -63,6 +65,35 @@ def _serialize_schedule(t: Tournament) -> list[dict[str, Any]]:
     return rows
 
 
+def enforce_archive_limits(t: Tournament) -> None:
+    limit_count = int(getattr(settings, "MSA_ARCHIVE_LIMIT_COUNT", 200) or 0)
+    limit_mb = int(getattr(settings, "MSA_ARCHIVE_LIMIT_MB", 20) or 0)
+    qs = Snapshot.objects.filter(tournament=t).order_by("id")
+    if limit_count and qs.count() > limit_count:
+        excess = qs.count() - limit_count
+        ids = list(qs.values_list("id", flat=True)[:excess])
+        Snapshot.objects.filter(id__in=ids).delete()
+        qs = Snapshot.objects.filter(tournament=t).order_by("id")
+    if limit_mb:
+        limit_bytes = int(limit_mb) * 1024 * 1024
+        snaps = list(qs)
+        total = 0
+        sizes: list[tuple[int, int]] = []
+        for s in snaps:
+            try:
+                size = len(json.dumps(s.payload or {}).encode("utf-8"))
+            except Exception:
+                size = 0
+            total += size
+            sizes.append((s.id, size))
+        idx = 0
+        while total > limit_bytes and idx < len(sizes):
+            sid, sz = sizes[idx]
+            Snapshot.objects.filter(id=sid).delete()
+            total -= sz
+            idx += 1
+
+
 def archive(
     t: Tournament, *, type: str, label: str | None = None, extra: dict | None = None
 ) -> int:
@@ -82,6 +113,7 @@ def archive(
     if extra:
         payload.update(extra)
     s = Snapshot.objects.create(tournament=t, type=type, payload=payload)
+    enforce_archive_limits(t)
     return s.id
 
 

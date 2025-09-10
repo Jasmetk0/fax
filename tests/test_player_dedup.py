@@ -82,3 +82,37 @@ def test_admin_action_merges_into_lowest_id(settings):
     assert Player.objects.filter(id=a.id).exists()
     assert not Player.objects.filter(id=b.id).exists()
     assert not Player.objects.filter(id=c.id).exists()
+
+
+@pytest.mark.django_db
+def test_merge_players_dry_run_no_changes(settings):
+    settings.MSA_ADMIN_MODE = True
+    master = Player.objects.create(name="Master")
+    dup = Player.objects.create(name="Dup")
+    other = Player.objects.create(name="Other")
+    season = Season.objects.create(name="2024")
+    Tournament.objects.create(id=1, name="T1")
+    TournamentEntry.objects.create(tournament_id=1, player=dup)
+    Match.objects.create(player_top=dup, player_bottom=other)
+    PlayerLicense.objects.create(player=dup, season=season)
+    RankingAdjustment.objects.create(player=dup)
+
+    before = {
+        "players": Player.objects.count(),
+        "entries": TournamentEntry.objects.filter(player=dup).count(),
+        "matches": Match.objects.filter(player_top=dup).count(),
+        "licenses": PlayerLicense.objects.filter(player=dup).count(),
+        "adjustments": RankingAdjustment.objects.filter(player=dup).count(),
+    }
+
+    merge_players(master.id, dup.id, dry_run=True)
+
+    after = {
+        "players": Player.objects.count(),
+        "entries": TournamentEntry.objects.filter(player=dup).count(),
+        "matches": Match.objects.filter(player_top=dup).count(),
+        "licenses": PlayerLicense.objects.filter(player=dup).count(),
+        "adjustments": RankingAdjustment.objects.filter(player=dup).count(),
+    }
+    assert before == after
+    assert Player.objects.filter(id=dup.id).exists()
