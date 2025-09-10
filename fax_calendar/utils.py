@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Any
 
 from django.core.exceptions import ValidationError
@@ -183,3 +183,18 @@ def format_woorld_ddmmyyyy(year: int, month: int, day: int) -> str:
     """Deprecated formatter returning ``DD/MM/YYYY``."""
 
     return format_woorld_date(year, month, day).replace("-", "/")
+
+
+# ---------------------------------------------------------------------------
+# Monday/normalize helpers (experimental)
+# ---------------------------------------------------------------------------
+
+
+def monday_of(d: date) -> date:
+    """Return Monday of the week for given date."""
+    return d - timedelta(days=d.weekday())
+
+
+def normalize(d: date) -> date:
+    """Placeholder for future normalization logic."""
+    return d

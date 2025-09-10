@@ -7,9 +7,7 @@ from tests.factories import make_category_season, make_tournament
 @pytest.mark.django_db
 def test_separator_after_marks_group_end():
     cs, _, _ = make_category_season(draw_size=4, qualifiers_count=1, qual_rounds=1)
-    cs.md_seeds_count = 2
-    cs.save(update_fields=["md_seeds_count"])
-    t = make_tournament(cs=cs)
+    t = make_tournament(cs=cs, qualifiers_count=1)
     entries = [
         EntryState(
             id=1,
@@ -85,9 +83,9 @@ def test_separator_after_marks_group_end():
         ),
     ]
     rows, _ = _proposed_layout(t, entries, SeedingSource.SNAPSHOT)
-    assert rows[0].separator_after is False  # seeds interior
-    assert rows[1].separator_after is True  # last seed
-    assert rows[2].separator_after is True  # only DA
+    assert rows[0].separator_after is True  # only seed
+    assert rows[1].separator_after is False  # first DA
+    assert rows[2].separator_after is True  # last DA
     assert rows[3].separator_after is False  # Q interior
     assert rows[4].separator_after is True  # last Q
     assert rows[5].separator_after is True  # only reserve

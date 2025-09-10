@@ -19,6 +19,7 @@ from msa.services.admin_gate import require_admin_mode
 from msa.services.archiver import archive
 from msa.services.licenses import assert_all_licensed_or_raise
 from msa.services.qual_generator import generate_qualification_mapping, seeds_per_bracket
+from msa.services.round_format import get_round_format
 from msa.services.tx import atomic, locked
 
 # ---- Pomocné typy ----
@@ -92,17 +93,17 @@ def confirm_qualification(t: Tournament, rng_seed: int) -> list[dict[int, int]]:
     Každá větev používá globálně unikátní sloty díky offsetu base = branch_index * 1000.
     Vrací seznam K dictů {local_slot -> entry_id} (mapping kvalifikací).
     """
-    if (
-        not t.category_season
-        or not t.category_season.qualifiers_count
-        or not t.category_season.qual_rounds
+    if (not t.qualifiers_count_effective) or not (
+        t.category_season and t.category_season.qual_rounds
     ):
-        raise ValidationError("CategorySeason.qualifiers_count a qual_rounds musí být nastavené.")
+        raise ValidationError(
+            "Tournament.qualifiers_count a CategorySeason.qual_rounds musí být nastavené."
+        )
 
     # Licenční gate — musí mít licenci všichni ACTIVE (MVP: napříč typy)
     assert_all_licensed_or_raise(t)
 
-    K = int(t.category_season.qualifiers_count)
+    K = t.qualifiers_count_effective
     R = int(t.category_season.qual_rounds)
     size = 2**R
     spb = seeds_per_bracket(R)  # 2^(R-2) nebo 0
@@ -157,6 +158,7 @@ def confirm_qualification(t: Tournament, rng_seed: int) -> list[dict[int, int]]:
             # načíst player_id
             top = TournamentEntry.objects.get(pk=entry_top_id)
             bot = TournamentEntry.objects.get(pk=entry_bot_id)
+            bo, wbt = get_round_format(t, Phase.QUAL, _round_name(size))
             m = Match(
                 tournament=t,
                 phase=Phase.QUAL,
@@ -165,8 +167,8 @@ def confirm_qualification(t: Tournament, rng_seed: int) -> list[dict[int, int]]:
                 slot_bottom=slot_bot,
                 player_top_id=top.player_id,
                 player_bottom_id=bot.player_id,
-                best_of=t.q_best_of or 3,
-                win_by_two=True,
+                best_of=bo,
+                win_by_two=wbt,
                 state=MatchState.PENDING,
             )
             bulk_matches.append(m)
@@ -177,6 +179,7 @@ def confirm_qualification(t: Tournament, rng_seed: int) -> list[dict[int, int]]:
             for a, bslot in _pairs_for_size(cur):
                 slot_top = base + a
                 slot_bot = base + bslot
+                bo, wbt = get_round_format(t, Phase.QUAL, _round_name(cur))
                 m = Match(
                     tournament=t,
                     phase=Phase.QUAL,
@@ -185,8 +188,8 @@ def confirm_qualification(t: Tournament, rng_seed: int) -> list[dict[int, int]]:
                     slot_bottom=slot_bot,
                     player_top_id=None,
                     player_bottom_id=None,
-                    best_of=t.q_best_of or 3,
-                    win_by_two=True,
+                    best_of=bo,
+                    win_by_two=wbt,
                     state=MatchState.PENDING,
                 )
                 bulk_matches.append(m)
