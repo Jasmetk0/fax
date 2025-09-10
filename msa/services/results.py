@@ -137,7 +137,24 @@ def _propagate_winner_to_next_round(m: Match) -> None:
     )
     next_match = locked(qs).first()
     if not next_match:
-        return
+        # Fallback for MD alias rounds when the numeric "R{size}" form isn't present
+        if m.phase == "MD":
+            try:
+                size_num = int(next_round[1:])  # "R8" -> 8
+            except Exception:
+                size_num = None
+            alias = {8: "QF", 4: "SF", 2: "F"}.get(size_num)
+            if alias:
+                qs = Match.objects.filter(
+                    tournament=m.tournament,
+                    phase=m.phase,
+                    round_name=alias,
+                    slot_top=slot_top,
+                    slot_bottom=slot_bottom,
+                )
+                next_match = locked(qs).first()
+        if not next_match:
+            return
 
     updated: list[str] = []
     if is_top:

@@ -1,6 +1,8 @@
 # msa/services/md_band_regen.py
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 from django.core.exceptions import ValidationError
 
 from msa.models import (
@@ -71,7 +73,12 @@ def regenerate_md_band(
     seeds, unseeded, _ = _pick_seeds_and_unseeded(t, evs)
     seed_ids_in_order = [e.id for e in seeds]
 
-    rng = rng_for(t)
+    # Respect explicit rng_seed if provided; persist it for auditability
+    rng_source = SimpleNamespace(rng_seed_active=rng_seed) if rng_seed is not None else t
+    rng = rng_for(rng_source)
+    if rng_seed is not None and getattr(t, "rng_seed_active", None) != rng_seed:
+        t.rng_seed_active = rng_seed
+        t.save(update_fields=["rng_seed_active"])
     if band == "Unseeded":
         # Přelosovat nenasazené mezi jejich aktuálními sloty
         un_slots = sorted([s for s, te in slot_to_entry.items() if te.id not in seed_ids_in_order])

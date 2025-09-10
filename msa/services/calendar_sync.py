@@ -6,7 +6,7 @@ from typing import Protocol
 
 from django.conf import settings
 
-from msa.models import Match, Tournament
+from msa.models import Match, Schedule, Tournament
 
 
 class _MatchLike(Protocol):
@@ -96,11 +96,18 @@ def build_match_vevent(match: Match, play_date: str) -> str:
 
     st = match.slot_top if match.slot_top is not None else "-"
     sb = match.slot_bottom if match.slot_bottom is not None else "-"
-    order = (
-        match.schedule.order
-        if getattr(match, "schedule", None) and match.schedule.order is not None
-        else "-"
-    )
+    # Prefer attached schedule order; otherwise try to resolve by (match, play_date); fallback to "-"
+    order = "-"
+    try:
+        sch = getattr(match, "schedule", None)
+        if sch is not None and getattr(sch, "order", None) is not None:
+            order = sch.order
+        else:
+            sch2 = Schedule.objects.filter(match=match, play_date=play_date).first()
+            if sch2 and sch2.order is not None:
+                order = sch2.order
+    except Exception:
+        order = "-"
     description = escape_ics(f"Slot: [{st} vs {sb}], Order: {order}")
 
     lines = [
