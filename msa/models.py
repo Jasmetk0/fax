@@ -5,6 +5,8 @@ from django.core.validators import MinValueValidator, RegexValidator
 from django.db import models
 from django.utils import timezone
 
+from msa.services.scoring_skeleton import build_md_skeleton, build_qual_skeleton
+
 
 def validate_power_of_two(value: int | None) -> None:
     if value is None:
@@ -173,6 +175,10 @@ class CategorySeason(models.Model):
     def save(self, *args, **kwargs):
         if self.draw_size:
             self.md_seeds_count = auto_md_seeds(int(self.draw_size))
+            if not self.scoring_md:
+                self.scoring_md = build_md_skeleton(int(self.draw_size))
+        if self.qual_rounds and not self.scoring_qual_win:
+            self.scoring_qual_win = build_qual_skeleton(int(self.qual_rounds))
         super().save(*args, **kwargs)
 
 
