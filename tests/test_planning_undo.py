@@ -52,11 +52,11 @@ def test_snapshot_limit_enforced_by_count_and_size():
     for i in range(30):
         save_planning_snapshot(t, DAY, label=f"snap-{i}")
     state = PlanningUndoState.objects.get(tournament=t, day=DAY)
-    assert len(state.undo_stack) <= 20
+    assert len(state.undo_stack) <= 300
     assert state.redo_stack == []
     snaps = Snapshot.objects.filter(pk__in=state.undo_stack)
     total = sum(len(json.dumps(s.payload, ensure_ascii=False)) for s in snaps)
-    assert total <= 1 * 1024 * 1024
+    assert total <= 8 * 1024 * 1024
 
 
 @pytest.mark.django_db

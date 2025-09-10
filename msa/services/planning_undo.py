@@ -11,8 +11,8 @@ from msa.services.admin_gate import require_admin_mode
 
 
 def _limits():
-    count = getattr(settings, "MSA_PLANNING_SNAPSHOT_LIMIT_COUNT", 20)
-    size_mb = getattr(settings, "MSA_PLANNING_SNAPSHOT_LIMIT_MB", 1)
+    count = getattr(settings, "MSA_PLANNING_SNAPSHOT_LIMIT_COUNT", 300)
+    size_mb = getattr(settings, "MSA_PLANNING_SNAPSHOT_LIMIT_MB", 8)
     return count, int(size_mb * 1024 * 1024)
 
 

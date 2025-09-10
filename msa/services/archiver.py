@@ -66,8 +66,8 @@ def _serialize_schedule(t: Tournament) -> list[dict[str, Any]]:
 
 
 def enforce_archive_limits(t: Tournament) -> None:
-    limit_count = int(getattr(settings, "MSA_ARCHIVE_LIMIT_COUNT", 200) or 0)
-    limit_mb = int(getattr(settings, "MSA_ARCHIVE_LIMIT_MB", 20) or 0)
+    limit_count = int(getattr(settings, "MSA_ARCHIVE_LIMIT_COUNT", 50) or 0)
+    limit_mb = int(getattr(settings, "MSA_ARCHIVE_LIMIT_MB", 50) or 0)
     qs = Snapshot.objects.filter(tournament=t).order_by("id")
     if limit_count and qs.count() > limit_count:
         excess = qs.count() - limit_count

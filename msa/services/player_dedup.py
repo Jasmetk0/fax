@@ -7,7 +7,13 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Q
 
-from msa.models import Match, Player, PlayerLicense, RankingAdjustment, TournamentEntry
+from msa.models import (
+    Match,
+    Player,
+    PlayerLicense,
+    RankingAdjustment,
+    TournamentEntry,
+)
 from msa.services.admin_gate import require_admin_mode
 
 
@@ -41,6 +47,13 @@ def find_duplicate_candidates(
                 results.append((b_id, a_id, score))
     results.sort(key=lambda x: x[2], reverse=True)
     return results
+
+
+def quick_add(name: str, country: str) -> str | None:
+    for p in Player.objects.filter(country=country):
+        if similarity(p.name or "", name) >= 0.9:
+            return f"Possible duplicate: {p.name} ({country})"
+    return None
 
 
 @require_admin_mode
