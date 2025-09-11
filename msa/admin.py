@@ -247,3 +247,13 @@ class RankingAdjustmentAdmin(admin.ModelAdmin):
         "best_n_penalty",
     )
     list_filter = ("scope",)
+
+
+# Načti a spusť jen jednou – proběhne nad VŠEMI apps
+try:
+    from admin_extras import autoregister as _auto  # type: ignore
+
+    _auto.run()
+except Exception:
+    # nech to tiše spadnout, ať admin nebouchne v prod režimu
+    pass
