@@ -8,6 +8,7 @@ from django.core.exceptions import ValidationError
 
 from msa.models import EntryStatus, EntryType, SeedingSource, Snapshot, Tournament, TournamentEntry
 from msa.services.admin_gate import require_admin_mode
+from msa.services.standings_snapshot import ensure_seeding_baseline
 from msa.services.tx import atomic, locked
 
 
@@ -303,6 +304,8 @@ def preview_recalculate_registration(
     NIC NEUKLÁDÁ.
     """
     src = seeding_source or t.seeding_source or SeedingSource.SNAPSHOT
+    if src == SeedingSource.SNAPSHOT:
+        ensure_seeding_baseline(t)
     entries = _entries_active(t)
     draw_size, qualifiers_count, qual_rounds = _eff_draw_params(t)
     S = _eff_md_seeds(t)
@@ -331,6 +334,9 @@ def confirm_recalculate_registration(t: Tournament, preview: Preview) -> None:
       - u SEED nastaví `seed` = 1..S; ostatním `seed=None`,
       - nastaví `position` = pořadí v rámci registrace (SEED→DA→Q→RESERVE; 1..N).
     """
+    src = t.seeding_source or SeedingSource.SNAPSHOT
+    if src == SeedingSource.SNAPSHOT:
+        ensure_seeding_baseline(t)
     # pro jistotu ověř, že preview odpovídá aktuální sadě entry (alespoň počtem)
     ids_now = set(
         TournamentEntry.objects.filter(tournament=t, status=EntryStatus.ACTIVE).values_list(

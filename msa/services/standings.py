@@ -8,6 +8,7 @@ from django.core.exceptions import ValidationError
 
 from fax_calendar.utils import monday_of as cal_monday_of
 from msa.models import Category, RankingAdjustment, RankingScope, Season, Tournament
+from msa.services.ranking_common import row_to_item, tiebreak_key
 from msa.services.scoring import compute_tournament_points
 
 # ---------- datové typy ----------
@@ -224,7 +225,7 @@ def season_standings(
         )
 
     # řadíme podle total desc, při shodě vyšší average
-    out.sort(key=lambda r: (r.total, r.average, -r.player_id), reverse=True)
+    out.sort(key=lambda r: tiebreak_key("SEASON", row_to_item(r)))
     return out
 
 
@@ -234,9 +235,9 @@ def season_standings(
 def _activation_monday_for_tournament(t: Tournament) -> date:
     if not t.end_date:
         raise ValidationError("Tournament.end_date je vyžadováno pro Rolling.")
-    endd = _to_date(t.end_date)
-    act = _next_monday_strictly_after(endd)
-    return act
+    from msa.services.standings_snapshot import activation_monday
+
+    return activation_monday(_to_date(t.end_date))
 
 
 def rolling_standings(
@@ -300,7 +301,7 @@ def rolling_standings(
             )
         )
 
-    out.sort(key=lambda r: (r.total, r.average, -r.player_id), reverse=True)
+    out.sort(key=lambda r: tiebreak_key("ROLLING", row_to_item(r)))
     return out
 
 
@@ -414,7 +415,7 @@ def rtf_standings(
         for r in base
         if r.player_id not in seen
     ]
-
+    rest_rows.sort(key=lambda r: tiebreak_key("RTF", row_to_item(r)))
     out = pinned_rows + rest_rows
     # finals_slots (pokud dané) slouží ke zvýraznění/řezu; neomezujeme výpočet, admin si to ořízne v UI.
     return out
