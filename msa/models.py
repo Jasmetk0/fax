@@ -298,6 +298,7 @@ class Tournament(models.Model):
         blank=True,
     )
     snapshot_label = models.CharField(max_length=120, blank=True, null=True, default=None)
+    seeding_monday = models.DateField(null=True, blank=True)
 
     rng_seed_active = models.BigIntegerField(default=0, null=True, blank=True)
     state = models.CharField(
@@ -551,3 +552,29 @@ class RankingAdjustment(models.Model):
 
     class Meta:
         ordering = ["-start_monday", "-duration_weeks"]
+
+
+class RankingSnapshot(models.Model):
+    class Type(models.TextChoices):
+        ROLLING = "ROLLING"
+        SEASON = "SEASON"
+        RTF = "RTF"
+
+    type = models.CharField(max_length=16, choices=Type.choices, db_index=True)
+    monday_date = models.DateField(db_index=True)
+    hash = models.CharField(max_length=64, db_index=True)
+    payload = models.JSONField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.CharField(max_length=16, default="auto")
+    is_alias = models.BooleanField(default=False)
+    alias_of = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="aliases",
+    )
+
+    class Meta:
+        unique_together = (("type", "monday_date"),)
+        indexes = [models.Index(fields=["type", "hash"])]

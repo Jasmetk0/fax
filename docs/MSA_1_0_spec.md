@@ -149,4 +149,22 @@ Primární mapování importů: podle (source, external_key); dvojice je unique.
 Fuzzy návrhy: pokud klíče chybí, UI nabídne jméno+země (a další hinty). 
 „Quick add“ s varováním: při vysoké podobnosti zobrazíme výrazné varování; admin může propojit na existujícího nebo vědomě vytvořit nového. 
 Merge Players: nouzová admin akce; přenese účasti/výsledky a duplicitní záznam uzamkne. 
-Ranking audit na turnaji: vždy ukazujeme režim nasazování a snapshot label/datum. 
+Ranking audit na turnaji: vždy ukazujeme režim nasazování a snapshot label/datum.
+
+## Official Monday Ranking
+- Každé pondělí se potvrzuje neměnný snapshot pro Rolling/Season/RtF.
+- Payload je deterministicky seřazený a hashován přes SHA256.
+
+## ETag / Preview-Confirm
+- Preview vrací hash; Confirm ověří expected_hash a uloží snapshot.
+- Nesoulad hashe → StalePreviewError.
+
+## Alias dedup
+- Pokud dva po sobě jdoucí pondělky dávají stejný hash, druhý záznam je alias (bez payloadu) na první.
+
+## Seeding strict policy
+- Seeding čte výhradně oficiální Rolling snapshot k pondělí ≤ start_date turnaje.
+- Chybí-li snapshot a je zapnutý STRICT režim, operace selže.
+
+## 61 týdnů
+- Body v Rolling platí přesně 61 pondělí od aktivačního pondělí turnaje.
