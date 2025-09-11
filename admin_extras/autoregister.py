@@ -215,8 +215,31 @@ def _patch_formfield_for_dbfield(obj):
             # Poslední záchrana pro atypické kombinace – zkus bez requestu
             ff = caller(self, db_field, **kwargs)
 
-        # --- 4) Aplikuj naše úpravy pro DateField (BEZ změny původní logiky) ---
-        if isinstance(db_field, djm.DateField) and ff:
+        # --- 4) Aplikuj naše úpravy pro DateField a DateTimeField (BEZ změny původní logiky) ---
+        if isinstance(db_field, djm.DateTimeField) and ff:
+            if isinstance(ff.initial, str):
+                ff.initial = None
+            w = ff.widget
+            if isinstance(w, djf.MultiWidget) and hasattr(w, "decompress"):
+                if not getattr(w, "_fax_dt_safe", False):
+                    orig_decompress = w.decompress
+                    num_widgets = len(getattr(w, "widgets", []) or [None, None])
+
+                    def _safe_decompress(value):
+                        if value in (None, "", []):
+                            return [None] * num_widgets
+                        if isinstance(value, str):
+                            from django.utils.dateparse import parse_datetime
+
+                            dt = parse_datetime(value)
+                            if dt is None:
+                                return [None] * num_widgets
+                            value = dt
+                        return orig_decompress(value)
+
+                    w.decompress = _safe_decompress
+                    w._fax_dt_safe = True
+        elif isinstance(db_field, djm.DateField) and ff:
             ff.input_formats = FAX_INPUT_FORMATS
             w = ff.widget
             if not isinstance(w, djf.DateInput) or getattr(w, "format", None) != FAX_DATE_FORMAT:
