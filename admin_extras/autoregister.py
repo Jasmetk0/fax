@@ -13,6 +13,31 @@ from admin_extras.admixins import (
     _resolve_date_widget,
 )
 
+# --- Woorld helpers (module-level) ---
+_WOORLD_WIDGET_MODULES = ("fax_calendar.widgets",)
+_WOORLD_WIDGET_NAME_HINTS = ("woorld", "world", "fax")  # case-insensitive
+
+
+def is_woorld_widget(w) -> bool:
+    if not w:
+        return False
+    mod = (getattr(w, "__module__", "") or "").lower()
+    name = w.__class__.__name__.lower()
+    if any(mod.startswith(m) for m in _WOORLD_WIDGET_MODULES):
+        return True
+    return any(k in name for k in _WOORLD_WIDGET_NAME_HINTS)
+
+
+def is_woorld_dbfield(f) -> bool:
+    # Nezasahuj do reálných Date/DateTime polí – ty jsou gregoriánská.
+    if isinstance(f, djm.DateField) or isinstance(f, djm.DateTimeField):
+        return False
+    # Opt-in flagy na samotném model field objektu (volitelné)
+    if getattr(f, "fax_date", False) or getattr(f, "woorld_date", False):
+        return True
+    # Konzervativně povol jen Char/TextField – přesně jak je to teď
+    return isinstance(f, djm.CharField) or isinstance(f, djm.TextField)
+
 
 def _fields(model):
     return [f for f in model._meta.get_fields() if not f.many_to_many and not f.one_to_many]
@@ -214,6 +239,23 @@ def _patch_formfield_for_dbfield(obj):
         except TypeError:
             # Poslední záchrana pro atypické kombinace – zkus bez requestu
             ff = caller(self, db_field, **kwargs)
+
+        from fax_calendar.forms import WoorldDateFormField
+
+        if ff and is_woorld_dbfield(db_field) and is_woorld_widget(ff.widget):
+            orig_widget = ff.widget
+            required = ff.required
+            initial = ff.initial
+            help_text = getattr(ff, "help_text", "") or ""
+
+            new_ff = WoorldDateFormField(required=required)
+            new_ff.widget = orig_widget
+            new_ff.initial = initial if isinstance(initial, str) else (initial or "")
+            if not help_text:
+                new_ff.help_text = "Woorld datum (15 měsíců). Formát: DD-MM-YYYY nebo YYYY-MM-DD."
+            else:
+                new_ff.help_text = help_text
+            return new_ff
 
         # --- 4) Aplikuj naše úpravy pro DateField a DateTimeField (BEZ změny původní logiky) ---
         if isinstance(db_field, djm.DateTimeField) and ff:
