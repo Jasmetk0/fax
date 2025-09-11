@@ -1,38 +1,56 @@
 from django import forms
 from django.db import models
 
-# Dynamický import kanonického widgetu (nezlom aplikaci, když není)
-_DateWidget = None
-try:
-    # 1) preferuj "Woorld…" (pokud v repu existuje s dvojitým 'o')
-    from fax_calendar.widgets import WoorldAdminDateWidget as _DateWidget
-except Exception:
-    try:
-        # 2) běžnější pravopis
-        from fax_calendar.widgets import WorldAdminDateWidget as _DateWidget
-    except Exception:
-        try:
-            # 3) input varianta
-            from fax_calendar.widgets import WorldDateInput as _DateWidget
-        except Exception:
-            try:
-                # 4) Fax admin
-                from fax_calendar.widgets import FaxAdminDateWidget as _DateWidget
-            except Exception:
-                try:
-                    # 5) Fax input
-                    from fax_calendar.widgets import FaxDateInput as _DateWidget
-                except Exception:
-                    _DateWidget = None
+FAX_DATE_FORMAT = "%d-%m-%Y"
+FAX_INPUT_FORMATS = [FAX_DATE_FORMAT, "%Y-%m-%d"]
 
-if _DateWidget is None:
-    # Fallback – HTML5 datepicker, klikací v moderních prohlížečích
-    class _DateWidget(forms.DateInput):
-        input_type = "date"
+
+def _resolve_date_widget():
+    """Return a text based DateInput widget with DD-MM-YYYY format."""
+    for mod, name in [
+        ("fax_calendar.widgets", "WoorldAdminDateWidget"),
+        ("fax_calendar.widgets", "WorldAdminDateWidget"),
+        ("fax_calendar.widgets", "WorldDateInput"),
+        ("fax_calendar.widgets", "FaxAdminDateWidget"),
+        ("fax_calendar.widgets", "FaxDateInput"),
+    ]:
+        try:
+            Widget = getattr(__import__(mod, fromlist=[name]), name)
+            try:
+                return Widget(format=FAX_DATE_FORMAT)
+            except TypeError:
+                try:
+                    w = Widget()
+                    if hasattr(w, "format"):
+                        w.format = FAX_DATE_FORMAT
+                    return w
+                except Exception:
+                    pass
+        except Exception:
+            continue
+    return forms.DateInput(format=FAX_DATE_FORMAT)
 
 
 class WorldDateAdminMixin:
-    # sjednotí widgety pro všechny DateField v adminu
     formfield_overrides = {
-        models.DateField: {"widget": _DateWidget},
+        models.DateField: {"widget": _resolve_date_widget()},
     }
+
+    def formfield_for_dbfield(self, db_field, request, **kwargs):
+        field = super().formfield_for_dbfield(db_field, request, **kwargs)
+        if isinstance(db_field, models.DateField) and field:
+            field.input_formats = FAX_INPUT_FORMATS
+            w = field.widget
+            if hasattr(w, "format"):
+                try:
+                    w.format = FAX_DATE_FORMAT
+                except Exception:
+                    pass
+            for k in ("min", "max"):
+                try:
+                    if k in w.attrs:
+                        w.attrs.pop(k, None)
+                except Exception:
+                    pass
+            w.attrs.setdefault("placeholder", "DD-MM-YYYY")
+        return field

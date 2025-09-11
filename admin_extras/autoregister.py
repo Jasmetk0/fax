@@ -1,10 +1,19 @@
 from __future__ import annotations
 
+import types
+
+from django import forms as djf
 from django.apps import apps
 from django.contrib import admin
 from django.db import models
+from django.db import models as djm
 
-from admin_extras.admixins import WorldDateAdminMixin
+from admin_extras.admixins import (
+    FAX_DATE_FORMAT,
+    FAX_INPUT_FORMATS,
+    WorldDateAdminMixin,
+    _resolve_date_widget,
+)
 
 
 def _fields(model):
@@ -112,6 +121,83 @@ def _build_generic_admin(model):
     )
 
 
+def _model_has_any_datefield(model):
+    for f in model._meta.get_fields():
+        if isinstance(f, djm.DateField) and not f.auto_now and not f.auto_now_add:
+            return True
+    return False
+
+
+def attach_conservative_date_inline():
+    CANDIDATE_NAMES = ("play_date", "date", "date_start", "monday_date", "start_date")
+    for _model, adm in list(admin.site._registry.items()):
+        parent = _model
+        if _model_has_any_datefield(parent):
+            continue
+        rels = []
+        for f in parent._meta.get_fields():
+            if not getattr(f, "auto_created", False):
+                continue
+            rel_model = getattr(f, "related_model", None)
+            if not rel_model:
+                continue
+            for cand in CANDIDATE_NAMES:
+                try:
+                    fld = rel_model._meta.get_field(cand)
+                    if isinstance(fld, djm.DateField):
+                        rels.append((rel_model, cand))
+                        break
+                except Exception:
+                    continue
+        if len(rels) != 1:
+            continue
+        rel_model, date_name = rels[0]
+        if any(getattr(ic, "model", None) is rel_model for ic in getattr(adm, "inlines", []) or []):
+            continue
+        Inline = type(
+            f"{rel_model.__name__}AutoDateInline",
+            (admin.TabularInline,),
+            {"model": rel_model, "extra": 0, "fields": (date_name,)},
+        )
+        _patch_formfield_for_dbfield(Inline)
+        inls = list(getattr(adm, "inlines", []) or [])
+        inls.append(Inline)
+        adm.inlines = inls
+
+
+def _patch_formfield_for_dbfield(obj):
+    """Wrap formfield_for_dbfield so DateField uses custom formats and widget."""
+    if getattr(obj, "_fax_date_patched", False):
+        return
+    orig = getattr(obj, "formfield_for_dbfield", None)
+    if orig is None:
+        return
+
+    def _wrapped(self, db_field, request, **kwargs):
+        ff = orig(self, db_field, request, **kwargs)
+        if isinstance(db_field, djm.DateField) and ff:
+            ff.input_formats = FAX_INPUT_FORMATS
+            w = ff.widget
+            if not isinstance(w, djf.DateInput) or getattr(w, "format", None) != FAX_DATE_FORMAT:
+                ff.widget = _resolve_date_widget()
+                w = ff.widget
+            if hasattr(w, "format"):
+                try:
+                    w.format = FAX_DATE_FORMAT
+                except Exception:
+                    pass
+            w.attrs.setdefault("placeholder", "DD-MM-YYYY")
+            for k in ("min", "max"):
+                w.attrs.pop(k, None)
+        return ff
+
+    if isinstance(obj, type):
+        obj.formfield_for_dbfield = _wrapped
+    else:
+        obj.formfield_for_dbfield = types.MethodType(_wrapped, obj)
+    obj._fax_date_patched = True
+
+
 def apply_date_widget_to_registered_admins():
     # Dodatečně napatchuj všechny již zaregistrované ModelAdminy tak,
     # aby jejich formfield_overrides zahrnoval náš Date widget
@@ -124,6 +210,7 @@ def apply_date_widget_to_registered_admins():
             "widget": WorldDateAdminMixin.formfield_overrides[djm.DateField]["widget"]
         }
         adm.formfield_overrides = ffo
+        _patch_formfield_for_dbfield(adm)
 
 
 def apply_date_widget_to_inlines():
@@ -142,6 +229,7 @@ def apply_date_widget_to_inlines():
             widget = WorldDateAdminMixin.formfield_overrides[djm.DateField]["widget"]
             ffo[djm.DateField] = {"widget": widget}
             inline_cls.formfield_overrides = ffo
+            _patch_formfield_for_dbfield(inline_cls)
 
 
 def autoregister_all_models():
@@ -164,3 +252,4 @@ def run():
     apply_date_widget_to_registered_admins()
     # 3) Patch i všech Inline adminů
     apply_date_widget_to_inlines()
+    attach_conservative_date_inline()
