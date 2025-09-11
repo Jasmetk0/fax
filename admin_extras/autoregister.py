@@ -181,16 +181,41 @@ def _patch_formfield_for_dbfield(obj):
         expects_request = True  # bezpečný default pro novější Django
 
     def _wrapped(self, db_field, *args, **kwargs):
-        # Zavolej původní metodu správným způsobem podle signatury
+        """
+        Zavolej původní formfield_for_dbfield s deduplikovaným 'request':
+        - pokud signatura očekává 'request', předáme ho jednou (pozičně),
+        - pokud ne, nepředáváme ho vůbec (odstraníme ze vstupů).
+        """
+        # --- 1) Detekce, zda orig očekává 'request' (už existuje proměnná expects_request nad námi) ---
+        # Pozn.: proměnná expects_request je definovaná výše v _patch_formfield_for_dbfield pomocí inspect.signature(orig)
+
+        # --- 2) Normalizace requestu z args/kwargs, aby nebyl předán dvakrát ---
+        req = None
+        rest_args = list(args)
+
+        # Pokud někdo poslal request pozičně, vytáhni ho z prvního místa (typicky tak Django volá admin metody)
+        if rest_args:
+            req = rest_args.pop(0)
+
+        # Pokud je request i v kwargs, vezmeme hodnotu z kwargs a poziční případně zahodíme,
+        # abychom předešli "multiple values for argument 'request'"
+        if "request" in kwargs:
+            req = kwargs.pop("request")
+
+        # --- 3) Zavolej původní metodu správným stylem ---
+        caller = getattr(orig, "__func__", orig)
         try:
             if expects_request:
-                ff = orig(self, db_field, *args, **kwargs)
+                # Předáme request jednou pozičně; pokud chybí, posíláme None (bezpečný default v adminu)
+                ff = caller(self, db_field, req, **kwargs)
             else:
-                ff = orig(self, db_field, **kwargs)
+                # Původní signatura 'request' nezná – voláme bez něj
+                ff = caller(self, db_field, **kwargs)
         except TypeError:
-            # poslední záchrana – bez requestu
-            ff = orig(self, db_field, **kwargs)
+            # Poslední záchrana pro atypické kombinace – zkus bez requestu
+            ff = caller(self, db_field, **kwargs)
 
+        # --- 4) Aplikuj naše úpravy pro DateField (BEZ změny původní logiky) ---
         if isinstance(db_field, djm.DateField) and ff:
             ff.input_formats = FAX_INPUT_FORMATS
             w = ff.widget
