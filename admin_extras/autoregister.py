@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import types
-
 from django import forms as djf
 from django.apps import apps
 from django.contrib import admin
@@ -166,15 +164,33 @@ def attach_conservative_date_inline():
 
 
 def _patch_formfield_for_dbfield(obj):
-    """Wrap formfield_for_dbfield so DateField uses custom formats and widget."""
+    """Wrap formfield_for_dbfield so DateField uses custom formats and widget (Django-version safe)."""
     if getattr(obj, "_fax_date_patched", False):
         return
     orig = getattr(obj, "formfield_for_dbfield", None)
     if orig is None:
         return
 
-    def _wrapped(self, db_field, request, **kwargs):
-        ff = orig(self, db_field, request, **kwargs)
+    # Detekuj signaturu (některé verze Django nemají 'request' v signatuře)
+    try:
+        import inspect
+
+        sig = inspect.signature(orig)
+        expects_request = "request" in sig.parameters
+    except Exception:
+        expects_request = True  # bezpečný default pro novější Django
+
+    def _wrapped(self, db_field, *args, **kwargs):
+        # Zavolej původní metodu správným způsobem podle signatury
+        try:
+            if expects_request:
+                ff = orig(self, db_field, *args, **kwargs)
+            else:
+                ff = orig(self, db_field, **kwargs)
+        except TypeError:
+            # poslední záchrana – bez requestu
+            ff = orig(self, db_field, **kwargs)
+
         if isinstance(db_field, djm.DateField) and ff:
             ff.input_formats = FAX_INPUT_FORMATS
             w = ff.widget
@@ -192,9 +208,13 @@ def _patch_formfield_for_dbfield(obj):
         return ff
 
     if isinstance(obj, type):
+        # patchujeme třídu (Inline); metoda se správně naváže až při instanciaci
         obj.formfield_for_dbfield = _wrapped
     else:
-        obj.formfield_for_dbfield = types.MethodType(_wrapped, obj)
+        # patchujeme instanci (registrovaný ModelAdmin)
+        import types as _types
+
+        obj.formfield_for_dbfield = _types.MethodType(_wrapped, obj)
     obj._fax_date_patched = True
 
 

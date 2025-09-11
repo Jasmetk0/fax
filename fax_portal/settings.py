@@ -1,6 +1,8 @@
 import os
 from pathlib import Path
 
+from django.conf.global_settings import DATE_INPUT_FORMATS as DJ_DATE_INPUT_FORMATS
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = "insecure-secret-key"
@@ -84,6 +86,11 @@ TIME_ZONE = "UTC"
 USE_I18N = True
 USE_TZ = True
 
+# Přijímej DD-MM-YYYY i ISO YYYY-MM-DD všude, bez ohledu na LANGUAGE_CODE
+DATE_INPUT_FORMATS = ["%d-%m-%Y", "%Y-%m-%d", *DJ_DATE_INPUT_FORMATS]
+
+FORMAT_MODULE_PATH = "fax_portal.formats"
+
 STATIC_URL = "static/"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
@@ -103,3 +110,12 @@ MSA_DRAW_ENGINE = os.getenv("MSA_DRAW_ENGINE", "v1")
 MSA_ADMIN_MODE = True
 MSA_ARCHIVE_LIMIT_COUNT = int(os.getenv("MSA_ARCHIVE_LIMIT_COUNT", "50"))
 MSA_ARCHIVE_LIMIT_MB = int(os.getenv("MSA_ARCHIVE_LIMIT_MB", "50"))
+
+if "rest_framework" in INSTALLED_APPS:
+    REST_FRAMEWORK = {
+        **(globals().get("REST_FRAMEWORK") or {}),
+        "DATE_INPUT_FORMATS": [
+            "%d-%m-%Y",
+            "%Y-%m-%d",
+        ],
+    }
