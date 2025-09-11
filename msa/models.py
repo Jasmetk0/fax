@@ -181,11 +181,6 @@ class CategorySeason(models.Model):
             self.scoring_qual_win = build_qual_skeleton(int(self.qual_rounds))
         super().save(*args, **kwargs)
 
-    @property
-    def qualifiers_count(self) -> int | None:  # pragma: no cover - shim only
-        """Temporary shim for legacy UI expecting CategorySeason.qualifiers_count."""
-        return None
-
 
 class Country(models.Model):
     iso3 = models.CharField(max_length=3, unique=True)
@@ -329,23 +324,42 @@ class Tournament(models.Model):
             self.scoring_qual_win = (cs.scoring_qual_win or {}).copy()
         super().save(*args, **kwargs)
 
+    @property
+    def qualifiers_count_effective(self) -> int:
+        if self.qualifiers_count is not None:
+            return int(self.qualifiers_count)
+        cs = self.category_season
+        return int(getattr(cs, "qualifiers_default", 0) or 0)
+
 
 class RoundFormat(models.Model):
-    class PhaseChoices(models.TextChoices):
-        QUAL = Phase.QUAL, "Qualification"
-        MD = Phase.MD, "Main Draw"
-
-    tournament = models.ForeignKey(Tournament, on_delete=models.CASCADE)
-    phase = models.CharField(max_length=8, choices=PhaseChoices.choices)
-    round_name = models.CharField(max_length=16)
-    best_of = models.PositiveSmallIntegerField(choices=[(3, "3"), (5, "5")])
+    tournament = models.ForeignKey(
+        Tournament,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="round_formats",
+    )
+    phase = models.CharField(
+        max_length=8,
+        choices=Phase.choices,
+        null=True,
+        blank=True,
+    )
+    round_name = models.CharField(max_length=16, null=True, blank=True)
+    best_of = models.PositiveSmallIntegerField(
+        choices=[(3, "3"), (5, "5")],
+        default=5,
+        null=True,
+        blank=True,
+    )
     win_by_two = models.BooleanField(default=True)
 
     class Meta:
         constraints = [
             models.UniqueConstraint(
                 fields=["tournament", "phase", "round_name"],
-                name="uniq_round_format",
+                name="uniq_round_format_per_round",
             )
         ]
 
