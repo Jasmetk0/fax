@@ -4,15 +4,26 @@ from django.db import models
 # Dynamický import kanonického widgetu (nezlom aplikaci, když není)
 _DateWidget = None
 try:
-    from fax_calendar.widgets import WoorldAdminDateWidget as _DateWidget  # pokud existuje
+    # 1) preferuj "Woorld…" (pokud v repu existuje s dvojitým 'o')
+    from fax_calendar.widgets import WoorldAdminDateWidget as _DateWidget
 except Exception:
     try:
-        from fax_calendar.widgets import WorldDateInput as _DateWidget
+        # 2) běžnější pravopis
+        from fax_calendar.widgets import WorldAdminDateWidget as _DateWidget
     except Exception:
         try:
-            from fax_calendar.widgets import FaxDateInput as _DateWidget
+            # 3) input varianta
+            from fax_calendar.widgets import WorldDateInput as _DateWidget
         except Exception:
-            pass
+            try:
+                # 4) Fax admin
+                from fax_calendar.widgets import FaxAdminDateWidget as _DateWidget
+            except Exception:
+                try:
+                    # 5) Fax input
+                    from fax_calendar.widgets import FaxDateInput as _DateWidget
+                except Exception:
+                    _DateWidget = None
 
 if _DateWidget is None:
     # Fallback – HTML5 datepicker, klikací v moderních prohlížečích

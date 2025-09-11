@@ -126,6 +126,24 @@ def apply_date_widget_to_registered_admins():
         adm.formfield_overrides = ffo
 
 
+def apply_date_widget_to_inlines():
+    """
+    U všech již zaregistrovaných ModelAdminů projde jejich inlines (třídy)
+    a merge-ne formfield_overrides tak, aby DateField používal náš sjednocený widget.
+    Idempotentní – bezpečné volat opakovaně.
+    """
+    from django.db import models as djm
+
+    for _model, adm in list(admin.site._registry.items()):
+        inline_classes = getattr(adm, "inlines", None) or []
+        for inline_cls in inline_classes:
+            # Zajisti dict a merge – nenič existující overrides
+            ffo = getattr(inline_cls, "formfield_overrides", {}) or {}
+            widget = WorldDateAdminMixin.formfield_overrides[djm.DateField]["widget"]
+            ffo[djm.DateField] = {"widget": widget}
+            inline_cls.formfield_overrides = ffo
+
+
 def autoregister_all_models():
     # Zaregistruj všechny modely, které zatím v adminu nejsou
     registered = set(admin.site._registry.keys())
@@ -144,3 +162,5 @@ def run():
     autoregister_all_models()
     # 2) Patch existujících adminů na sjednocený date widget
     apply_date_widget_to_registered_admins()
+    # 3) Patch i všech Inline adminů
+    apply_date_widget_to_inlines()
