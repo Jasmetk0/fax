@@ -3,36 +3,36 @@ from django.shortcuts import render
 
 
 def home(request):
-    return render(request, "home/index.html")
+    return render(request, "msa/home/index.html")
 
 
 def tournaments_list(request):
-    return render(request, "tournaments/list.html")
+    return render(request, "msa/tournaments/list.html")
 
 
 def rankings_list(request):
-    return render(request, "rankings/list.html")
+    return render(request, "msa/rankings/list.html")
 
 
 def players_list(request):
-    return render(request, "players/list.html")
+    return render(request, "msa/players/list.html")
 
 
 def calendar(request):
-    return render(request, "calendar/index.html")
+    return render(request, "msa/calendar/index.html")
 
 
 def media(request):
-    return render(request, "media/index.html")
+    return render(request, "msa/media/index.html")
 
 
 def docs(request):
-    return render(request, "docs/index.html")
+    return render(request, "msa/docs/index.html")
 
 
 def search(request):
     q = request.GET.get("q", "")
-    return render(request, "search/page.html", {"q": q})
+    return render(request, "msa/search/page.html", {"q": q})
 
 
 def nav_live_badge(request):
