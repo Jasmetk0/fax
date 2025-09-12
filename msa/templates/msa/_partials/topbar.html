@@ -1,5 +1,4 @@
 {% load msa_extras %}
-{# Pozn.: očekáváme, že request je v kontextu. Pokud ne, dodej context processor. #}
 <header id="msa-topbar" class="sticky top-0 z-50 bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/70 shadow-sm transition-shadow">
   <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-16 flex items-center gap-6">
     <!-- Logo: zatím text, později nahradíme SVG -->
@@ -67,9 +66,3 @@
     </div>
   </div>
 </header>
-{# Vysvětlení: 
- - sticky topbar s průhledným pozadím + backdrop-blur.
- - aktivní položka řešíme přes request.path; underline (border-b-2) a akcent barva.
- - dropdown je skrytý class "hidden"; JS přepíná hidden a aria-expanded.
- - vyhledávání: Enter → GET na /search?q=...; hotkey "/" bude ve topbar.js.
-#}
