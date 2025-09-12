@@ -139,7 +139,7 @@ def build_ics_for_matches(tournament: Tournament, days: list[str]) -> str:
         .select_related("player_top", "player_bottom", "schedule")
         .order_by("schedule__play_date", "schedule__order")
     )
-    events = [build_match_vevent(m, m.schedule.play_date.isoformat()) for m in matches]
+    events = [build_match_vevent(m, m.schedule.play_date) for m in matches]
     lines = [
         "BEGIN:VCALENDAR",
         "PRODID:-//MSA//Matches//EN",

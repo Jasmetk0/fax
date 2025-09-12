@@ -24,7 +24,7 @@ from msa.services.results import set_result
 
 @pytest.mark.django_db
 def test_reopen_md_full_reset_when_no_results():
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-28")
     c = Category.objects.create(name="WT")
     cs = CategorySeason.objects.create(category=c, season=s, draw_size=16, md_seeds_count=4)
     t = Tournament.objects.create(season=s, category=c, category_season=cs, name="M1", slug="m1")
@@ -52,7 +52,7 @@ def test_reopen_md_full_reset_when_no_results():
 
 @pytest.mark.django_db
 def test_reopen_md_soft_preserves_done_pairs_and_shuffles_unseeded_in_pending_r1():
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-28")
     c = Category.objects.create(name="WT")
     cs = CategorySeason.objects.create(category=c, season=s, draw_size=16, md_seeds_count=4)
     t = Tournament.objects.create(season=s, category=c, category_season=cs, name="M2", slug="m2")
@@ -96,7 +96,7 @@ def test_reopen_md_soft_preserves_done_pairs_and_shuffles_unseeded_in_pending_r1
 
 @pytest.mark.django_db
 def test_reopen_md_hard_resets_impacted_results():
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-28")
     c = Category.objects.create(name="WT")
     cs = CategorySeason.objects.create(category=c, season=s, draw_size=16, md_seeds_count=4)
     t = Tournament.objects.create(season=s, category=c, category_season=cs, name="M3", slug="m3")
@@ -130,7 +130,7 @@ def test_reopen_md_hard_resets_impacted_results():
 
 @pytest.mark.django_db
 def test_snapshot_created_on_reopen_md():
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-28")
     c = Category.objects.create(name="WT")
     cs = CategorySeason.objects.create(category=c, season=s, draw_size=16, md_seeds_count=4)
     t = Tournament.objects.create(season=s, category=c, category_season=cs, name="M4", slug="m4")
@@ -157,7 +157,7 @@ def test_snapshot_created_on_reopen_md():
 
 @pytest.mark.django_db
 def test_reopen_md_soft_keeps_schedule_if_pair_unchanged():
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-28")
     c = Category.objects.create(name="WT")
     cs = CategorySeason.objects.create(category=c, season=s, draw_size=16, md_seeds_count=4)
     t = Tournament.objects.create(season=s, category=c, category_season=cs, name="M5", slug="m5")
@@ -205,7 +205,7 @@ def test_reopen_md_soft_keeps_schedule_if_pair_unchanged():
 
 @pytest.mark.django_db
 def test_reopen_md_soft_deletes_schedule_if_pair_changed():
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-28")
     c = Category.objects.create(name="WT")
     cs = CategorySeason.objects.create(category=c, season=s, draw_size=16, md_seeds_count=4)
     t = Tournament.objects.create(season=s, category=c, category_season=cs, name="M6", slug="m6")

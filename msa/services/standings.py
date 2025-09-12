@@ -86,7 +86,8 @@ def _week_window(start_monday, duration_weeks):
         return None, None
     from datetime import timedelta
 
-    return start_monday, start_monday + timedelta(weeks=int(duration_weeks))
+    sm = _to_date(start_monday)
+    return sm, sm + timedelta(weeks=int(duration_weeks))
 
 
 def _intersects_weekly_window(range_start, range_end, win_start, win_end):
@@ -94,8 +95,8 @@ def _intersects_weekly_window(range_start, range_end, win_start, win_end):
     if not (win_start and win_end and range_start and range_end):
         return False
     # posuň season range na "pondělí" hranice
-    rs = _monday_of(range_start)
-    re = _monday_of(range_end)
+    rs = _monday_of(_to_date(range_start))
+    re = _monday_of(_to_date(range_end))
     # průnik existuje, pokud okna se nepřekrývají opačně
     return not (re < win_start or rs >= win_end)
 
