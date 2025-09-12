@@ -18,11 +18,12 @@ from msa.models import (
 from msa.services.md_band_regen import regenerate_md_band
 from msa.services.md_confirm import confirm_main_draw
 from msa.services.seed_anchors import md_anchor_map
+from tests.woorld_helpers import woorld_date
 
 
 @pytest.mark.django_db
 def test_regenerate_seed_band_5_8_permutates_only_that_band():
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date=woorld_date(2025, 12))
     c = Category.objects.create(name="WT")
     cs = CategorySeason.objects.create(category=c, season=s, draw_size=32, md_seeds_count=8)
     t = Tournament.objects.create(
@@ -64,7 +65,7 @@ def test_regenerate_seed_band_5_8_permutates_only_that_band():
 
 @pytest.mark.django_db
 def test_regenerate_unseeded_soft_does_not_touch_done_pairs():
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date=woorld_date(2025, 12))
     c = Category.objects.create(name="WT")
     cs = CategorySeason.objects.create(category=c, season=s, draw_size=16, md_seeds_count=4)
     t = Tournament.objects.create(
@@ -110,7 +111,7 @@ def test_regenerate_unseeded_soft_does_not_touch_done_pairs():
 
 @pytest.mark.django_db
 def test_band_regen_changes_with_rng_seed_active():
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date=woorld_date(2025, 12))
     c = Category.objects.create(name="WT")
     cs = CategorySeason.objects.create(category=c, season=s, draw_size=16, md_seeds_count=8)
     t = Tournament.objects.create(

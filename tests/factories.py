@@ -1,6 +1,5 @@
-from datetime import date
-
 from msa.models import CategorySeason, Player, Tournament
+from tests.woorld_helpers import woorld_date
 
 
 def make_player(name: str = "P") -> Player:
@@ -20,8 +19,8 @@ def make_category_season(
     cat = Category.objects.create(name="CAT")
     season = Season.objects.create(
         name="S",
-        start_date=date(2025, 1, 1),
-        end_date=date(2025, 12, 31),
+        start_date=woorld_date(2025, 1, 1),
+        end_date=woorld_date(2025, 12),
         best_n=10,
     )
     cs = CategorySeason.objects.create(
@@ -41,8 +40,8 @@ def make_tournament(*, cs=None, qualifiers_count=0):
         name="T",
         slug="t",
         category_season=cs,
-        start_date=date(2025, 6, 1),
-        end_date=date(2025, 6, 2),
+        start_date=woorld_date(2025, 6, 1),
+        end_date=woorld_date(2025, 6, 2),
         md_best_of=5,
         q_best_of=3,
         third_place_enabled=False,

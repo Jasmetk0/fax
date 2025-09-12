@@ -19,13 +19,14 @@ from msa.models import (
 )
 from msa.services.qual_confirm import confirm_qualification
 from msa.services.qual_edit import swap_slots_in_qualification
+from tests.woorld_helpers import woorld_date
 
 
 def _mk_base(K=2, R=3, pool=None):
     # R=3 → size=8, seed kotvy: 1 (TOP), 8 (BOTTOM)
     size = 2**R
     pool = pool or (K * size + 6)
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date=woorld_date(2025, 12))
     c = Category.objects.create(name="WT")
     cs = CategorySeason.objects.create(category=c, season=s, draw_size=16, qual_rounds=R)
     t = Tournament.objects.create(

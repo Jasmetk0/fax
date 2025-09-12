@@ -17,6 +17,7 @@ from msa.models import (
     TournamentState,
 )
 from msa.services.standings import rolling_standings
+from tests.woorld_helpers import woorld_date
 
 
 @pytest.mark.django_db
@@ -24,7 +25,7 @@ def test_rolling_best_n_fallback_to_last_season():
     s = Season.objects.create(
         name="2025",
         start_date=date(2025, 1, 1),
-        end_date=date(2025, 12, 31),
+        end_date=woorld_date(2025, 12),
         best_n=1,
     )
     cat = Category.objects.create(name="WT")

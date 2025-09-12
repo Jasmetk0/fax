@@ -1,15 +1,12 @@
-from datetime import date
+import json
+import subprocess
+from pathlib import Path
 
 import pytest
 
 from . import core
-from .fields import WoorldDateFormField
-from .utils import (
-    format_woorld_date,
-    from_storage,
-    parse_woorld_date,
-    to_storage,
-)
+from .forms import WoorldDateFormField
+from .utils import format_woorld_date, from_storage, parse_woorld_date, to_storage
 
 
 def test_year_297_month1_has_48():
@@ -50,7 +47,6 @@ def test_anchors_and_seasons():
 def test_parse_and_format():
     y, m, d = parse_woorld_date("05-02-2030")
     assert (y, m, d) == (2030, 2, 5)
-    assert parse_woorld_date("05.02.2030") == (2030, 2, 5)
     stored = to_storage(y, m, d)
     assert stored == "2030-02-05"
     assert from_storage(stored) == (2030, 2, 5)
@@ -61,8 +57,8 @@ def test_parse_and_format():
 def test_formfield_clean_and_prepare():
     field = WoorldDateFormField()
     stored = field.clean("07-01-2035")
-    assert stored == date(2035, 1, 7)
-    assert field.prepare_value("2035-01-07w") == "07-01-2035"
+    assert stored == "2035-01-07"
+    assert field.prepare_value("2035-01-07") == "2035-01-07"
 
 
 def test_invalid_day():
@@ -74,3 +70,21 @@ def test_invalid_day():
 def test_month_lengths_sums_to_year_length():
     for y in list(range(296, 305)) + list(range(688, 691)):
         assert sum(core.month_lengths(y)) == core.year_length(y)
+
+
+def test_js_month_lengths_consistent_with_python(tmp_path):
+    years = [1, 297, 303, 689]
+    code = (
+        "import * as m from './fax_calendar/static/fax_calendar/core.js';"
+        f"console.log(JSON.stringify({years}.map(y => m.monthLengths(y))));"
+    )
+    proc = subprocess.run(
+        ["node", "--input-type=module", "-e", code],
+        capture_output=True,
+        text=True,
+        cwd=Path(__file__).resolve().parent.parent,
+        check=True,
+    )
+    js_lengths = json.loads(proc.stdout.strip())
+    py_lengths = [core.month_lengths(y) for y in years]
+    assert js_lengths == py_lengths

@@ -24,7 +24,7 @@ from msa.services.results import set_result
 def test_reopen_soft_keeps_schedule_without_pair_change():
     settings.MSA_ADMIN_MODE = True
 
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-28")
     c = Category.objects.create(name="WT")
     cs = CategorySeason.objects.create(category=c, season=s, draw_size=4, md_seeds_count=1)
     t = Tournament.objects.create(season=s, category=c, category_season=cs, name="TA", slug="ta")
@@ -76,7 +76,7 @@ def test_reopen_soft_keeps_schedule_without_pair_change():
 def test_reopen_soft_deletes_schedule_when_pair_changed():
     settings.MSA_ADMIN_MODE = True
 
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-28")
     c = Category.objects.create(name="WT")
     cs = CategorySeason.objects.create(category=c, season=s, draw_size=4, md_seeds_count=1)
     t = Tournament.objects.create(season=s, category=c, category_season=cs, name="TB", slug="tb")

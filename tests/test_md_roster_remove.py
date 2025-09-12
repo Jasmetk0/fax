@@ -20,11 +20,12 @@ from msa.services.md_confirm import confirm_main_draw
 from msa.services.md_embed import r1_name_for_md
 from msa.services.md_roster import ensure_vacancies_filled, remove_player_from_md
 from msa.services.results import set_result
+from tests.woorld_helpers import woorld_date
 
 
 @pytest.mark.django_db
 def test_remove_blocks_when_r1_has_result():
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date=woorld_date(2025, 12))
     c = Category.objects.create(name="WT")
     cs = CategorySeason.objects.create(category=c, season=s, draw_size=16, md_seeds_count=4)
     t = Tournament.objects.create(season=s, category=c, category_season=cs, name="M1", slug="m1")
@@ -53,7 +54,7 @@ def test_remove_blocks_when_r1_has_result():
 
 @pytest.mark.django_db
 def test_remove_vacates_and_fills_with_ll_then_alt():
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date=woorld_date(2025, 12))
     c = Category.objects.create(name="WT")
     cs = CategorySeason.objects.create(category=c, season=s, draw_size=16, md_seeds_count=4)
     t = Tournament.objects.create(season=s, category=c, category_season=cs, name="M2", slug="m2")
@@ -126,7 +127,7 @@ def test_remove_vacates_and_fills_with_ll_then_alt():
 
 @pytest.mark.django_db
 def test_ensure_vacancies_filled_after_ll_promotion():
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date=woorld_date(2025, 12))
     c = Category.objects.create(name="WT")
     cs = CategorySeason.objects.create(category=c, season=s, draw_size=16, md_seeds_count=4)
     t = Tournament.objects.create(season=s, category=c, category_season=cs, name="M3", slug="m3")

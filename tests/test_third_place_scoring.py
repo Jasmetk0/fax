@@ -15,6 +15,7 @@ from msa.models import (
     TournamentState,
 )
 from msa.services.scoring import compute_md_points
+from tests.woorld_helpers import woorld_date
 
 THIRD = 200
 FOURTH = 120
@@ -22,7 +23,7 @@ SFPTS = 90
 
 
 def _mk_base(draw=16):
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date=woorld_date(2025, 12))
     c = Category.objects.create(name="WT")
     cs = CategorySeason.objects.create(category=c, season=s, draw_size=draw, md_seeds_count=4)
     # scoring tabulka s Third/Fourth + SF
@@ -177,7 +178,7 @@ def test_no_third_place_match_or_not_done_keeps_sf_points():
 @pytest.mark.django_db
 def test_third_place_ignored_when_flag_off():
     # stejné prostředí, ale third_place_enabled=False
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date=woorld_date(2025, 12))
     c = Category.objects.create(name="WT")
     cs = CategorySeason.objects.create(category=c, season=s, draw_size=16, md_seeds_count=4)
     cs.scoring_md = {

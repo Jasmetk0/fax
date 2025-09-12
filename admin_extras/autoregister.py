@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from django import forms as djf
 from django.apps import apps
+from django.conf import settings
 from django.contrib import admin
 from django.db import models
 from django.db import models as djm
@@ -100,9 +101,14 @@ def _list_filter_for(model) -> tuple:
 
 
 def _date_hierarchy_for(model) -> str | None:
-    return _first_existing(
-        model, ["monday_date", "start_date", "end_date", "created_at", "updated_at"]
-    )
+    for name in ["monday_date", "start_date", "end_date", "created_at", "updated_at"]:
+        try:
+            fld = model._meta.get_field(name)
+        except Exception:
+            continue
+        if isinstance(fld, djm.DateField | djm.DateTimeField):
+            return name
+    return None
 
 
 def _readonly_for(model) -> tuple:
@@ -242,7 +248,12 @@ def _patch_formfield_for_dbfield(obj):
 
         from fax_calendar.forms import WoorldDateFormField
 
-        if ff and is_woorld_dbfield(db_field) and is_woorld_widget(ff.widget):
+        if (
+            ff
+            and getattr(settings, "FAX_WOORLD_ADMIN_SWAP", True)
+            and is_woorld_dbfield(db_field)
+            and is_woorld_widget(ff.widget)
+        ):
             orig_widget = ff.widget
             required = ff.required
             initial = ff.initial

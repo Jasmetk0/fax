@@ -1,3 +1,5 @@
+// NOTE: This file mirrors ``fax_calendar.core`` in Python.
+// Python is the canonical source of truth; keep logic in sync.
 const PROTO_V3_SET = new Set([689, 1067, 1433, 1657]);
 const PROMOTED_START = 303;
 

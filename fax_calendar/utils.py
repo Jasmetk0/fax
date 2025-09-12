@@ -21,9 +21,6 @@ def days_in_month(year: int, month: int) -> int:
     return lengths[month - 1]
 
 
-_SEP_RE = r"[-./]"
-
-
 def parse_woorld_date(value: Any) -> tuple[int | None, int | None, int | None]:
     """Tolerant parser for Woorld calendar dates.
 
@@ -33,7 +30,7 @@ def parse_woorld_date(value: Any) -> tuple[int | None, int | None, int | None]:
     * ``date``/``datetime`` → components
     * ``tuple``/``list`` of three items → components (strings allowed)
     * ``bytes`` → decoded as UTF-8
-    * ``str`` in formats ``DD-MM-YYYY``, ``YYYY-MM-DD``, ``DD.MM.YYYY`` or ``DD/MM/YYYY``
+    * ``str`` in formats ``DD-MM-YYYY`` or ``YYYY-MM-DD``
 
     Raises :class:`django.core.exceptions.ValidationError` on invalid input.
     """
@@ -78,7 +75,7 @@ def parse_woorld_date(value: Any) -> tuple[int | None, int | None, int | None]:
         if iso:
             y, m, d = map(int, iso.groups())
         else:
-            dmy = re.fullmatch(rf"(\d{{1,2}}){_SEP_RE}(\d{{1,2}}){_SEP_RE}(\d{{4}})", value)
+            dmy = re.fullmatch(r"(\d{1,2})-(\d{1,2})-(\d{4})", value)
             if not dmy:
                 raise ValidationError(err_msg)
             d, m, y = map(int, dmy.groups())

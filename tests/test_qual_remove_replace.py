@@ -24,7 +24,7 @@ from msa.services.qual_replace import remove_and_replace_in_qualification
 
 def _mk_base(K=1, R=2, pool=8):
     # size = 2^R na větev
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-28")
     c = Category.objects.create(name="WT")
     cs = CategorySeason.objects.create(category=c, season=s, draw_size=16, qual_rounds=R)
     t = Tournament.objects.create(

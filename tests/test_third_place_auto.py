@@ -16,11 +16,12 @@ from msa.models import (
 )
 from msa.services.md_third_place import ensure_third_place_match
 from msa.services.results import set_result
+from tests.woorld_helpers import woorld_date
 
 
 @pytest.mark.django_db
 def test_auto_third_place_is_created_after_both_sf_done():
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date=woorld_date(2025, 12))
     c = Category.objects.create(name="WT")
     cs = CategorySeason.objects.create(category=c, season=s, draw_size=16, md_seeds_count=4)
     cs.scoring_md = {"Winner": 1000, "RunnerUp": 600, "SF": 90, "Third": 200, "Fourth": 120}
@@ -79,7 +80,7 @@ def test_auto_third_place_is_created_after_both_sf_done():
 @pytest.mark.django_db
 def test_third_place_updates_players_if_pending_and_sf_changes():
     # Setup jako výše
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date=woorld_date(2025, 12))
     c = Category.objects.create(name="WT")
     cs = CategorySeason.objects.create(category=c, season=s, draw_size=16, md_seeds_count=4)
     t = Tournament.objects.create(
@@ -136,7 +137,7 @@ def test_third_place_updates_players_if_pending_and_sf_changes():
 
 @pytest.mark.django_db
 def test_third_place_removed_when_flag_off():
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date=woorld_date(2025, 12))
     c = Category.objects.create(name="WT")
     cs = CategorySeason.objects.create(category=c, season=s, draw_size=16, md_seeds_count=4)
     t = Tournament.objects.create(
@@ -179,7 +180,7 @@ def test_third_place_removed_when_flag_off():
 
 @pytest.mark.django_db
 def test_third_place_idempotent_and_done_preserved():
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date=woorld_date(2025, 12))
     c = Category.objects.create(name="WT")
     cs = CategorySeason.objects.create(category=c, season=s, draw_size=16, md_seeds_count=4)
     t = Tournament.objects.create(

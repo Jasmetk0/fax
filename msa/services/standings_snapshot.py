@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 from django.core.exceptions import ValidationError
 from django.db import transaction
 
+from fax_calendar.utils import parse_woorld_date
 from msa.conf import (
     DEDUP_ENABLED,
     FIRST_OFFICIAL_MONDAY,
@@ -23,8 +24,11 @@ class StalePreviewError(Exception):
     pass
 
 
-def activation_monday(dt: datetime | date, tz_name: str = "Europe/Prague") -> date:
+def activation_monday(dt: datetime | date | str, tz_name: str = "Europe/Prague") -> date:
     tz = ZoneInfo(tz_name)
+    if isinstance(dt, str):
+        y, m, d = parse_woorld_date(dt)
+        dt = date(y, m, d)
     if isinstance(dt, datetime):
         dt = dt.astimezone(tz)
         d = dt.date()
@@ -35,8 +39,11 @@ def activation_monday(dt: datetime | date, tz_name: str = "Europe/Prague") -> da
     return d + timedelta(days=days)
 
 
-def official_monday(now: datetime | date, tz_name: str = "Europe/Prague") -> date:
+def official_monday(now: datetime | date | str, tz_name: str = "Europe/Prague") -> date:
     tz = ZoneInfo(tz_name)
+    if isinstance(now, str):
+        y, m, d = parse_woorld_date(now)
+        now = date(y, m, d)
     if isinstance(now, datetime):
         now = now.astimezone(tz)
         d = now.date()
@@ -152,6 +159,10 @@ def ensure_seeding_baseline(t: Tournament) -> RankingSnapshot | None:
         t.seeding_monday = official_monday(t.start_date)
         t.save(update_fields=["seeding_monday"])
     snap = get_official_snapshot(RankingSnapshot.Type.ROLLING, t.seeding_monday)
-    if not snap and SEEDING_STRICT and t.seeding_monday >= FIRST_OFFICIAL_MONDAY:
+    seeding = t.seeding_monday
+    if isinstance(seeding, str):
+        y, m, d = parse_woorld_date(seeding)
+        seeding = date(y, m, d)
+    if not snap and SEEDING_STRICT and seeding >= FIRST_OFFICIAL_MONDAY:
         raise ValidationError("Official snapshot missing")
     return snap

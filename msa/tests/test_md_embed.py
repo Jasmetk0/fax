@@ -17,12 +17,13 @@ from msa.models import (
 from msa.services.md_confirm import confirm_main_draw
 from msa.services.md_embed import effective_template_size_for_md, r1_name_for_md
 from msa.services.seed_anchors import md_anchor_map
+from tests.woorld_helpers import woorld_date
 
 
 @pytest.mark.django_db
 def test_confirm_main_draw_draw24_embeds_into_r32_with_byes_for_top8():
     # MD24 → šablona 32, S=8, 8 BYE párů (top8 seed má volno v R32)
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date=woorld_date(2025, 12))
     c = Category.objects.create(name="WT")
     cs = CategorySeason.objects.create(category=c, season=s, draw_size=24, md_seeds_count=8)
     t = Tournament.objects.create(

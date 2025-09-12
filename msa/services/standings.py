@@ -86,7 +86,8 @@ def _week_window(start_monday, duration_weeks):
         return None, None
     from datetime import timedelta
 
-    return start_monday, start_monday + timedelta(weeks=int(duration_weeks))
+    sm = _to_date(start_monday)
+    return sm, sm + timedelta(weeks=int(duration_weeks))
 
 
 def _intersects_weekly_window(range_start, range_end, win_start, win_end):
@@ -94,8 +95,8 @@ def _intersects_weekly_window(range_start, range_end, win_start, win_end):
     if not (win_start and win_end and range_start and range_end):
         return False
     # posuň season range na "pondělí" hranice
-    rs = _monday_of(range_start)
-    re = _monday_of(range_end)
+    rs = _monday_of(_to_date(range_start))
+    re = _monday_of(_to_date(range_end))
     # průnik existuje, pokud okna se nepřekrývají opačně
     return not (re < win_start or rs >= win_end)
 
@@ -166,14 +167,15 @@ def _rolling_adjustments_map(snapshot_monday) -> dict[int, tuple[int, int]]:
     return out
 
 
-def _best_n_for_date(all_seasons: list[Season], snap_day: date) -> int:
+def _best_n_for_date(all_seasons: list[Season], snap_day: date | str) -> int:
     # Najdi season, která obsahuje snap_day; pokud žádná, vezmi poslední dle end_date
     if not all_seasons:
         return 10  # bezpečný fallback
+    snap_str = snap_day if isinstance(snap_day, str) else snap_day.strftime("%Y-%m-%d")
     containing = [
         s
         for s in all_seasons
-        if s.start_date and s.end_date and (s.start_date <= snap_day <= s.end_date)
+        if s.start_date and s.end_date and (s.start_date <= snap_str <= s.end_date)
     ]
     if containing:
         s = containing[0]

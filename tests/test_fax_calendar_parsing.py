@@ -20,8 +20,9 @@ def test_parse_dd_mm_yyyy():
     assert parse_woorld_date("01-09-2025") == (2025, 9, 1)
 
 
-def test_parse_with_dots():
-    assert parse_woorld_date("01.09.2025") == (2025, 9, 1)
+def test_parse_with_dots_rejected():
+    with pytest.raises(ValidationError):
+        parse_woorld_date("01.09.2025")
 
 
 def test_parse_bytes():

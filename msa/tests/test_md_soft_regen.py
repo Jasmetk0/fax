@@ -19,12 +19,13 @@ from msa.models import (
 from msa.services.md_confirm import confirm_main_draw
 from msa.services.md_soft_regen import soft_regenerate_unseeded_md
 from msa.services.seed_anchors import md_anchor_map
+from tests.woorld_helpers import woorld_date
 
 
 @pytest.mark.django_db
 def test_soft_regen_only_moves_unseeded_in_unfinished_r1():
     # Setup turnaje
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date=woorld_date(2025, 12))
     c = Category.objects.create(name="World Tour")
     cs = CategorySeason.objects.create(category=c, season=s, draw_size=16, md_seeds_count=4)
     t = Tournament.objects.create(
@@ -103,7 +104,7 @@ def test_soft_regen_only_moves_unseeded_in_unfinished_r1():
 
 @pytest.mark.django_db
 def test_soft_regen_unseeded_changes_with_rng_seed_active():
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date=woorld_date(2025, 12))
     c = Category.objects.create(name="World Tour")
     cs = CategorySeason.objects.create(category=c, season=s, draw_size=16, md_seeds_count=4)
     t = Tournament.objects.create(

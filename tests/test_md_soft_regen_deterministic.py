@@ -14,13 +14,14 @@ from msa.models import (
 )
 from msa.services.md_confirm import confirm_main_draw
 from msa.services.md_soft_regen import soft_regenerate_unseeded_md
+from tests.woorld_helpers import woorld_date
 
 
 @pytest.mark.django_db
 def test_soft_regenerate_unseeded_md_deterministic():
     settings.MSA_ADMIN_MODE = True
 
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date=woorld_date(2025, 12))
     c = Category.objects.create(name="WT")
     cs = CategorySeason.objects.create(category=c, season=s, draw_size=16, md_seeds_count=4)
 

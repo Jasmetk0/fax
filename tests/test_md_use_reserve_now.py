@@ -21,11 +21,12 @@ from msa.services.md_confirm import confirm_main_draw
 from msa.services.md_embed import r1_name_for_md
 from msa.services.md_roster import remove_player_from_md, use_reserve_now
 from msa.services.results import set_result
+from tests.woorld_helpers import woorld_date
 
 
 @pytest.mark.django_db
 def test_use_reserve_now_on_empty_slot_prefers_alt():
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date=woorld_date(2025, 12))
     c = Category.objects.create(name="WT")
     cs = CategorySeason.objects.create(category=c, season=s, draw_size=16, md_seeds_count=4)
     t = Tournament.objects.create(season=s, category=c, category_season=cs, name="T1", slug="t1")
@@ -76,7 +77,7 @@ def test_use_reserve_now_on_empty_slot_prefers_alt():
 
 @pytest.mark.django_db
 def test_use_reserve_now_overrides_existing_ll():
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date=woorld_date(2025, 12))
     c = Category.objects.create(name="WT")
     cs = CategorySeason.objects.create(category=c, season=s, draw_size=16, md_seeds_count=4)
     t = Tournament.objects.create(season=s, category=c, category_season=cs, name="T2", slug="t2")
@@ -143,7 +144,7 @@ def test_use_reserve_now_overrides_existing_ll():
 
 @pytest.mark.django_db
 def test_use_reserve_now_blocks_when_r1_has_result():
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date=woorld_date(2025, 12))
     c = Category.objects.create(name="WT")
     cs = CategorySeason.objects.create(category=c, season=s, draw_size=16, md_seeds_count=4)
     t = Tournament.objects.create(season=s, category=c, category_season=cs, name="T3", slug="t3")

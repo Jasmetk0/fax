@@ -20,12 +20,13 @@ from msa.models import (
 from msa.services.planning import list_day_order, save_planning_snapshot
 from msa.services.planning_undo import redo_planning_day, undo_planning_day
 from tests.test_admin_gate import expect_admin_block
+from tests.woorld_helpers import woorld_date
 
 DAY = "2025-08-01"
 
 
 def _setup_tournament():
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date=woorld_date(2025, 12))
     c = Category.objects.create(name="WT")
     cs = CategorySeason.objects.create(category=c, season=s, draw_size=16, md_seeds_count=4)
     t = Tournament.objects.create(

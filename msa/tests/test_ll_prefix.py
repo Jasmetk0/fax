@@ -19,11 +19,12 @@ from msa.services.ll_prefix import (
     get_ll_queue,
     reinstate_original_player,
 )
+from tests.woorld_helpers import woorld_date
 
 
 @pytest.mark.django_db
 def test_ll_queue_ordering_nr_last():
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date=woorld_date(2025, 12))
     c = Category.objects.create(name="World Tour")
     cs = CategorySeason.objects.create(category=c, season=s, draw_size=32)
     t = Tournament.objects.create(
@@ -50,7 +51,7 @@ def test_ll_queue_ordering_nr_last():
 
 @pytest.mark.django_db
 def test_fill_vacant_slot_prefers_ll_then_alt():
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date=woorld_date(2025, 12))
     c = Category.objects.create(name="World Tour")
     cs = CategorySeason.objects.create(category=c, season=s, draw_size=32)
     t = Tournament.objects.create(
@@ -93,7 +94,7 @@ def test_fill_vacant_slot_prefers_ll_then_alt():
 
 @pytest.mark.django_db
 def test_enforce_ll_prefix_swaps_out_wrong_ll():
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date=woorld_date(2025, 12))
     c = Category.objects.create(name="World Tour")
     cs = CategorySeason.objects.create(category=c, season=s, draw_size=32)
     t = Tournament.objects.create(
@@ -132,7 +133,7 @@ def test_enforce_ll_prefix_swaps_out_wrong_ll():
 
 @pytest.mark.django_db
 def test_reinstate_original_pops_worst_ll_and_swaps_slots_if_needed():
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date=woorld_date(2025, 12))
     c = Category.objects.create(name="World Tour")
     cs = CategorySeason.objects.create(category=c, season=s, draw_size=32)
     t = Tournament.objects.create(

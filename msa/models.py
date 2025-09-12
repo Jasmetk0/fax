@@ -5,6 +5,7 @@ from django.core.validators import MinValueValidator, RegexValidator
 from django.db import models
 from django.utils import timezone
 
+from fax_calendar.model_fields import WoorldDateField
 from msa.services.scoring_skeleton import build_md_skeleton, build_qual_skeleton
 
 
@@ -79,8 +80,8 @@ class Season(models.Model):
         blank=True,
         validators=[RegexValidator(r"^\d{4}/\d{2}$", message="Season name must be YYYY/NN")],
     )
-    start_date = models.DateField(null=True, blank=True)
-    end_date = models.DateField(null=True, blank=True)
+    start_date = WoorldDateField(null=True, blank=True)
+    end_date = WoorldDateField(null=True, blank=True)
     best_n = models.PositiveSmallIntegerField(default=16, null=True, blank=True)
 
     class Meta:
@@ -264,8 +265,8 @@ class Tournament(models.Model):
 
     name = models.CharField(max_length=120, null=True, blank=True)
     slug = models.SlugField(max_length=140, unique=True, null=True, blank=True)
-    start_date = models.DateField(null=True, blank=True)
-    end_date = models.DateField(null=True, blank=True)
+    start_date = WoorldDateField(null=True, blank=True)
+    end_date = WoorldDateField(null=True, blank=True)
     draw_size = models.PositiveSmallIntegerField(null=True, blank=True)
 
     qualifiers_count = models.PositiveSmallIntegerField(null=True, blank=True)
@@ -298,7 +299,7 @@ class Tournament(models.Model):
         blank=True,
     )
     snapshot_label = models.CharField(max_length=120, blank=True, null=True, default=None)
-    seeding_monday = models.DateField(null=True, blank=True)
+    seeding_monday = WoorldDateField(null=True, blank=True)
 
     rng_seed_active = models.BigIntegerField(default=0, null=True, blank=True)
     state = models.CharField(
@@ -485,7 +486,7 @@ class Match(models.Model):
 
 class Schedule(models.Model):
     tournament = models.ForeignKey(Tournament, on_delete=models.CASCADE, null=True, blank=True)
-    play_date = models.DateField(null=True, blank=True)
+    play_date = WoorldDateField(null=True, blank=True)
     order = models.PositiveIntegerField(null=True, blank=True)
     match = models.OneToOneField(
         Match, on_delete=models.CASCADE, related_name="schedule", null=True, blank=True
@@ -543,7 +544,7 @@ class RankingAdjustment(models.Model):
     )
 
     points_delta = models.IntegerField(default=0, null=True, blank=True)
-    start_monday = models.DateField(null=True, blank=True)
+    start_monday = WoorldDateField(null=True, blank=True)
     duration_weeks = models.PositiveSmallIntegerField(default=61, null=True, blank=True)
 
     best_n_penalty = models.SmallIntegerField(
@@ -561,7 +562,7 @@ class RankingSnapshot(models.Model):
         RTF = "RTF"
 
     type = models.CharField(max_length=16, choices=Type.choices, db_index=True)
-    monday_date = models.DateField(db_index=True)
+    monday_date = WoorldDateField(db_index=True)
     hash = models.CharField(max_length=64, db_index=True)
     payload = models.JSONField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
