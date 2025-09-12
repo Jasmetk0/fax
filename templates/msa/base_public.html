@@ -1,13 +1,17 @@
+{% load static %}
 <!DOCTYPE html>
 <html>
   <head>
     <meta charset="utf-8" />
     <title>MSA Public</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <link rel="stylesheet" href="{% static 'msa/css/tailwind.css' %}">
+    <script defer src="{% static 'msa/js/topbar.js' %}"></script>
   </head>
   <body class="bg-gray-50">
-    <nav class="bg-gray-800 text-white p-2">MSA Public</nav>
-    <main class="container mx-auto p-4">
+    {% include 'msa/_partials/topbar.html' %}
+    <main class="container mx-auto p-4 pt-20">
       {% block content %}{% endblock %}
     </main>
   </body>
