@@ -17,13 +17,14 @@ from msa.models import (
 )
 from msa.services.md_confirm import confirm_main_draw, hard_regenerate_unseeded_md
 from msa.services.seed_anchors import md_anchor_map
+from tests.woorld_helpers import woorld_date
 
 
 @pytest.mark.django_db
 def test_confirm_main_draw_md16_s4_seeds_on_anchors_and_pairs_created():
     # základ
     s = Season.objects.create(
-        name="2025", start_date="2025-01-01", end_date="2025-12-31", best_n=16
+        name="2025", start_date="2025-01-01", end_date=woorld_date(2025, 12), best_n=16
     )
     c = Category.objects.create(name="World Tour")
     cs = CategorySeason.objects.create(category=c, season=s, draw_size=16, md_seeds_count=4)
@@ -68,7 +69,7 @@ def test_confirm_main_draw_md16_s4_seeds_on_anchors_and_pairs_created():
 
 @pytest.mark.django_db
 def test_hard_regenerate_unseeded_changes_pool_keeps_seeds():
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date=woorld_date(2025, 12))
     c = Category.objects.create(name="World Tour")
     cs = CategorySeason.objects.create(category=c, season=s, draw_size=16, md_seeds_count=4)
     t = Tournament.objects.create(

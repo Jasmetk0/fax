@@ -19,6 +19,7 @@ from msa.models import (
 )
 from msa.services.scoring import compute_tournament_points
 from msa.services.standings import _monday_of, rolling_standings, rtf_standings, season_standings
+from tests.woorld_helpers import woorld_date
 
 
 def _mk_tournament(season, category, name, end_date_str, scoring_md=None):
@@ -44,7 +45,9 @@ def _mk_tournament(season, category, name, end_date_str, scoring_md=None):
 
 @pytest.mark.django_db
 def test_season_best_n_counts_top_results_only():
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31", best_n=1)
+    s = Season.objects.create(
+        name="2025", start_date="2025-01-01", end_date=woorld_date(2025, 12), best_n=1
+    )
     cat = Category.objects.create(name="World Tour")
     scoring = {"Winner": 100, "RunnerUp": 60, "SF": 36, "QF": 18, "R16": 9}
 
@@ -107,10 +110,10 @@ def test_season_best_n_counts_top_results_only():
 def test_rolling_activation_and_expiry_61_weeks():
     # dvě sezóny (kvůli best_n fallbacku), ale počítáme podle datumu
     s1 = Season.objects.create(
-        name="2025", start_date="2025-01-01", end_date="2025-12-31", best_n=2
+        name="2025", start_date="2025-01-01", end_date=woorld_date(2025, 12), best_n=2
     )
     s2 = Season.objects.create(
-        name="2026", start_date="2026-01-01", end_date="2026-12-31", best_n=2
+        name="2026", start_date="2026-01-01", end_date=woorld_date(2026, 12), best_n=2
     )
     cat = Category.objects.create(name="WT")
     scoring = {"Winner": 100, "RunnerUp": 60, "SF": 36, "QF": 18, "R16": 9, "R32": 5}
@@ -156,7 +159,9 @@ def test_rolling_activation_and_expiry_61_weeks():
 
 @pytest.mark.django_db
 def test_rtf_pins_auto_top_winners():
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31", best_n=2)
+    s = Season.objects.create(
+        name="2025", start_date="2025-01-01", end_date=woorld_date(2025, 12), best_n=2
+    )
     catP = Category.objects.create(name="WT Platinum")
     catS = Category.objects.create(name="WT Silver")
     scoring = {"Winner": 100, "RunnerUp": 60, "SF": 36, "QF": 18, "R16": 9}

@@ -15,11 +15,12 @@ from msa.models import (
 from msa.services.licenses import grant_license_for_tournament_season
 from msa.services.md_confirm import confirm_main_draw
 from msa.services.qual_confirm import confirm_qualification
+from tests.woorld_helpers import woorld_date
 
 
 @pytest.mark.django_db
 def test_confirm_qualification_blocks_when_any_active_player_missing_license():
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date=woorld_date(2025, 12))
     c = Category.objects.create(name="WT")
     cs = CategorySeason.objects.create(category=c, season=s, draw_size=16, qual_rounds=2)
     t = Tournament.objects.create(
@@ -51,7 +52,7 @@ def test_confirm_qualification_blocks_when_any_active_player_missing_license():
 
 @pytest.mark.django_db
 def test_confirm_main_draw_blocks_without_licenses_and_allows_after_grant():
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date=woorld_date(2025, 12))
     c = Category.objects.create(name="WT")
     cs = CategorySeason.objects.create(category=c, season=s, draw_size=16, md_seeds_count=4)
     t = Tournament.objects.create(season=s, category=c, category_season=cs, name="M", slug="m")

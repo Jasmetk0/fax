@@ -22,12 +22,13 @@ from msa.services.md_placeholders import (
     replace_placeholders_with_qual_winners,
 )
 from msa.services.qual_confirm import confirm_qualification
+from tests.woorld_helpers import woorld_date
 
 
 @pytest.mark.django_db
 def test_placeholders_lock_slots_and_later_swap_to_real_winners():
     # Turnaj: MD32, K=2 kvalifikanti, kvalda R=3 (8 hráčů/ větev)
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date=woorld_date(2025, 12))
     c = Category.objects.create(name="World Tour")
     cs = CategorySeason.objects.create(
         category=c, season=s, draw_size=32, md_seeds_count=8, qual_rounds=3

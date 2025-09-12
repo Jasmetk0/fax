@@ -18,6 +18,7 @@ from msa.models import (
     TournamentEntry,
 )
 from msa.services.standings import rolling_standings, season_standings
+from tests.woorld_helpers import woorld_date
 
 
 @pytest.mark.django_db
@@ -25,7 +26,7 @@ def test_season_adjustment_points_and_penalty():
     season = Season.objects.create(
         name="2024",
         start_date=date(2024, 1, 1),
-        end_date=date(2024, 12, 31),
+        end_date=woorld_date(2024, 12),
         best_n=2,
     )
     category = Category.objects.create(name="M")
@@ -98,7 +99,7 @@ def test_rolling_adjustment_active_at_snapshot():
     season = Season.objects.create(
         name="2024",
         start_date=date(2024, 1, 1),
-        end_date=date(2024, 12, 31),
+        end_date=woorld_date(2024, 12),
         best_n=2,
     )
     category = Category.objects.create(name="M")

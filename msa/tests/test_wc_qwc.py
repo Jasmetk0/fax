@@ -13,12 +13,13 @@ from msa.models import (
     TournamentState,
 )
 from msa.services.wc import apply_qwc, apply_wc, remove_qwc, remove_wc, set_q_wc_slots, set_wc_slots
+from tests.woorld_helpers import woorld_date
 
 
 @pytest.mark.django_db
 def test_wc_above_cutline_is_label_only_does_not_consume():
     # MD32, qualifiers=4 → D = 28
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date=woorld_date(2025, 12))
     c = Category.objects.create(name="WT")
     cs = CategorySeason.objects.create(category=c, season=s, draw_size=32, wc_slots_default=2)
     t = Tournament.objects.create(
@@ -54,7 +55,7 @@ def test_wc_above_cutline_is_label_only_does_not_consume():
 
 @pytest.mark.django_db
 def test_wc_below_cutline_promotes_and_demotes_last_DA_and_respects_limit():
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date=woorld_date(2025, 12))
     c = Category.objects.create(name="WT")
     cs = CategorySeason.objects.create(category=c, season=s, draw_size=32, wc_slots_default=1)
     t = Tournament.objects.create(
@@ -98,7 +99,7 @@ def test_wc_below_cutline_promotes_and_demotes_last_DA_and_respects_limit():
 
 @pytest.mark.django_db
 def test_qwc_promotes_alt_to_q_and_respects_limit_label_only_in_q():
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date=woorld_date(2025, 12))
     c = Category.objects.create(name="WT")
     cs = CategorySeason.objects.create(category=c, season=s, draw_size=32, q_wc_slots_default=1)
     t = Tournament.objects.create(

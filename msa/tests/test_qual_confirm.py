@@ -16,11 +16,12 @@ from msa.models import (
     TournamentState,
 )
 from msa.services.qual_confirm import confirm_qualification, update_ll_after_qual_finals
+from tests.woorld_helpers import woorld_date
 
 
 @pytest.mark.django_db
 def test_confirm_qualification_creates_full_tree_and_seeds_on_tiers():
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date=woorld_date(2025, 12))
     c = Category.objects.create(name="World Tour")
     # K=2 kvalifikanti, R=3 → každá větev má 8 hráčů, seeds_per_bracket=2
     cs = CategorySeason.objects.create(category=c, season=s, draw_size=32, qual_rounds=3)
@@ -62,7 +63,7 @@ def test_confirm_qualification_creates_full_tree_and_seeds_on_tiers():
 
 @pytest.mark.django_db
 def test_update_ll_after_qual_finals_promotes_final_losers():
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date=woorld_date(2025, 12))
     c = Category.objects.create(name="World Tour")
     cs = CategorySeason.objects.create(
         category=c, season=s, draw_size=32, qual_rounds=2

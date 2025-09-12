@@ -19,12 +19,13 @@ from msa.services.md_confirm import confirm_main_draw
 from msa.services.md_embed import effective_template_size_for_md
 from msa.services.qual_confirm import confirm_qualification
 from msa.services.scoring import compute_md_points, compute_q_wins_points, compute_tournament_points
+from tests.woorld_helpers import woorld_date
 
 
 @pytest.mark.django_db
 def test_q_wins_and_md_points_with_bye_rule_draw24():
     # MD24 embed do R32, S=8 → top8 má BYE v "R32"
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date=woorld_date(2025, 12))
     c = Category.objects.create(name="WT")
     cs = CategorySeason.objects.create(category=c, season=s, draw_size=24, md_seeds_count=8)
 
@@ -79,7 +80,7 @@ def test_q_wins_and_md_points_with_bye_rule_draw24():
 @pytest.mark.django_db
 def test_q_wins_accumulate_and_total_combines_with_md():
     # kvalda K=1, R=2 (Q4 -> Q2), jednoduché body za výhry: Q4=10, Q2=20
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date=woorld_date(2025, 12))
     c = Category.objects.create(name="WT")
     cs = CategorySeason.objects.create(
         category=c, season=s, draw_size=16, md_seeds_count=4, qual_rounds=2

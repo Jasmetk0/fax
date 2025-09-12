@@ -23,11 +23,12 @@ from msa.services.planning import (
     save_planning_snapshot,
     swap_matches,
 )
+from tests.woorld_helpers import woorld_date
 
 
 @pytest.mark.django_db
 def test_insert_compacts_and_positions_correctly():
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date=woorld_date(2025, 12))
     c = Category.objects.create(name="WT")
     cs = CategorySeason.objects.create(category=c, season=s, draw_size=16, md_seeds_count=4)
     t = Tournament.objects.create(
@@ -64,7 +65,7 @@ def test_insert_compacts_and_positions_correctly():
 
 @pytest.mark.django_db
 def test_swap_across_days_and_normalize_and_clear():
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date=woorld_date(2025, 12))
     c = Category.objects.create(name="WT")
     cs = CategorySeason.objects.create(category=c, season=s, draw_size=16, md_seeds_count=4)
     t = Tournament.objects.create(
@@ -113,7 +114,7 @@ def test_swap_across_days_and_normalize_and_clear():
 
 @pytest.mark.django_db
 def test_save_and_restore_planning_snapshot():
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date=woorld_date(2025, 12))
     c = Category.objects.create(name="WT")
     cs = CategorySeason.objects.create(category=c, season=s, draw_size=16, md_seeds_count=4)
     t = Tournament.objects.create(

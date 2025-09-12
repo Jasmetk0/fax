@@ -19,12 +19,13 @@ from msa.services.recalculate import (
     confirm_recalculate_registration,
     preview_recalculate_registration,
 )
+from tests.woorld_helpers import woorld_date
 
 
 @pytest.mark.django_db
 def test_preview_and_confirm_apply_groups_and_seeds_with_wc_respected():
     # MD32, qualifiers=4 → D=28; S=8
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date=woorld_date(2025, 12))
     c = Category.objects.create(name="WT")
     cs = CategorySeason.objects.create(
         category=c,
@@ -103,7 +104,7 @@ def test_preview_and_confirm_apply_groups_and_seeds_with_wc_respected():
 
 @pytest.mark.django_db
 def test_confirm_blocks_when_wc_or_qwc_limit_exceeded():
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date=woorld_date(2025, 12))
     c = Category.objects.create(name="WT")
     cs = CategorySeason.objects.create(
         category=c,
@@ -164,7 +165,7 @@ def test_confirm_blocks_when_wc_or_qwc_limit_exceeded():
 
 @pytest.mark.django_db
 def test_brutal_reset_snapshots_and_clears_matches_and_slots():
-    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date="2025-12-31")
+    s = Season.objects.create(name="2025", start_date="2025-01-01", end_date=woorld_date(2025, 12))
     c = Category.objects.create(name="WT")
     cs = CategorySeason.objects.create(category=c, season=s, draw_size=16, md_seeds_count=4)
     t = Tournament.objects.create(

@@ -15,6 +15,7 @@ from msa.models import (
     TournamentState,
 )
 from msa.services.standings import rolling_standings, rtf_standings, season_standings
+from tests.woorld_helpers import woorld_date
 
 
 def _mk_tournament(season, category, name, end_date_str, scoring_md=None):
@@ -47,14 +48,14 @@ def test_rtf_order_differs_from_season_and_rolling():
 
     # Season to evaluate
     season = Season.objects.create(
-        name="2025", start_date="2025-01-01", end_date="2025-12-31", best_n=2
+        name="2025", start_date="2025-01-01", end_date=woorld_date(2025, 12), best_n=2
     )
     t_auto = _mk_tournament(season, cat_auto, "Platinum", "2025-03-15", scoring_md=scoring)
     t_regular = _mk_tournament(season, cat_regular, "Challenger", "2025-06-01", scoring_md=scoring)
 
     # Tournament from previous season should be ignored
     prev = Season.objects.create(
-        name="2024", start_date="2024-01-01", end_date="2024-12-31", best_n=2
+        name="2024", start_date="2024-01-01", end_date=woorld_date(2024, 12), best_n=2
     )
     _mk_tournament(prev, cat_auto, "Old", "2024-03-10", scoring_md=scoring)
 

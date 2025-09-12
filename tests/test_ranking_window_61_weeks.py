@@ -17,13 +17,14 @@ from msa.models import (
 )
 from msa.services.standings import rolling_standings
 from msa.services.standings_snapshot import activation_monday
+from tests.woorld_helpers import woorld_date
 
 
 def _make_tournament(end_date: date) -> tuple[Tournament, Player]:
     season = Season.objects.create(
         name="2024",
         start_date=date(2024, 1, 1),
-        end_date=date(2024, 12, 31),
+        end_date=woorld_date(2024, 12),
         best_n=10,
     )
     category = Category.objects.create(name="M")
