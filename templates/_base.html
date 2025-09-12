@@ -1,0 +1,26 @@
+{% load static %}
+<!doctype html>
+<html lang="cs">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{% block title %}MSA{% endblock %}</title>
+    <!-- Tailwind build (už v projektu) -->
+    <link rel="stylesheet" href="{% static 'css/tailwind.css' %}">
+    <!-- HTMX pro budoucí interakce -->
+    <script defer src="{% static 'js/htmx.min.js' %}"></script>
+    <!-- Náš lehký JS pro topbar -->
+    <script defer src="{% static 'js/topbar.js' %}"></script>
+  </head>
+  <body class="min-h-screen bg-white text-slate-900 antialiased">
+    <!-- Skip link pro a11y -->
+    <a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:bg-white focus:text-slate-900 focus:px-3 focus:py-2 focus:rounded-md">Přeskočit na obsah</a>
+
+    {% include '_partials/topbar.html' %}
+
+    <main id="main" class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
+      {% block content %}{% endblock %}
+    </main>
+  </body>
+</html>
+{# Vysvětlení: _base.html zavádí Tailwind, HTMX a náš topbar.js; skip-link zlepšuje přístupnost. #}
