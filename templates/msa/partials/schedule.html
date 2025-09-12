@@ -1,9 +1,0 @@
-{% if schedule %}
-<ul>
-  {% for s in schedule %}
-  <li>{{ s.play_date }} {{ s.order }} {{ s.match.round_name }}</li>
-  {% endfor %}
-</ul>
-{% else %}
-<p>No schedule.</p>
-{% endif %}

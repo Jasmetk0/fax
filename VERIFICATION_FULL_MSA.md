@@ -1,6 +1,6 @@
 # Full Verification — MSA
-Generated: 2025-09-09 17:54:01 UTC
-Spec: /workspace/fax/docs/MSA_SPEC.yaml (version: 1.0)
+Generated: 2025-09-09 18:00:20 UTC
+Spec: C:/Users/Kluci/Projects/fax/docs/MSA_SPEC.yaml (version: 1.0)
 
 ## Scoreboard
 - ARs: 14/16 PASS (87%)
