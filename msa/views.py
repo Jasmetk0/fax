@@ -1,5 +1,6 @@
-from django.http import HttpResponse
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, render
+
+from msa.models import Season
 
 
 def home(request):
@@ -7,7 +8,8 @@ def home(request):
 
 
 def tournaments_list(request):
-    return render(request, "msa/tournaments/list.html")
+    seasons = Season.objects.order_by("-id")
+    return render(request, "msa/tournaments/seasons.html", {"seasons": seasons})
 
 
 def rankings_list(request):
@@ -19,7 +21,9 @@ def players_list(request):
 
 
 def calendar(request):
-    return render(request, "msa/calendar/index.html")
+    season_id = request.GET.get("season")
+    season = get_object_or_404(Season, pk=season_id) if season_id else None
+    return render(request, "msa/calendar/index.html", {"season": season})
 
 
 def media(request):
@@ -31,23 +35,7 @@ def docs(request):
 
 
 def search(request):
-    q = request.GET.get("q", "")
-    return render(request, "msa/search/page.html", {"q": q})
-
-
-def nav_live_badge(request):
-    """Return small badge with count of live tournaments for nav."""
-    # TODO: sem dej reálné počítání live turnajů. Zatím 0 → vracíme skrytý badge.
-    count = 0
-    if count > 0:
-        html = (
-            '<span id="live-badge" class="ml-1 inline-flex items-center justify-center '
-            "rounded-md border border-slate-200 px-1.5 text-[11px] leading-5 text-slate-700 "
-            f'bg-white align-middle">{count}</span>'
-        )
-    else:
-        html = '<span id="live-badge" class="ml-1 hidden"></span>'
-    return HttpResponse(html)
+    return render(request, "msa/search/page.html")
 
 
 # Vysvětlení: aktivní stav v menu čteme v šabloně z request.path; proto je vhodné mít

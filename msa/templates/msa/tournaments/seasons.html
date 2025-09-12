@@ -1,0 +1,32 @@
+{% extends "msa/_base.html" %}
+{% block body %}
+  <header class="mb-6">
+    <h1 class="text-2xl font-bold">MSA Seasons</h1>
+    <p class="text-slate-500 text-sm">Vyber sezónu pro turnajový kalendář.</p>
+  </header>
+
+  {% if seasons %}
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {% for s in seasons %}
+        <a href="{% url 'msa:calendar' %}?season={{ s.id }}"
+           class="block rounded-lg border border-slate-200 p-4 hover:bg-slate-50 transition">
+          <div class="flex items-baseline justify-between">
+            <span class="text-lg font-semibold">
+              {% firstof s.label s.name s.year %}{% if not s.label and not s.name and not s.year %}Season #{{ s.id }}{% endif %}
+            </span>
+            <span class="text-xs text-slate-500">Calendar →</span>
+          </div>
+          {% if s.start_date and s.end_date %}
+            <p class="mt-1 text-sm text-slate-600">
+              {{ s.start_date|date:"F Y" }} – {{ s.end_date|date:"F Y" }}
+            </p>
+          {% endif %}
+        </a>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="rounded-lg border border-dashed border-slate-300 p-8 text-center text-slate-500">
+      Zatím tu žádné sezóny nejsou.
+    </div>
+  {% endif %}
+{% endblock %}

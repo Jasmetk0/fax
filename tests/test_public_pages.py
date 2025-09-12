@@ -6,6 +6,8 @@ from django.test import Client
 from msa.models import EntryType, Match, Schedule, TournamentEntry
 from tests.factories import make_category_season, make_player, make_tournament
 
+pytestmark = pytest.mark.legacy_msa_public
+
 
 @pytest.mark.django_db
 def test_public_views_smoke(client: Client):

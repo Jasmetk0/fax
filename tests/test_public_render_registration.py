@@ -3,6 +3,8 @@ import pytest
 from msa.models import EntryType, TournamentEntry
 from tests.factories import make_category_season, make_player, make_tournament
 
+pytestmark = pytest.mark.legacy_msa_public
+
 
 @pytest.mark.django_db
 def test_registration_separators_render(client):
