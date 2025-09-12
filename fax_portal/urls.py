@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.urls import include, path
-from django.views.generic import TemplateView
+from django.views.generic import TemplateView  # RedirectView už nepotřebujeme
 
 from fax_calendar import views as calendar_views
 from search import views as search_views
@@ -16,6 +16,10 @@ urlpatterns = [
     path("livesport/", include("sports.urls")),
     path("mma/", include("mma.urls")),
     path("api/mma/", include("mma.api.urls")),
+<<<<<<< HEAD
+=======
+    # ✅ NOVĚ: jediný mount MSA pod /msa/ s namespace "msa"
+>>>>>>> 17c27c8 (MSA FE: Tournaments → Seasons list (dynamic), robust Season lookup, debug header [fmt])
     path("msa/", include("msa.urls", namespace="msa")),
     path("woorld/", include("fax_calendar.urls")),
     path(

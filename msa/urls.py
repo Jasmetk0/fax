@@ -19,4 +19,3 @@ urlpatterns = [
     path("docs", views.docs, name="docs"),
     path("search", views.search, name="search"),
 ]
-# Vysvětlení: simple routes bez trailing slashe pro čisté URL; lze změnit dle projektu.

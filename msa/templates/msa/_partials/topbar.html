@@ -1,0 +1,68 @@
+{% with ns=request.resolver_match.namespace name=request.resolver_match.url_name %}
+<header id="msa-topbar" class="sticky top-0 z-50 bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/70 shadow-sm transition-shadow">
+  <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-16 flex items-center gap-6">
+    <!-- Logo -->
+    <a href="{% url 'msa:home' %}" class="text-lg font-semibold tracking-wide text-slate-900 hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 rounded-md">
+      MSA
+    </a>
+
+    <!-- Primární navigace -->
+    <nav class="flex items-center gap-2" aria-label="Primary" role="navigation">
+      <a href="{% url 'msa:tournaments_list' %}"
+         class="px-2 py-1 rounded-md text-sm font-medium border-b-2 border-transparent hover:border-slate-300 {% if ns == 'msa' and name == 'tournaments_list' %}border-blue-600 text-blue-600{% endif %}"
+         {% if ns == 'msa' and name == 'tournaments_list' %}aria-current="page"{% endif %}>
+        Tournaments
+        <!-- Live badge (HTMX, autorefresh) -->
+        <span id="live-badge"
+              class="ml-1 inline-flex items-center justify-center rounded-md border border-slate-200 px-1.5 text-[11px] leading-5 text-slate-700 bg-white align-middle hidden"
+              hx-get="{% url 'msa:nav_live_badge' %}"
+              hx-trigger="load, every 60s"
+              hx-swap="outerHTML">
+          <!-- Server vrátí <span …>N</span> nebo 'hidden' když 0 -->
+        </span>
+      </a>
+
+      <a href="{% url 'msa:rankings_list' %}"
+         class="px-2 py-1 rounded-md text-sm font-medium border-b-2 border-transparent hover:border-slate-300 {% if ns == 'msa' and name == 'rankings_list' %}border-blue-600 text-blue-600{% endif %}"
+         {% if ns == 'msa' and name == 'rankings_list' %}aria-current="page"{% endif %}>
+        Rankings
+      </a>
+
+      <a href="{% url 'msa:players_list' %}"
+         class="px-2 py-1 rounded-md text-sm font-medium border-b-2 border-transparent hover:border-slate-300 {% if ns == 'msa' and name == 'players_list' %}border-blue-600 text-blue-600{% endif %}"
+         {% if ns == 'msa' and name == 'players_list' %}aria-current="page"{% endif %}>
+        Players
+      </a>
+
+      <!-- More dropdown -->
+      <div class="relative">
+        <button id="msa-more-btn"
+                class="px-2 py-1 rounded-md text-sm font-medium border-b-2 border-transparent hover:border-slate-300 flex items-center gap-1 {% if ns == 'msa' and name == 'calendar' or ns == 'msa' and name == 'media' or ns == 'msa' and name == 'docs' %}border-blue-600 text-blue-600{% endif %}"
+                {% if ns == 'msa' and name == 'calendar' or ns == 'msa' and name == 'media' or ns == 'msa' and name == 'docs' %}aria-current="page" data-active="true"{% endif %}
+                aria-haspopup="true" aria-expanded="false" aria-controls="msa-more-menu" type="button">
+          More
+          <svg aria-hidden="true" class="w-4 h-4"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+        </button>
+        <div id="msa-more-menu"
+             class="hidden absolute right-0 mt-2 w-48 rounded-xl border border-slate-200 bg-white shadow-lg py-2"
+             role="menu" aria-labelledby="msa-more-btn">
+          <a href="{% url 'msa:calendar' %}" role="menuitem" class="block px-3 py-2 text-sm hover:bg-slate-50">Calendar</a>
+          <a href="{% url 'msa:media' %}"    role="menuitem" class="block px-3 py-2 text-sm hover:bg-slate-50">Media</a>
+          <a href="{% url 'msa:docs' %}"     role="menuitem" class="block px-3 py-2 text-sm hover:bg-slate-50">Docs</a>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Vyhledávání (s klávesovou nápovědou "/") -->
+    <div class="ml-auto relative">
+      <form action="{% url 'msa:search' %}" method="get" role="search" class="relative">
+        <input type="search" name="q" placeholder="Search players, tournaments…"
+               class="w-56 md:w-64 lg:w-72 xl:w-80 rounded-xl border border-slate-200 bg-white px-3 py-2 pr-8 text-sm shadow-inner placeholder:text-slate-400
+                      focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
+               value="{{ request.GET.q|default:'' }}" aria-label="Search" />
+        <span class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[11px] text-slate-400 select-none">/</span>
+      </form>
+    </div>
+  </div>
+</header>
+{% endwith %}
