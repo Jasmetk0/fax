@@ -16,8 +16,7 @@ urlpatterns = [
     path("livesport/", include("sports.urls")),
     path("mma/", include("mma.urls")),
     path("api/mma/", include("mma.api.urls")),
-    path("msa/", include(("msa.urls_public", "msa_public"), namespace="msa_public")),
-    path("msasquashtour/", include("msa.urls")),
+    path("msa/", include("msa.urls", namespace="msa")),
     path("woorld/", include("fax_calendar.urls")),
     path(
         "api/fax_calendar/year/<int:y>/meta",

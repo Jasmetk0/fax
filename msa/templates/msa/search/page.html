@@ -1,6 +1,5 @@
 {% extends "msa/_base.html" %}
-{% block title %}MSA – Search{% endblock %}
-{% block content %}
-  <h1 class="text-2xl font-semibold mb-4">Search results</h1>
-  <p class="text-slate-600">Query: "{{ request.GET.q|default:'' }}"</p>
+{% block body %}
+<h1 class="text-2xl font-bold mb-4">Search</h1>
+<p>Query: "{{ request.GET.q|default:'' }}"</p>
 {% endblock %}

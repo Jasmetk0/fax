@@ -1,6 +1,15 @@
 {% extends "msa/_base.html" %}
-{% block title %}MSA – Calendar{% endblock %}
-{% block content %}
-  <h1 class="text-2xl font-semibold mb-4">Calendar</h1>
-  <p class="text-slate-600">Kalendář – obsah brzy doplníme.</p>
+{% block body %}
+{% if season %}
+  <h1 class="text-2xl font-bold mb-4">
+    {% if season.label %}{{ season.label }}{% elif season.name %}{{ season.name }}{% elif season.year %}{{ season.year }}{% else %}Season #{{ season.id }}{% endif %}
+  </h1>
+  {% if season.start_date and season.end_date %}
+    <p class="mb-4 text-slate-600">{{ season.start_date }} – {{ season.end_date }}</p>
+  {% endif %}
+  <p>Season calendar will be here…</p>
+{% else %}
+  <p>No season selected.</p>
+  <p><a href="{% url 'msa:tournaments_list' %}">Back to Seasons</a></p>
+{% endif %}
 {% endblock %}
