@@ -18,7 +18,8 @@ def test_msa_tournaments_lists_seasons_and_renders():
     c = Client()
     resp = c.get(url)
     assert resp.status_code == 200
-    assert "MSA Seasons" in resp.content.decode()
+    body = resp.content.decode()
+    assert "Seasons" in body
 
 
 def test_msa_calendar_renders_when_season_present():

@@ -1,16 +1,55 @@
+from django.apps import apps
 from django.http import HttpResponse
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import render
 
-from msa.models import Season
+from msa.utils.dates import find_season_for_date, get_active_date
 
 
 def home(request):
     return render(request, "msa/home/index.html")
 
 
+def seasons_list(request):
+    Season = apps.get_model("msa", "Season") if apps.is_installed("msa") else None
+    seasons = Season.objects.all().order_by("id") if Season else []
+    return render(request, "msa/seasons/list.html", {"seasons": seasons})
+
+
 def tournaments_list(request):
-    seasons = Season.objects.order_by("-id")
-    return render(request, "msa/tournaments/seasons.html", {"seasons": seasons})
+    d = get_active_date(request)
+    season = find_season_for_date(d)
+    if not season:
+        return seasons_list(request)
+
+    Tournament = apps.get_model("msa", "Tournament") if apps.is_installed("msa") else None
+    tournaments = []
+    if Tournament:
+        qs = Tournament.objects.all()
+        fields = {f.name for f in Tournament._meta.get_fields()}
+        if "season" in fields:
+            tournaments = qs.filter(season=season)
+        elif {"start_date", "end_date"}.issubset(fields):
+            start = getattr(season, "start_date", None)
+            end = getattr(season, "end_date", None)
+            if start and end:
+                tournaments = qs.filter(start_date__lte=end, end_date__gte=start)
+        elif "start_date" in fields:
+            start = getattr(season, "start_date", None)
+            end = getattr(season, "end_date", None)
+            if start and end:
+                tournaments = qs.filter(start_date__range=(start, end))
+        elif "date" in fields:
+            start = getattr(season, "start_date", None)
+            end = getattr(season, "end_date", None)
+            if start and end:
+                tournaments = qs.filter(date__range=(start, end))
+
+    context = {
+        "tournaments": tournaments,
+        "active_season": season,
+        "active_date": d,
+    }
+    return render(request, "msa/tournaments/list.html", context)
 
 
 def rankings_list(request):
@@ -22,9 +61,13 @@ def players_list(request):
 
 
 def calendar(request):
-    season_id = request.GET.get("season")
-    season = get_object_or_404(Season, pk=season_id) if season_id else None
-    return render(request, "msa/calendar/index.html", {"season": season})
+    d = get_active_date(request)
+    season = find_season_for_date(d)
+    if not season:
+        return seasons_list(request)
+
+    context = {"active_season": season, "active_date": d, "season": season}
+    return render(request, "msa/calendar/index.html", context)
 
 
 def media(request):
