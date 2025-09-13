@@ -7,9 +7,7 @@ app_name = "msa"
 
 urlpatterns = [
     path(
-        "",
-        RedirectView.as_view(pattern_name="msa:tournaments_list", permanent=False),
-        name="home",
+        "", RedirectView.as_view(pattern_name="msa:tournaments_list", permanent=False), name="home"
     ),
     path("tournaments", views.tournaments_list, name="tournaments_list"),
     path("calendar", views.calendar, name="calendar"),
@@ -18,5 +16,6 @@ urlpatterns = [
     path("media", views.media, name="media"),
     path("docs", views.docs, name="docs"),
     path("search", views.search, name="search"),
+    # ↓↓↓ doplň tento řádek
+    path("status/live-badge", views.nav_live_badge, name="nav_live_badge"),
 ]
-# Vysvětlení: simple routes bez trailing slashe pro čisté URL; lze změnit dle projektu.

@@ -1,3 +1,4 @@
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
 
 from msa.models import Season
@@ -38,5 +39,12 @@ def search(request):
     return render(request, "msa/search/page.html")
 
 
-# Vysvětlení: aktivní stav v menu čteme v šabloně z request.path; proto je vhodné mít
-# 'django.template.context_processors.request' aktivní (většinou default v settings).
+def nav_live_badge(request):
+    count = 0  # TODO: reálná logika později
+    if count > 0:
+        return HttpResponse(
+            '<span id="live-badge" class="ml-1 inline-flex items-center justify-center '
+            "rounded-md border border-slate-200 px-1.5 text-[11px] leading-5 text-slate-700 "
+            f'bg-white align-middle">{count}</span>'
+        )
+    return HttpResponse('<span id="live-badge" class="ml-1 hidden"></span>')

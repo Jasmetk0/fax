@@ -3,6 +3,7 @@ from django.urls import include, path
 from django.views.generic import TemplateView
 
 from fax_calendar import views as calendar_views
+from msa import views as msa_views
 from search import views as search_views
 from wiki.urls import api_urlpatterns as wiki_api
 
@@ -16,7 +17,9 @@ urlpatterns = [
     path("livesport/", include("sports.urls")),
     path("mma/", include("mma.urls")),
     path("api/mma/", include("mma.api.urls")),
+    # pouze nový MSA mount s namespace "msa"
     path("msa/", include("msa.urls", namespace="msa")),
+    path("status/live-badge", msa_views.nav_live_badge, name="nav_live_badge"),
     path("woorld/", include("fax_calendar.urls")),
     path(
         "api/fax_calendar/year/<int:y>/meta",
