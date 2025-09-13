@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from datetime import date, datetime
+from importlib import import_module
 
 from django.apps import apps
 
-FMTS = ("%Y-%m-%d", "%d-%m-%Y", "%Y/%m/%d")
+FMTS = ("%Y-%m-%d", "%d-%m-%Y", "%Y/%m/%d", "%d.%m.%Y", "%Y.%m.%d")
 
 
 def _parse_date(value: str) -> date | None:
@@ -19,13 +20,80 @@ def _parse_date(value: str) -> date | None:
     return None
 
 
+def _woorld_to_gregorian(value):
+    """
+    Best-effort převod „woorld“ data (string/dict) na gregoriánský ``date``.
+    """
+
+    # 1) Pokud je to už parsovatelný string, zkus standardní formáty
+    if isinstance(value, str):
+        d = _parse_date(value)
+        if d:
+            return d
+
+    # 2) Zkus konverzi přes fax_calendar (pokud je nainstalován)
+    try:
+        candidates = [
+            (
+                "fax_calendar.utils",
+                (
+                    "woorld_to_gregorian",
+                    "to_gregorian",
+                    "to_gregorian_date",
+                    "as_gregorian",
+                    "convert_to_gregorian",
+                ),
+            ),
+            ("fax_calendar.api", ("woorld_to_gregorian", "to_gregorian", "convert")),
+            ("fax_calendar.convert", ("woorld_to_gregorian", "to_gregorian")),
+        ]
+
+        for mod_name, fn_names in candidates:
+            try:
+                mod = import_module(mod_name)
+            except Exception:
+                continue
+            for fn in fn_names:
+                f = getattr(mod, fn, None)
+                if not f:
+                    continue
+                try:
+                    res = f(value)
+                except Exception:
+                    continue
+
+                if hasattr(res, "date"):
+                    return res.date()
+                if hasattr(res, "year") and hasattr(res, "month") and hasattr(res, "day"):
+                    return date(int(res.year), int(res.month), int(res.day))
+                if isinstance(res, str):
+                    d = _parse_date(res)
+                    if d:
+                        return d
+    except Exception:
+        pass
+
+    # 3) dict {year,month,day} nebo {y,m,d}
+    try:
+        if isinstance(value, dict):
+            y = value.get("year") or value.get("y")
+            m = value.get("month") or value.get("m")
+            d = value.get("day") or value.get("d")
+            if all(isinstance(x, int) for x in (y, m, d)):
+                return date(y, m, d)
+    except Exception:
+        pass
+
+    return None
+
+
 def get_active_date(request) -> date:
     """Return active date from request or today.
 
     Order of sources:
     - query param ``d`` or ``date``
-    - session keys ``global_date`` or ``woorld_today``
-    - cookie ``global_date``
+    - session keys ``global_date``, ``woorld_today``, ``woorld_date``, ``topbar_date``
+    - corresponding cookies (``global_date``, ``topbar_date``, ``woorld_today``, ``woorld_date``)
     Fallback to ``date.today()``.
     """
 
@@ -38,19 +106,30 @@ def get_active_date(request) -> date:
 
     # session values
     session = getattr(request, "session", {})
-    for key in ("global_date", "woorld_today"):
+    for key in ("global_date", "woorld_today", "woorld_date", "topbar_date"):
         value = session.get(key)
         if isinstance(value, date):
             return value
         d = _parse_date(str(value))
         if d:
             return d
+        d2 = _woorld_to_gregorian(value)
+        if d2:
+            return d2
 
     # cookies
-    cookie_val = request.COOKIES.get("global_date")
+    cookie_val = (
+        request.COOKIES.get("global_date")
+        or request.COOKIES.get("topbar_date")
+        or request.COOKIES.get("woorld_today")
+        or request.COOKIES.get("woorld_date")
+    )
     d = _parse_date(cookie_val)
     if d:
         return d
+    d2 = _woorld_to_gregorian(cookie_val)
+    if d2:
+        return d2
 
     return date.today()
 
