@@ -688,5 +688,21 @@
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('/service-worker.js');
   });
   </script>
+<!-- TOPBAR_DATE_SYNC_PATCH -->
+<script>
+(function(){
+  try {
+    // ISO z contextu (např. 2024-05-01)
+    var iso = "{{ active_date_iso|default:'' }}";
+    if(!iso) return;
+    // Kandidáti na input: data-atribut, ID nebo name
+    var el = document.querySelector('[data-topbar-date], #topbar-date, input[name="topbar_date"], input[name="global_date"], input[type="date"]');
+    if(!el) return;
+    var v = (el.value || '').trim();
+    var looksDefault = !v || /(^2020-01-01$)|(^01[.\\-/]0?1[.\\-/]2020$)|(^1[.\\-/]1[.\\-/]2020$)/.test(v);
+    if(looksDefault) { el.value = iso; el.dispatchEvent(new Event('change')); }
+  } catch(e) {}
+})();
+</script>
 </body>
 </html>
