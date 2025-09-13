@@ -692,17 +692,77 @@
 <script>
 (function(){
   try {
-    // ISO z contextu (např. 2024-05-01)
     var iso = "{{ active_date_iso|default:'' }}";
     if(!iso) return;
-    // Kandidáti na input: data-atribut, ID nebo name
-    var el = document.querySelector('[data-topbar-date], #topbar-date, input[name="topbar_date"], input[name="global_date"], input[type="date"]');
-    if(!el) return;
-    var v = (el.value || '').trim();
-    var looksDefault = !v || /(^2020-01-01$)|(^01[.\\-/]0?1[.\\-/]2020$)|(^1[.\\-/]1[.\\-/]2020$)/.test(v);
-    if(looksDefault) { el.value = iso; el.dispatchEvent(new Event('change')); }
+    var sels = '[data-topbar-date], #topbar-date, input[name="topbar_date"], input[name="global_date"], input[type="date"]';
+    var els = document.querySelectorAll(sels);
+    if(!els.length) return;
+    var didDispatch = false;
+    els.forEach(function(el){
+      var v = (el.value || '').trim();
+      var looksDefault = !v || /(^2020-01-01$)|(^01[.\-/]0?1[.\-/]2020$)|(^1[.\-/]1[.\-/]2020$)/.test(v);
+      if(looksDefault) {
+        el.value = iso;
+        if (!didDispatch) { el.dispatchEvent(new Event('change')); didDispatch = true; }
+      }
+    });
+    document.addEventListener('global-date-changed', function(e){
+      var val = e && e.detail && e.detail.iso ? e.detail.iso : iso;
+      var els2 = document.querySelectorAll(sels);
+      els2.forEach(function(el){ el.value = val; });
+    });
   } catch(e) {}
 })();
 </script>
+
+<!-- TOPBAR_DATE_PERSIST_PATCH -->
+<script>
+(function(){
+  function getCookie(name){
+    var m = document.cookie.match('(?:^|; )' + name.replace(/([.$?*|{}()\[\]\\\/\+^])/g, '\\$1') + '=([^;]*)');
+    return m ? decodeURIComponent(m[1]) : "";
+  }
+  function persistDate(val){
+    try {
+      fetch("/set-date/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": getCookie("csrftoken")
+        },
+        body: JSON.stringify({date: val})
+      }).then(function(r){
+        if(!r.ok) throw new Error("bad status");
+        return r.json();
+      }).then(function(data){
+        try {
+          var u = new URL(location.href);
+          u.searchParams.set("d", data.iso);
+          history.replaceState(null, "", u.toString());
+        } catch(e){}
+        document.dispatchEvent(new CustomEvent("global-date-changed", {detail:{iso:data.iso}}));
+      }).catch(function(){ /* no-op */ });
+    } catch(e){}
+  }
+  function bind(){
+    var sels = '[data-topbar-date], #topbar-date, input[name="topbar_date"], input[name="global_date"], input[type="date"]';
+    var els = document.querySelectorAll(sels);
+    if(!els.length) return;
+    els.forEach(function(el){
+      el.addEventListener("change", function(){
+        var v = (el.value || "").trim();
+        if(v) persistDate(v);
+      });
+    });
+  }
+  if(document.readyState === "loading"){
+    document.addEventListener("DOMContentLoaded", bind);
+  } else {
+    bind();
+  }
+  document.addEventListener("htmx:afterSwap", bind);
+})();
+</script>
+
 </body>
 </html>
