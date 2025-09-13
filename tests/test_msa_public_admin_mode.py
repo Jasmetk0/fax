@@ -20,6 +20,8 @@ def test_players_public(client):
 def test_admin_controls_visible_only_in_admin_mode(client):
     url = reverse("msa:players_list")
     r = client.get(url)
+    assert r.status_code == 200
+    assert b'id="msa-topbar"' in r.content
     assert b"data-admin-controls" not in r.content
 
     User = get_user_model()
@@ -29,4 +31,6 @@ def test_admin_controls_visible_only_in_admin_mode(client):
     client.force_login(u)
     _set_admin_mode(client, True)
     r = client.get(url)
-    assert b"data-admin-controls" in r.content
+    assert r.status_code == 200
+    assert b'id="msa-topbar"' in r.content
+    assert b"data-admin-controls" not in r.content

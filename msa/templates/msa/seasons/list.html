@@ -1,0 +1,16 @@
+{% extends "msa/_base.html" %}
+{% block title %}MSA – Seasons{% endblock %}
+{% block body %}
+  <h1 class="text-2xl font-semibold mb-4">Seasons</h1>
+  {% if seasons %}
+    <ul class="list-disc pl-5">
+      {% for s in seasons %}
+        <li>
+          {{ s.name|default:s|stringformat:"s" }}
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="text-slate-600">No seasons available.</p>
+  {% endif %}
+{% endblock %}
