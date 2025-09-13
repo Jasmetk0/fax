@@ -2,6 +2,7 @@
 
 
 def woorld_date(request):
+    # WOORLD_SAFE_GUARD: respektuj již zvolená data v session/cookies a nic nepřepisuj
     """Add current Woorld date stored in session to templates."""
     return {"WOORLD_CURRENT_DATE": request.session.get("woorld_current_date", "")}
 
