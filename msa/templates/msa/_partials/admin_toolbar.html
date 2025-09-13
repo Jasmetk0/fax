@@ -1,0 +1,9 @@
+{% if admin_mode and is_staff_user %}
+<div id="msa-admin-toolbar" style="position:sticky;top:0;z-index:50;background:#111;color:#fff;padding:6px 10px;border-bottom:2px solid #444;display:flex;gap:12px;align-items:center;">
+  <strong>MSA Admin mód</strong>
+  <span style="opacity:.8">— vidíš editační ovládací prvky</span>
+  <a href="/admin-toggle/" style="margin-left:auto;color:#8fd;">vypnout</a>
+  <!-- marker pro testy: -->
+  <span data-admin-controls="1" hidden></span>
+</div>
+{% endif %}

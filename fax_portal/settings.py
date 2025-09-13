@@ -60,6 +60,7 @@ TEMPLATES = [
                 "fax_calendar.context_processors.woorld_date",
                 "fax_calendar.context_processors.woorld_calendar_meta",
                 "msa.context_processors.msa_admin_mode",
+                "fax_portal.context_processors.admin_flags",
             ],
         },
     },
