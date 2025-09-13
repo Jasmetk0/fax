@@ -212,3 +212,9 @@ db_dev.sqlite3
 DULEZITE_KODY_MSA.txt
 msakody.py
 COMPLIANCE_MSA.md
+backups/
+*.sqlite3
+db_*.sqlite3
+*.pyc
+__pycache__/
+.env

@@ -30,3 +30,10 @@ allows the "Today" button to jump to the current Woorld date.
 - Retains integration with `fax_calendar` date widgets.
 - Provides fresh `Country`, `Player`, and `Tournament` models with simple list/detail/create pages.
 - **Breaking change:** existing databases must be reset for development/testing; production migrations will arrive later.
+
+## Dev DB & zálohy
+- Nastav `DJANGO_DB_PATH` v `.env` (nebo použij default `~/fax_data/db_dev.sqlite3`).
+- Nainstaluj hooky: `bash scripts/install_hooks.sh` → před každým `git push` proběhne záloha (`scripts/backup.sh`).
+- Poprvé spusť: `bash scripts/migrate_or_init.sh` a pak `python manage.py runserver`.
+- V DEV módu (`DEBUG=True`) jsou `ALLOWED_HOSTS=["*"]` a `CSRF_TRUSTED_ORIGINS` pro `localhost/127.0.0.1` (plus pokus o LAN IP).
+

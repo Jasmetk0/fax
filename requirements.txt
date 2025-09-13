@@ -6,3 +6,4 @@ markdown
 pytest
 pytest-django
 ruff
+python-dotenv>=1.0.1
