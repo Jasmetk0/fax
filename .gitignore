@@ -212,3 +212,6 @@ db_dev.sqlite3
 DULEZITE_KODY_MSA.txt
 msakody.py
 COMPLIANCE_MSA.md
+
+.venv/
+.venv-msafe/
