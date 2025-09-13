@@ -15,7 +15,7 @@
         <!-- Live badge (HTMX, autorefresh) -->
         <span id="live-badge"
               class="ml-1 inline-flex items-center justify-center rounded-md border border-slate-200 px-1.5 text-[11px] leading-5 text-slate-700 bg-white align-middle hidden"
-              hx-get="{% url 'msa:nav_live_badge' %}"
+              hx-get="{% url 'nav_live_badge' %}"
               hx-trigger="load, every 60s"
               hx-swap="outerHTML">
           <!-- Server vrátí <span …>N</span> nebo 'hidden' když 0 -->

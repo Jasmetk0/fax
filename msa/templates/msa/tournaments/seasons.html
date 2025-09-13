@@ -1,5 +1,4 @@
 {% extends "msa/_base.html" %}
-<<<<<<< HEAD
 {% block body %}
   <header class="mb-6">
     <h1 class="text-2xl font-bold">MSA Seasons</h1>
@@ -25,35 +24,6 @@
         </a>
       {% endfor %}
     </div>
-=======
-{% block msa_title %}MSA – Seasons{% endblock %}
-{% block body %}
-  <header class="mb-6 flex items-center justify-between">
-    <h1 class="text-2xl font-semibold">MSA Seasons</h1>
-    <p class="text-slate-500 text-sm">Vyber sezónu a uvidíš turnajový kalendář.</p>
-  </header>
-
-  {% if seasons %}
-    <section class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-      {% for s in seasons %}
-        <a href="{% url 'msa:calendar' %}?season={{ s.id }}" class="group rounded-xl border border-slate-200 p-4 hover:border-slate-300 hover:shadow-sm transition">
-          <div class="flex items-baseline justify-between">
-            <span class="text-xl font-semibold">
-              {% firstof s.label s.name s.year %}{% if not s.label and not s.name and not s.year %}Season #{{ s.id }}{% endif %}
-            </span>
-            <span class="text-xs text-slate-500 group-hover:text-slate-600">Calendar →</span>
-          </div>
-          {% if s.start_date and s.end_date %}
-            <p class="mt-2 text-sm text-slate-600">
-              {{ s.start_date|date:"F Y" }} – {{ s.end_date|date:"F Y" }}
-            </p>
-          {% else %}
-            <p class="mt-2 text-sm text-slate-600">Sezónní kalendář.</p>
-          {% endif %}
-        </a>
-      {% endfor %}
-    </section>
->>>>>>> 17c27c8 (MSA FE: Tournaments → Seasons list (dynamic), robust Season lookup, debug header [fmt])
   {% else %}
     <div class="rounded-lg border border-dashed border-slate-300 p-8 text-center text-slate-500">
       Zatím tu žádné sezóny nejsou.
