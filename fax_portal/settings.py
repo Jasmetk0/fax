@@ -2,6 +2,10 @@ import os
 from pathlib import Path
 
 from django.conf.global_settings import DATE_INPUT_FORMATS as DJ_DATE_INPUT_FORMATS
+from dotenv import load_dotenv
+
+load_dotenv()
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -119,3 +123,56 @@ if "rest_framework" in INSTALLED_APPS:
             "%Y-%m-%d",
         ],
     }
+
+# === BEGIN: Persistent DEV database config (idempotent block) ===
+import os  # noqa: E402
+from pathlib import Path  # noqa: E402
+
+USE_POSTGRES = os.getenv("USE_POSTGRES") == "1"
+
+if USE_POSTGRES:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.getenv("POSTGRES_DB", "fax"),
+            "USER": os.getenv("POSTGRES_USER", "fax"),
+            "PASSWORD": os.getenv("POSTGRES_PASSWORD", "fax"),
+            "HOST": os.getenv("POSTGRES_HOST", "localhost"),
+            "PORT": os.getenv("POSTGRES_PORT", "5432"),
+        }
+    }
+else:
+    # SQLite cesta mimo repo – bezpečné proti git clean / pull.
+    DJANGO_DB_PATH = os.environ.get("DJANGO_DB_PATH")
+    if DJANGO_DB_PATH:
+        DB_DEFAULT_PATH = Path(DJANGO_DB_PATH)
+    else:
+        DB_DEFAULT_PATH = Path.home() / "fax_data" / "db_dev.sqlite3"
+    DB_DEFAULT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": str(DB_DEFAULT_PATH),
+        }
+    }
+# === END: Persistent DEV database config ===
+# === DEV convenience: hosts & CSRF (idempotent) ===
+if DEBUG:
+    ALLOWED_HOSTS = ["*"]
+    CSRF_TRUSTED_ORIGINS = list(
+        set(
+            [
+                "http://localhost:8000",
+                "http://127.0.0.1:8000",
+            ]
+            + globals().get("CSRF_TRUSTED_ORIGINS", [])
+        )
+    )
+    try:
+        import socket
+
+        _ip = socket.gethostbyname(socket.gethostname())
+        CSRF_TRUSTED_ORIGINS.append(f"http://{_ip}:8000")
+    except Exception:
+        pass
+# === END DEV block ===

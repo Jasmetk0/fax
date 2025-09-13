@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+if [ -x ./scripts/backup.sh ]; then
+  echo "[pre-push] Dělám rychlou DB zálohu…"
+  ./scripts/backup.sh || { echo "Backup selhal; push přerušen." >&2; exit 1; }
+else
+  echo "[pre-push] scripts/backup.sh nenalezen – záloha neproběhla." >&2
+fi
