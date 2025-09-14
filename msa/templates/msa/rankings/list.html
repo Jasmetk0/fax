@@ -1,5 +1,42 @@
 {% extends "msa/_base.html" %}
 {% block title %}MSA – Rankings{% endblock %}
 {% block body %}
-  <h1 class="text-2xl font-semibold mb-4">Rankings</h1>
+  <header class="mb-4 flex items-center justify-between gap-4">
+    <h1 class="text-2xl font-semibold">Rankings</h1>
+    <div class="flex items-center gap-2 text-sm">
+      <label class="sr-only" for="rank-season">Season</label>
+      <select id="rank-season" class="rounded-md border px-2 py-1">
+        <option value="">All seasons</option>
+        {% for s in seasons|default:None %}
+          <option value="{{ s.id }}">{{ s.name|default:s|stringformat:"s" }}</option>
+        {% endfor %}
+      </select>
+      <input id="rank-search" type="search" placeholder="Hledat hráče / zemi…" class="rounded-md border px-3 py-1 w-56" />
+    </div>
+  </header>
+
+  <div id="rankings-root"
+       data-api="{% firstof rankings_api '/api/msa/ranking' %}"
+       class="relative overflow-hidden rounded-lg border">
+    <div id="rankings-loading" class="p-6 text-sm text-slate-500">Načítám žebříček…</div>
+    <noscript class="block p-6 text-sm text-slate-500">Pro interaktivní tabulku povol JavaScript.</noscript>
+    <div class="max-h-[70vh] overflow-auto">
+      <table class="w-full text-sm">
+        <thead class="sticky top-0 bg-white">
+          <tr class="border-b text-left">
+            <th class="px-3 py-2 w-16 cursor-pointer" data-sort="rank">#</th>
+            <th class="px-3 py-2 cursor-pointer" data-sort="player">Player</th>
+            <th class="px-3 py-2 w-28">Country</th>
+            <th class="px-3 py-2 w-28 cursor-pointer" data-sort="points">Points</th>
+            <th class="px-3 py-2 w-20">Δ</th>
+          </tr>
+        </thead>
+        <tbody id="rankings-tbody" data-testid="rankings-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+{% endblock %}
+
+{% block extra_js %}
+  <script defer src="{% static 'msa/js/rankings.js' %}"></script>
 {% endblock %}

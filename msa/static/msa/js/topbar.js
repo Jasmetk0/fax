@@ -3,7 +3,6 @@
   const header = document.getElementById("msa-topbar");
   const moreBtn = document.getElementById("msa-more-btn");
   const moreMenu = document.getElementById("msa-more-menu");
-  const menuItems = moreMenu ? Array.from(moreMenu.querySelectorAll('[role="menuitem"]')) : [];
   const searchInput = document.querySelector('input[name="q"]');
 
   // 1) Stín při scrollu
@@ -37,24 +36,40 @@
 
   // 4) Dropdown "More"
   if (moreBtn && moreMenu) {
-    const closeMore = (focusBtn = false) => {
+    const menuItems = Array.from(moreMenu.querySelectorAll('[role="menuitem"]'));
+
+    function closeMenu(focusBtn = false) {
       moreMenu.classList.add("hidden");
       moreBtn.setAttribute("aria-expanded", "false");
       if (focusBtn) moreBtn.focus();
-    };
-    const openMore = () => {
+    }
+
+    function openMenu() {
       moreMenu.classList.remove("hidden");
       moreBtn.setAttribute("aria-expanded", "true");
       if (menuItems.length) menuItems[0].focus();
-    };
-    const isOpen = () => moreBtn.getAttribute("aria-expanded") === "true";
-    const inTree = (el) => el && (el === moreMenu || el === moreBtn || moreMenu.contains(el) || moreBtn.contains(el));
+    }
 
-    moreBtn.addEventListener("click", () => (isOpen() ? closeMore() : openMore()));
+    function toggleMenu() {
+      const willOpen = moreMenu.classList.contains("hidden");
+      if (willOpen) {
+        openMenu();
+      } else {
+        closeMenu();
+      }
+    }
 
-    // Klik mimo → zavřít
+    moreBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      toggleMenu();
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") closeMenu(true);
+    });
+
     document.addEventListener("click", (e) => {
-      if (!inTree(e.target)) closeMore();
+      if (!moreMenu.contains(e.target) && e.target !== moreBtn) closeMenu();
     });
 
     // Klávesy v menu: šipky cyklují, Esc zavře
@@ -67,24 +82,8 @@
         i = e.key === "ArrowDown" ? (i + 1) % menuItems.length : (i - 1 + menuItems.length) % menuItems.length;
         menuItems[i].focus();
       } else if (e.key === "Escape") {
-        closeMore(true);
+        closeMenu(true);
       }
     });
-
-    // Globální Esc, pokud je menu otevřené
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && isOpen()) closeMore(true);
-    });
-
-    // Ztráta fokusu celé větve → zavřít
-    let blurTimer;
-    const scheduleBlurCheck = () => {
-      clearTimeout(blurTimer);
-      blurTimer = setTimeout(() => {
-        if (!inTree(document.activeElement)) closeMore();
-      }, 0);
-    };
-    moreMenu.addEventListener("focusout", scheduleBlurCheck);
-    moreBtn.addEventListener("focusout", scheduleBlurCheck);
   }
 })();
