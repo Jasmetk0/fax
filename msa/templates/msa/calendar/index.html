@@ -1,0 +1,49 @@
+{% extends "msa/_base.html" %}
+{% load static %}
+{% block title %}MSA – Season Calendar{% endblock %}
+{% block body %}
+  <header class="mb-6">
+    <h1 class="text-2xl font-bold">
+      Season calendar
+      {% if season %}<span class="text-slate-500 text-base align-middle">— {{ season }}</span>{% endif %}
+    </h1>
+    <p class="text-slate-500 text-sm">Klikni na turnaj pro detail. Filtruj podle měsíce a kategorie.</p>
+  </header>
+
+  <section class="mb-4 flex flex-wrap gap-3 items-center">
+    <label class="text-sm text-slate-600">
+      <span class="mr-2">Month</span>
+      <select id="cal-month" class="rounded-md border px-2 py-1">
+        <option value="">All</option>
+        <option value="1">Jan</option><option value="2">Feb</option><option value="3">Mar</option>
+        <option value="4">Apr</option><option value="5">May</option><option value="6">Jun</option>
+        <option value="7">Jul</option><option value="8">Aug</option><option value="9">Sep</option>
+        <option value="10">Oct</option><option value="11">Nov</option><option value="12">Dec</option>
+      </select>
+    </label>
+    <label class="text-sm text-slate-600">
+      <span class="mr-2">Category</span>
+      <select id="cal-cat" class="rounded-md border px-2 py-1">
+        <option value="">All</option>
+        <option>Diamond</option><option>Emerald</option><option>Platinum</option>
+        <option>Gold</option><option>Silver</option><option>Bronze</option>
+      </select>
+    </label>
+    <div class="ml-auto flex items-center gap-2 text-sm">
+      <button id="cal-today" class="rounded-md border px-2 py-1">Jump to current</button>
+    </div>
+  </section>
+
+  <section id="cal-root" class="rounded-xl border overflow-hidden">
+    <div id="cal-loading" class="p-6 text-sm text-slate-500">Loading season tournaments…</div>
+    <div id="cal-empty" class="hidden p-6 text-sm text-slate-500">No tournaments found for this season.</div>
+
+    <div id="cal-list" class="hidden divide-y">
+      <!-- JS will inject grouped-by-month sections -->
+    </div>
+  </section>
+{% endblock %}
+
+{% block extra_js %}
+  <script defer src="{% static 'msa/js/calendar.js' %}"></script>
+{% endblock %}
