@@ -1,5 +1,6 @@
 from django.apps import apps
-from django.http import HttpResponse, JsonResponse
+from django.db import OperationalError
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import render
 
 from msa.utils.dates import find_season_for_date, get_active_date
@@ -11,7 +12,12 @@ def home(request):
 
 def seasons_list(request):
     Season = apps.get_model("msa", "Season") if apps.is_installed("msa") else None
-    seasons = Season.objects.all().order_by("id") if Season else []
+    seasons = []
+    if Season:
+        try:
+            seasons = list(Season.objects.all().order_by("id"))
+        except OperationalError:
+            seasons = []
     return render(request, "msa/seasons/list.html", {"seasons": seasons})
 
 
@@ -52,6 +58,44 @@ def tournaments_list(request):
     return render(request, "msa/tournaments/list.html", context)
 
 
+def tournaments_seasons(request):
+    """
+    Seznam sezón pro Tournaments landing page, seřazený od nejnovější po nejstarší.
+    Preferuje řazení podle start_date/end_date, fallback na -id.
+    """
+    Season = apps.get_model("msa", "Season") if apps.is_installed("msa") else None
+    seasons = []
+    if Season:
+        try:
+            model_fields = {f.name for f in Season._meta.get_fields()}
+            if {"start_date", "end_date"} <= model_fields:
+                seasons = list(Season.objects.all().order_by("-start_date", "-end_date", "-id"))
+            else:
+                seasons = list(Season.objects.all().order_by("-id"))
+        except OperationalError:
+            seasons = []
+    ctx = {"seasons": seasons}
+    return render(request, "msa/tournaments/seasons.html", ctx)
+
+
+def _get_season_by_query_param(request):
+    """
+    Pokud je v URL ?season=<id>, vrať konkrétní Season; jinak None.
+    """
+    season_id = request.GET.get("season")
+    if not season_id:
+        return None
+    Season = apps.get_model("msa", "Season") if apps.is_installed("msa") else None
+    if not Season:
+        return None
+    try:
+        return Season.objects.get(pk=season_id)
+    except Season.DoesNotExist as err:
+        raise Http404("Season not found") from err
+    except OperationalError as err:
+        raise Http404("Season not found") from err
+
+
 def rankings_list(request):
     return render(request, "msa/rankings/list.html")
 
@@ -61,8 +105,14 @@ def players_list(request):
 
 
 def calendar(request):
+    """
+    Kalendář – respektuje ?season=<id>, jinak vybere sezónu dle aktivního data.
+    """
     d = get_active_date(request)
-    season = find_season_for_date(d)
+    try:
+        season = _get_season_by_query_param(request) or find_season_for_date(d)
+    except OperationalError:
+        season = None
     if not season:
         return seasons_list(request)
 
