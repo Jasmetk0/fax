@@ -7,11 +7,15 @@ app_name = "msa"
 
 urlpatterns = [
     path(
-        "", RedirectView.as_view(pattern_name="msa:tournaments_list", permanent=False), name="home"
+        "",
+        RedirectView.as_view(pattern_name="msa:tournaments_seasons", permanent=False),
+        name="home",
     ),
-    path("tournaments", views.tournaments_list, name="tournaments_list"),
+    # Landing na seznam sezón pro Tournaments
+    path("tournaments/", views.tournaments_seasons, name="tournaments_seasons"),
+    path("tournaments/", views.tournaments_seasons, name="tournaments_list"),
     path("seasons/", views.seasons_list, name="seasons_list"),
-    path("calendar", views.calendar, name="calendar"),
+    path("calendar/", views.calendar, name="calendar"),
     path("rankings", views.rankings_list, name="rankings_list"),
     path("players", views.players_list, name="players_list"),
     path("media", views.media, name="media"),
