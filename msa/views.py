@@ -1,5 +1,5 @@
 from django.apps import apps
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render
 
 from msa.utils.dates import find_season_for_date, get_active_date
@@ -91,3 +91,8 @@ def nav_live_badge(request):
             f'bg-white align-middle">{count}</span>'
         )
     return HttpResponse('<span id="live-badge" class="ml-1 hidden"></span>')
+
+
+def ranking_api(request):
+    """Return ranking entries for the frontend table."""
+    return JsonResponse({"entries": []})

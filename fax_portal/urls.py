@@ -17,6 +17,7 @@ urlpatterns = [
     path("livesport/", include("sports.urls")),
     path("mma/", include("mma.urls")),
     path("api/mma/", include("mma.api.urls")),
+    path("api/msa/ranking", msa_views.ranking_api, name="msa-ranking-api"),
     # pouze nový MSA mount s namespace "msa"
     path("msa/", include("msa.urls", namespace="msa")),
     path("status/live-badge", msa_views.nav_live_badge, name="nav_live_badge"),

@@ -39,13 +39,13 @@
         <button id="msa-more-btn"
                 class="px-2 py-1 rounded-md text-sm font-medium border-b-2 border-transparent hover:border-slate-300 flex items-center gap-1 {% if ns == 'msa' and name == 'calendar' or ns == 'msa' and name == 'media' or ns == 'msa' and name == 'docs' %}border-blue-600 text-blue-600{% endif %}"
                 {% if ns == 'msa' and name == 'calendar' or ns == 'msa' and name == 'media' or ns == 'msa' and name == 'docs' %}aria-current="page" data-active="true"{% endif %}
-                aria-haspopup="true" aria-expanded="false" aria-controls="msa-more-menu" type="button">
+                aria-haspopup="menu" aria-expanded="false" aria-controls="msa-more-menu" type="button">
           More
           <svg aria-hidden="true" class="w-4 h-4"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="2"/></svg>
         </button>
         <div id="msa-more-menu"
              class="hidden absolute right-0 mt-2 w-48 rounded-xl border border-slate-200 bg-white shadow-lg py-2"
-             role="menu" aria-labelledby="msa-more-btn">
+             role="menu" aria-label="More">
           <a href="{% url 'msa:calendar' %}" role="menuitem" class="block px-3 py-2 text-sm hover:bg-slate-50">Calendar</a>
           <a href="{% url 'msa:media' %}"    role="menuitem" class="block px-3 py-2 text-sm hover:bg-slate-50">Media</a>
           <a href="{% url 'msa:docs' %}"     role="menuitem" class="block px-3 py-2 text-sm hover:bg-slate-50">Docs</a>
