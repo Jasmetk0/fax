@@ -143,6 +143,61 @@ def nav_live_badge(request):
     return HttpResponse('<span id="live-badge" class="ml-1 hidden"></span>')
 
 
+def tournaments_api(request):
+    """
+    JSON seznam turnajů. Preferuje sezonní filtr ?season=<id>.
+    Robustně čte typické sloupce Tournament modelu; když nejsou, vrátí základ.
+    """
+    Season = apps.get_model("msa", "Season") if apps.is_installed("msa") else None
+    Tournament = apps.get_model("msa", "Tournament") if apps.is_installed("msa") else None
+    season_id = request.GET.get("season")
+
+    items = []
+    if Tournament:
+        try:
+            qs = Tournament.objects.all()
+            fields = {f.name for f in Tournament._meta.get_fields()}
+            # filtr podle sezony, pokud existuje FK season
+            if season_id and "season" in fields:
+                qs = qs.filter(season_id=season_id)
+            # fallback: pokud nejsou sezony, ale jsou start/end a máme season interval
+            elif (
+                season_id
+                and Season
+                and {"start_date", "end_date"} <= {f.name for f in Season._meta.get_fields()}
+                and {"start_date", "end_date"} <= fields
+            ):
+                try:
+                    s = Season.objects.get(pk=season_id)
+                    if getattr(s, "start_date", None) and getattr(s, "end_date", None):
+                        qs = qs.filter(start_date__lte=s.end_date, end_date__gte=s.start_date)
+                except Season.DoesNotExist:
+                    pass
+            # sestavení výstupu
+            for t in qs:
+                row = {
+                    "id": getattr(t, "id", None),
+                    "name": getattr(t, "name", None) or getattr(t, "title", None),
+                    "city": getattr(t, "city", None),
+                    "country": getattr(t, "country", None),
+                    "category": getattr(t, "category", None) or getattr(t, "tier", None),
+                    "start_date": getattr(t, "start_date", None) or getattr(t, "start", None),
+                    "end_date": getattr(t, "end_date", None) or getattr(t, "end", None),
+                }
+                # volitelný detail URL, pokud existuje pojmenovaná route
+                try:
+                    from django.urls import reverse
+
+                    if getattr(t, "id", None) is not None:
+                        row["url"] = reverse("msa:tournament_detail", args=[t.id])
+                except Exception:
+                    row["url"] = None
+                items.append(row)
+        except OperationalError:
+            items = []
+    return JsonResponse({"tournaments": items})
+
+
 def ranking_api(request):
     """Return ranking entries for the frontend table."""
     return JsonResponse({"entries": []})
