@@ -177,9 +177,18 @@ class CategorySeason(models.Model):
         if self.draw_size:
             self.md_seeds_count = auto_md_seeds(int(self.draw_size))
             if not self.scoring_md:
-                self.scoring_md = build_md_skeleton(int(self.draw_size))
+                tp = None
+                for name in (
+                    "third_place_enabled",
+                    "third_place",
+                    "has_third_place",
+                    "bronze_match",
+                ):
+                    if tp is None:
+                        tp = getattr(self, name, None)
+                self.scoring_md = build_md_skeleton(int(self.draw_size), third_place=bool(tp))
         if self.qual_rounds and not self.scoring_qual_win:
-            self.scoring_qual_win = build_qual_skeleton(int(self.qual_rounds))
+            self.scoring_qual_win = build_qual_skeleton(int(self.qual_rounds), include_winner=True)
         super().save(*args, **kwargs)
 
 
@@ -324,6 +333,17 @@ class Tournament(models.Model):
             cs = self.category_season
             self.scoring_md = (cs.scoring_md or {}).copy()
             self.scoring_qual_win = (cs.scoring_qual_win or {}).copy()
+            if not self.third_place_enabled:
+                tp = None
+                for name in (
+                    "third_place_enabled",
+                    "third_place",
+                    "has_third_place",
+                    "bronze_match",
+                ):
+                    if tp is None:
+                        tp = getattr(cs, name, None)
+                self.third_place_enabled = bool(tp)
         super().save(*args, **kwargs)
 
     @property

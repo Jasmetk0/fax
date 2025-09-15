@@ -107,8 +107,8 @@ def _last_completed_md_round_size(t: Tournament) -> int | None:
     return None
 
 
-def _md_label_for_losing_round(round_size: int) -> str:
-    """Mapování velikosti kola na label tabulky scoring_md pro poražené v tom kole."""
+def _md_label_for_losing_round(round_size: int, *, third_place: bool = False) -> str:
+    """Map ``round_size`` to the scoring label for a loss in that round."""
     if round_size >= 64:
         return "R64"
     if round_size == 32:
@@ -118,7 +118,7 @@ def _md_label_for_losing_round(round_size: int) -> str:
     if round_size == 8:
         return "QF"
     if round_size == 4:
-        return "SF"
+        return "4th" if third_place else "SF"
     if round_size == 2:
         return "RunnerUp"  # pro „porážku ve finále“ použijeme RunnerUp
     # fallback (pro raritní šablony)
@@ -218,6 +218,30 @@ def compute_md_points(t: Tournament, *, only_completed_rounds: bool = True) -> d
         raise ValidationError("Tournament.category_season chybí.")
     md_table: dict[str, int] = getattr(cs, "scoring_md", {}) or {}
 
+    def _champion_points(table: dict[str, int]) -> int:
+        """Prefer new "W" key; fall back to legacy "Winner"."""
+        return int(table.get("W", table.get("Winner", 0)))
+
+    def _runnerup_key(table: dict[str, int]) -> str:
+        """Return preferred label for runner-up points."""
+        return "F" if "F" in table else "RunnerUp"
+
+    tp = getattr(t, "third_place_enabled", None)
+    if tp is None and cs:
+        for name in (
+            "third_place_enabled",
+            "third_place",
+            "has_third_place",
+            "bronze_match",
+        ):
+            if tp is None:
+                tp = getattr(cs, name, None)
+    if tp is None:
+        from msa.utils.rounds import has_third_place as _has_third
+
+        tp = _has_third(list(md_table.keys()))
+    third_place = bool(tp)
+
     # limit „do posledního plně dokončeného kola“
     last_full: int | None = _last_completed_md_round_size(t) if only_completed_rounds else None
 
@@ -239,7 +263,7 @@ def compute_md_points(t: Tournament, *, only_completed_rounds: bool = True) -> d
         if final:
             # Pokud limit kol nepovoluje R2, body 0
             if (last_full is None) or (last_full >= 2):
-                out[pid] = out.get(pid, 0) + _safe_get(md_table, "Winner")
+                out[pid] = out.get(pid, 0) + _champion_points(md_table)
             continue
 
         # RunnerUp – prohrál ve finále?
@@ -253,7 +277,8 @@ def compute_md_points(t: Tournament, *, only_completed_rounds: bool = True) -> d
         )
         if lost_final:
             if (last_full is None) or (last_full >= 2):
-                out[pid] = out.get(pid, 0) + _safe_get(md_table, "RunnerUp")
+                label_ru = _runnerup_key(md_table)
+                out[pid] = out.get(pid, 0) + _safe_get(md_table, label_ru)
             continue
 
         # Jinak hráč někde prohrál před finále – najdi NEJPOZDĚJI hraný zápas s výsledkem
@@ -270,6 +295,7 @@ def compute_md_points(t: Tournament, *, only_completed_rounds: bool = True) -> d
         last = played_sorted[0]  # nejmenší R (nejblíž finále)
 
         rsize = _round_size_from_name(last.round_name)
+        ru_label_effective = _runnerup_key(md_table)
         # respektuj limit: pokud toto kolo není <= last_full, nedávej nic
         if (last_full is not None) and (rsize < last_full):
             # poslední plně dokončené je „větší“ číslo (dřívější kolo) – pokud hráč prohrál později v nedokončeném kole → 0
@@ -293,9 +319,18 @@ def compute_md_points(t: Tournament, *, only_completed_rounds: bool = True) -> d
         adjusted_label = None
         if player_first_played and (player_first_played.id == last.id) and (pid in bye_candidates):
             prev_round = rsize * 2
-            adjusted_label = _md_label_for_losing_round(prev_round)
+            if prev_round == 2:
+                adjusted_label = ru_label_effective  # prefer "F", fallback "RunnerUp"
+            else:
+                adjusted_label = _md_label_for_losing_round(prev_round, third_place=third_place)
 
-        label = adjusted_label or _md_label_for_losing_round(rsize)
+        if adjusted_label is None:
+            if rsize == 2:
+                label = ru_label_effective
+            else:
+                label = _md_label_for_losing_round(rsize, third_place=third_place)
+        else:
+            label = adjusted_label
         out[pid] = out.get(pid, 0) + _safe_get(md_table, label)
 
     # idempotent override for third-place match (jen pokud je povoleno)
@@ -305,10 +340,10 @@ def compute_md_points(t: Tournament, *, only_completed_rounds: bool = True) -> d
         round_name=THIRD_PLACE_ROUND_NAME,
         state=MatchState.DONE,
     )
-    if getattr(t, "third_place_enabled", False) and third_matches.exists():
+    if third_place and third_matches.exists():
         sc = getattr(t.category_season, "scoring_md", {}) or {}
-        third_pts = sc.get("Third")
-        fourth_pts = sc.get("Fourth")
+        third_pts = sc.get("3rd")
+        fourth_pts = sc.get("4th")
         if third_pts is not None or fourth_pts is not None:
             for m in third_matches:
                 if m.player_top_id and m.player_bottom_id and m.winner_id:

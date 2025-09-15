@@ -24,7 +24,7 @@ def test_auto_third_place_is_created_after_both_sf_done():
     s = Season.objects.create(name="2025", start_date="2025-01-01", end_date=woorld_date(2025, 12))
     c = Category.objects.create(name="WT")
     cs = CategorySeason.objects.create(category=c, season=s, draw_size=16, md_seeds_count=4)
-    cs.scoring_md = {"Winner": 1000, "RunnerUp": 600, "SF": 90, "Third": 200, "Fourth": 120}
+    cs.scoring_md = {"Winner": 1000, "RunnerUp": 600, "SF": 90, "3rd": 200, "4th": 120}
     cs.save(update_fields=["scoring_md"])
     t = Tournament.objects.create(
         season=s,

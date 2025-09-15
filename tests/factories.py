@@ -13,6 +13,7 @@ def make_category_season(
     scoring_md=None,
     scoring_qual_win=None,
     qualifiers_count=0,
+    third_place=False,
 ):
     from msa.models import Category, Season
 
@@ -23,7 +24,7 @@ def make_category_season(
         end_date=woorld_date(2025, 12),
         best_n=10,
     )
-    cs = CategorySeason.objects.create(
+    cs = CategorySeason(
         category=cat,
         season=season,
         draw_size=draw_size,
@@ -31,11 +32,25 @@ def make_category_season(
         scoring_md=scoring_md or {},
         scoring_qual_win=scoring_qual_win or {},
     )
+    if third_place:
+        cs.third_place_enabled = third_place
+    cs.save()
     return cs, season, cat
 
 
-def make_tournament(*, cs=None, qualifiers_count=0):
+def make_tournament(*, cs=None, qualifiers_count=0, third_place=None):
     cs = cs or make_category_season()[0]
+    if third_place is None:
+        tp = None
+        for name in (
+            "third_place_enabled",
+            "third_place",
+            "has_third_place",
+            "bronze_match",
+        ):
+            if tp is None:
+                tp = getattr(cs, name, None)
+        third_place = bool(tp)
     return Tournament.objects.create(
         name="T",
         slug="t",
@@ -44,6 +59,6 @@ def make_tournament(*, cs=None, qualifiers_count=0):
         end_date=woorld_date(2025, 6, 2),
         md_best_of=5,
         q_best_of=3,
-        third_place_enabled=False,
+        third_place_enabled=third_place,
         qualifiers_count=qualifiers_count,
     )
