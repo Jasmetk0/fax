@@ -26,8 +26,8 @@ def _mk_base(draw=16):
     s = Season.objects.create(name="2025", start_date="2025-01-01", end_date=woorld_date(2025, 12))
     c = Category.objects.create(name="WT")
     cs = CategorySeason.objects.create(category=c, season=s, draw_size=draw, md_seeds_count=4)
-    # scoring tabulka s Third/Fourth + SF
-    cs.scoring_md = {"Winner": 1000, "RunnerUp": 600, "SF": SFPTS, "Third": THIRD, "Fourth": FOURTH}
+    # scoring tabulka s 3rd/4th
+    cs.scoring_md = {"Winner": 1000, "RunnerUp": 600, "4th": FOURTH, "3rd": THIRD}
     cs.save(update_fields=["scoring_md"])
     t = Tournament.objects.create(
         season=s,
@@ -110,12 +110,12 @@ def test_third_place_points_override_sf_when_played():
     )
 
     pts = compute_md_points(t, only_completed_rounds=False)
-    assert pts.get(A.id, 0) == cs.scoring_md["Third"]
-    assert pts.get(B.id, 0) == cs.scoring_md["Fourth"]
+    assert pts.get(A.id, 0) == cs.scoring_md["3rd"]
+    assert pts.get(B.id, 0) == cs.scoring_md["4th"]
 
 
 @pytest.mark.django_db
-def test_no_third_place_match_or_not_done_keeps_sf_points():
+def test_no_third_place_match_or_not_done_keeps_fourth_points():
     _, _, cs, t = _mk_base()
     A = Player.objects.create(name="A")
     B = Player.objects.create(name="B")
@@ -171,8 +171,8 @@ def test_no_third_place_match_or_not_done_keeps_sf_points():
     )
 
     pts = compute_md_points(t, only_completed_rounds=False)
-    assert pts.get(A.id, 0) == SFPTS
-    assert pts.get(B.id, 0) == SFPTS
+    assert pts.get(A.id, 0) == FOURTH
+    assert pts.get(B.id, 0) == FOURTH
 
 
 @pytest.mark.django_db
@@ -185,8 +185,8 @@ def test_third_place_ignored_when_flag_off():
         "Winner": 1000,
         "RunnerUp": 600,
         "SF": SFPTS,
-        "Third": THIRD,
-        "Fourth": FOURTH,
+        "4th": FOURTH,
+        "3rd": THIRD,
     }
     cs.save(update_fields=["scoring_md"])
     t = Tournament.objects.create(
