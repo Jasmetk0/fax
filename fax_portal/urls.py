@@ -18,6 +18,7 @@ urlpatterns = [
     path("mma/", include("mma.urls")),
     path("api/mma/", include("mma.api.urls")),
     path("api/msa/ranking", msa_views.ranking_api, name="msa-ranking-api"),
+    path("api/msa/season", msa_views.season_api, name="msa-season-api"),
     path("api/msa/tournaments", msa_views.tournaments_api, name="msa-tournaments-api"),
     # pouze nový MSA mount s namespace "msa"
     path("msa/", include("msa.urls", namespace="msa")),
