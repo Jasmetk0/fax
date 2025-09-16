@@ -8,9 +8,9 @@
 
     <!-- Primární navigace -->
     <nav class="flex items-center gap-2" aria-label="Primary" role="navigation">
-      <a href="{% url 'msa:tournaments_seasons' %}"
-         class="px-2 py-1 rounded-md text-sm font-medium border-b-2 border-transparent hover:border-slate-300 {% if ns == 'msa' and name == 'tournaments_list' or ns == 'msa' and name == 'tournaments_seasons' %}border-blue-600 text-blue-600{% endif %}"
-         {% if ns == 'msa' and name == 'tournaments_seasons' %}aria-current="page"{% endif %}>
+      <a href="{% url 'msa:tournaments_list' %}"
+         class="px-2 py-1 rounded-md text-sm font-medium border-b-2 border-transparent hover:border-slate-300 {% if ns == 'msa' and name == 'tournaments_list' %}border-blue-600 text-blue-600{% endif %}"
+         {% if ns == 'msa' and name == 'tournaments_list' %}aria-current="page"{% endif %}>
         Tournaments
         <!-- Live badge (HTMX, autorefresh) -->
         <span id="live-badge"

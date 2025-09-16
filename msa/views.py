@@ -1,9 +1,18 @@
 from django.apps import apps
+from django.core.exceptions import FieldDoesNotExist
 from django.db import OperationalError
+from django.db.models.fields.related import ForeignKey
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import render
+from django.urls import NoReverseMatch, reverse
 
 from msa.utils.dates import find_season_for_date, get_active_date
+
+from .utils import enumerate_fax_months
+
+
+def _to_iso(value):
+    return value.isoformat() if hasattr(value, "isoformat") else value
 
 
 def home(request):
@@ -143,6 +152,30 @@ def nav_live_badge(request):
     return HttpResponse('<span id="live-badge" class="ml-1 hidden"></span>')
 
 
+def season_api(request):
+    Season = apps.get_model("msa", "Season") if apps.is_installed("msa") else None
+    season_id = request.GET.get("id") or request.GET.get("season")
+    data = {}
+
+    if Season and season_id:
+        season = Season.objects.filter(pk=season_id).first()
+        if season:
+            start = getattr(season, "start_date", None)
+            end = getattr(season, "end_date", None)
+            start_iso = _to_iso(start)
+            end_iso = _to_iso(end)
+            months = enumerate_fax_months(start_iso, end_iso) if start_iso and end_iso else []
+            data = {
+                "id": getattr(season, "id", None),
+                "name": getattr(season, "name", None),
+                "start_date": start_iso,
+                "end_date": end_iso,
+                "month_sequence": months,
+            }
+
+    return JsonResponse(data)
+
+
 def tournaments_api(request):
     """
     JSON seznam turnajů. Preferuje sezonní filtr ?season=<id>.
@@ -171,27 +204,70 @@ def tournaments_api(request):
                     s = Season.objects.get(pk=season_id)
                     if getattr(s, "start_date", None) and getattr(s, "end_date", None):
                         qs = qs.filter(start_date__lte=s.end_date, end_date__gte=s.start_date)
-                except Season.DoesNotExist:
+                except (Season.DoesNotExist, OperationalError):
                     pass
-            # sestavení výstupu
+            rels = []
+            for fname in ("season", "category"):
+                try:
+                    field = Tournament._meta.get_field(fname)
+                except (FieldDoesNotExist, AttributeError, LookupError):
+                    continue
+                if getattr(field, "is_relation", False) and isinstance(field, ForeignKey):
+                    rels.append(fname)
+            if rels:
+                qs = qs.select_related(*rels)
+
+            orderable = [fname for fname in ("start_date", "name") if fname in fields]
+            if orderable:
+                qs = qs.order_by(*orderable)
+
+            def resolve_category(tournament):
+                display = getattr(tournament, "get_category_display", None)
+                if callable(display):
+                    value = display()
+                    if value not in (None, ""):
+                        return str(value)
+
+                category_attr = getattr(tournament, "category", None)
+                if getattr(category_attr, "name", None):
+                    return str(category_attr.name)
+                if category_attr not in (None, ""):
+                    return str(category_attr)
+
+                tier_value = getattr(tournament, "tier", None)
+                return "" if tier_value in (None, "") else str(tier_value)
+
+            def build_url(tournament):
+                get_absolute = getattr(tournament, "get_absolute_url", None)
+                if callable(get_absolute):
+                    try:
+                        url_value = get_absolute()
+                    except (TypeError, ValueError):
+                        url_value = None
+                    else:
+                        if url_value:
+                            return url_value
+
+                if getattr(tournament, "id", None) is not None:
+                    try:
+                        return reverse("msa:tournament_detail", args=[tournament.id])
+                    except NoReverseMatch:
+                        return None
+                return None
+
             for t in qs:
+                start_attr = getattr(t, "start_date", None) or getattr(t, "start", None)
+                end_attr = getattr(t, "end_date", None) or getattr(t, "end", None)
                 row = {
                     "id": getattr(t, "id", None),
                     "name": getattr(t, "name", None) or getattr(t, "title", None),
                     "city": getattr(t, "city", None),
                     "country": getattr(t, "country", None),
-                    "category": getattr(t, "category", None) or getattr(t, "tier", None),
-                    "start_date": getattr(t, "start_date", None) or getattr(t, "start", None),
-                    "end_date": getattr(t, "end_date", None) or getattr(t, "end", None),
+                    "category": resolve_category(t),
+                    "start_date": _to_iso(start_attr),
+                    "end_date": _to_iso(end_attr),
+                    "url": build_url(t),
                 }
-                # volitelný detail URL, pokud existuje pojmenovaná route
-                try:
-                    from django.urls import reverse
-
-                    if getattr(t, "id", None) is not None:
-                        row["url"] = reverse("msa:tournament_detail", args=[t.id])
-                except Exception:
-                    row["url"] = None
                 items.append(row)
         except OperationalError:
             items = []
