@@ -39,5 +39,6 @@
 {% endblock %}
 
 {% block extra_js %}
+  {{ block.super }}
   <script defer src="{% static 'msa/js/calendar.js' %}"></script>
 {% endblock %}
