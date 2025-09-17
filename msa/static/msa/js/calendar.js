@@ -88,7 +88,7 @@
 
   function saveMode() {
     localStorage.setItem(MODE_KEY, mode);
-    setQueryParam("mode", mode);
+    setQueryParam("mode", mode); // zapisuj jen při explicitní změně (voláme z click handlerů)
   }
 
   function updateModeButtons() {
@@ -662,19 +662,21 @@
       });
     btnModeMonths &&
       btnModeMonths.addEventListener("click", () => {
-        if (mode === "months") return;
-        mode = "months";
-        saveMode();
-        updateModeButtons();
-        render();
+        if (mode !== "months") {
+          mode = "months";
+          saveMode();
+          updateModeButtons();
+          render();
+        }
       });
     btnModeDays &&
       btnModeDays.addEventListener("click", () => {
-        if (mode === "days") return;
-        mode = "days";
-        saveMode();
-        updateModeButtons();
-        render();
+        if (mode !== "days") {
+          mode = "days";
+          saveMode();
+          updateModeButtons();
+          render();
+        }
       });
     btnToday &&
       btnToday.addEventListener("click", () => {
@@ -732,7 +734,6 @@
   async function init() {
     loadMode();
     updateModeButtons();
-    saveMode();
     await prepareSeason();
     if (selMonth && initFilters.month) {
       const has = Array.from(selMonth.options).some(
@@ -759,8 +760,8 @@
         selCat.value = initFilters.cat;
       }
     }
-    render();
     initEvents();
+    render(); // první render až po navázání handlerů a dosazení filtrů
   }
 
   if (document.readyState === "loading") {
