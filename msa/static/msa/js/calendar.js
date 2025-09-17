@@ -5,6 +5,7 @@
   const emptyEl = document.getElementById("cal-empty");
   const listEl = document.getElementById("cal-list");
   const selMonth = document.getElementById("month-filter");
+  const selTour = document.getElementById("cal-tour");
   const selCat = document.getElementById("cal-cat");
   const btnToday = document.getElementById("cal-today");
 
@@ -26,6 +27,13 @@
     Gold: "bg-amber-500/10 text-amber-700 border-amber-200",
     Silver: "bg-gray-500/10 text-gray-700 border-gray-300",
     Bronze: "bg-orange-500/10 text-orange-700 border-orange-200",
+  };
+
+  const TOUR_BADGE = {
+    "World Tour": "bg-blue-600/10 text-blue-700 border-blue-200",
+    "Elite Tour": "bg-purple-600/10 text-purple-700 border-purple-200",
+    "Challenger Tour": "bg-teal-600/10 text-teal-700 border-teal-200",
+    "Development Tour": "bg-lime-600/10 text-lime-700 border-lime-200",
   };
 
   function monthFromFaxDateStr(value) {
@@ -59,6 +67,57 @@
     });
   }
 
+  function formatYMD(s) {
+    const parts = String(s || "").split("-");
+    if (parts.length < 3) return s || "";
+    const [y, m, d] = parts.map((x) => parseInt(x, 10));
+    if (!y || !m || !d) return s || "";
+    return `${d}.${m}.${y}`;
+  }
+
+  function showSeasonRange() {
+    const el = document.getElementById("season-range");
+    if (!el) return;
+    if (seasonMeta?.start_date && seasonMeta?.end_date) {
+      el.textContent = `${formatYMD(seasonMeta.start_date)} – ${formatYMD(
+        seasonMeta.end_date,
+      )}`;
+      el.classList.remove("hidden");
+    }
+  }
+
+  function buildTourOptionsFromRows() {
+    if (!selTour) return;
+    const set = new Set(rows.map((r) => r.tour).filter(Boolean));
+    const options = Array.from(set).sort();
+    selTour
+      .querySelectorAll("option:not([value=''])")
+      .forEach((opt) => opt.remove());
+    options.forEach((t) => {
+      const opt = document.createElement("option");
+      opt.value = t;
+      opt.textContent = t;
+      selTour.appendChild(opt);
+    });
+  }
+
+  function buildCategoryOptionsFromRows() {
+    if (!selCat) return;
+    const set = new Set(rows.map((r) => r.category).filter(Boolean));
+    const options = Array.from(set).sort((a, b) =>
+      String(a).localeCompare(String(b)),
+    );
+    selCat
+      .querySelectorAll("option:not([value=''])")
+      .forEach((opt) => opt.remove());
+    options.forEach((v) => {
+      const opt = document.createElement("option");
+      opt.value = v;
+      opt.textContent = v;
+      selCat.appendChild(opt);
+    });
+  }
+
   function getRowFaxMonth(row) {
     const source = row.start_date || row.end_date || "";
     if (!source) return null;
@@ -82,13 +141,15 @@
     const selectedMonth = rawValue ? Number.parseInt(rawValue, 10) : NaN;
     const hasMonthFilter = !Number.isNaN(selectedMonth);
     const selectedCategory = (selCat?.value || "").trim();
+    const selectedTour = (selTour?.value || "").trim();
 
     const filtered = rows
       .filter((row) => {
         const faxMonth = getRowFaxMonth(row);
         const okMonth = hasMonthFilter ? faxMonth === selectedMonth : true;
         const okCategory = selectedCategory ? row.category === selectedCategory : true;
-        return okMonth && okCategory;
+        const okTour = selectedTour ? row.tour === selectedTour : true;
+        return okMonth && okCategory && okTour;
       })
       .sort(compareRows);
 
@@ -175,6 +236,8 @@
           .map((row) => {
             const badge =
               BADGE[row.category] || "bg-slate-600/10 text-slate-800 border-slate-300";
+            const tourBadge =
+              TOUR_BADGE[row.tour] || "bg-slate-600/10 text-slate-800 border-slate-300";
             const when = [row.start_date, row.end_date].filter(Boolean).join(" – ");
             const place = [row.city, row.country].filter(Boolean).join(", ");
             const url = row.url || (row.id ? `/msa/tournament/${row.id}/` : "#");
@@ -185,6 +248,12 @@
                 <span class="inline-flex items-center rounded-md border px-2 py-0.5 text-xs ${badge}">
                   ${row.category || "—"}
                 </span>
+                ${row.tour
+                  ? `
+                <span class="inline-flex items-center rounded-md border px-2 py-0.5 text-xs ${tourBadge}">
+                  ${row.tour}
+                </span>`
+                  : ""}
                 <span class="font-medium truncate">${row.name || "Tournament"}</span>
               </div>
               <div class="text-xs text-slate-500 mt-0.5">
@@ -201,10 +270,10 @@
 
         return `
         <div class="bg-white">
-          <div class="sticky top-[4rem] z-10 bg-white/90 backdrop-blur px-4 py-2 border-b" data-fax-month="${dataAttr}">
+          <div class="sticky top-[4rem] z-10 bg-white/90 backdrop-blur px-4 py-2 border-b scroll-mt-24" data-fax-month="${dataAttr}">
             <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-600">${title}</h2>
           </div>
-          <div class="divide-y">
+          <div class="divide-y pt-3">
             ${items}
           </div>
         </div>
@@ -252,6 +321,7 @@
 
     monthSequence = sequence;
     buildMonthOptionsFromSequence(monthSequence);
+    showSeasonRange();
   }
 
   async function loadTournaments() {
@@ -268,10 +338,13 @@
         city: t.city || "",
         country: t.country || "",
         category: t.category || t.tier || "",
+        tour: t.tour || "",
         start_date: t.start_date || t.start || "",
         end_date: t.end_date || t.end || "",
         url: t.url || "",
       }));
+      buildTourOptionsFromRows();
+      buildCategoryOptionsFromRows();
       loading.style.display = "none";
       render();
     } catch (err) {
@@ -282,6 +355,7 @@
 
   function initEvents() {
     selMonth && selMonth.addEventListener("change", render);
+    selTour && selTour.addEventListener("change", render);
     selCat && selCat.addEventListener("change", render);
     btnToday &&
       btnToday.addEventListener("click", () => {

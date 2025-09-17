@@ -116,3 +116,48 @@ def test_tournaments_api_is_sorted_by_start_date_then_name(client):
     payload = response.json()
     order = [item["id"] for item in payload["tournaments"]]
     assert order == [t2.id, t3.id, t1.id]
+
+
+def test_tournaments_api_includes_tour_from_monkeypatched_field(client, monkeypatch):
+    season = Season.objects.create(
+        name="2028/29",
+        start_date="2028-11-01",
+        end_date="2029-11-01",
+    )
+    monkeypatch.setattr(Tournament, "tour", property(lambda self: "World Tour"), raising=False)
+    tournament = Tournament.objects.create(
+        name="WT Event",
+        season=season,
+        start_date="2028-12-01",
+        end_date="2028-12-05",
+    )
+
+    response = client.get(reverse("msa-tournaments-api"), {"season": season.id})
+    assert response.status_code == 200
+
+    data = response.json()
+    row = next(x for x in data["tournaments"] if x["id"] == tournament.id)
+    assert row["tour"] == "World Tour"
+
+
+def test_tournaments_api_derives_tour_from_category_when_missing_tour(client):
+    season = Season.objects.create(
+        name="2029/30",
+        start_date="2029-11-01",
+        end_date="2030-11-01",
+    )
+    category = Category.objects.create(name="Diamond")
+    tournament = Tournament.objects.create(
+        name="Diamond Event",
+        season=season,
+        category=category,
+        start_date="2030-01-01",
+        end_date="2030-01-07",
+    )
+
+    response = client.get(reverse("msa-tournaments-api"), {"season": season.id})
+    assert response.status_code == 200
+
+    data = response.json()
+    row = next(x for x in data["tournaments"] if x["id"] == tournament.id)
+    assert row["tour"] == "World Tour"

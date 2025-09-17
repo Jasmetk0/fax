@@ -6,8 +6,9 @@
     <h1 class="text-2xl font-bold">
       Season calendar
       {% if season %}<span class="text-slate-500 text-base align-middle">— {{ season }}</span>{% endif %}
+      <span id="season-range" class="ml-2 text-slate-400 text-sm hidden"></span>
     </h1>
-    <p class="text-slate-500 text-sm">Klikni na turnaj pro detail. Filtruj podle měsíce a kategorie.</p>
+    <p class="text-slate-500 text-sm">Klikni na turnaj pro detail. Filtruj podle měsíce, Tour a kategorie.</p>
   </header>
 
   <section class="mb-4 flex flex-wrap gap-3 items-center">
@@ -16,11 +17,15 @@
       <select id="month-filter" class="rounded-md border px-2 py-1"></select>
     </label>
     <label class="text-sm text-slate-600">
+      <span class="mr-2">Tour</span>
+      <select id="cal-tour" class="rounded-md border px-2 py-1">
+        <option value="">All</option>
+      </select>
+    </label>
+    <label class="text-sm text-slate-600">
       <span class="mr-2">Category</span>
       <select id="cal-cat" class="rounded-md border px-2 py-1">
         <option value="">All</option>
-        <option>Diamond</option><option>Emerald</option><option>Platinum</option>
-        <option>Gold</option><option>Silver</option><option>Bronze</option>
       </select>
     </label>
     <div class="ml-auto flex items-center gap-2 text-sm">

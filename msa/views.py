@@ -237,6 +237,32 @@ def tournaments_api(request):
                 tier_value = getattr(tournament, "tier", None)
                 return "" if tier_value in (None, "") else str(tier_value)
 
+            def resolve_tour(tournament, category_value: str) -> str:
+                display = getattr(tournament, "get_tour_display", None)
+                if callable(display):
+                    value = display()
+                    if value not in (None, ""):
+                        return str(value)
+
+                tour_attr = getattr(tournament, "tour", None)
+                if getattr(tour_attr, "name", None):
+                    return str(tour_attr.name)
+                if tour_attr not in (None, ""):
+                    return str(tour_attr)
+
+                cat = (category_value or "").lower()
+                world = {"diamond", "emerald", "platinum", "gold", "silver", "bronze"}
+                elite = {"copper", "cobalt", "iron", "nickel", "tin", "zinc"}
+                if any(x in cat for x in world):
+                    return "World Tour"
+                if any(x in cat for x in elite):
+                    return "Elite Tour"
+                if "challenger" in cat:
+                    return "Challenger Tour"
+                if "future" in cat or "isd" in cat:
+                    return "Development Tour"
+                return ""
+
             def build_url(tournament):
                 get_absolute = getattr(tournament, "get_absolute_url", None)
                 if callable(get_absolute):
@@ -258,12 +284,14 @@ def tournaments_api(request):
             for t in qs:
                 start_attr = getattr(t, "start_date", None) or getattr(t, "start", None)
                 end_attr = getattr(t, "end_date", None) or getattr(t, "end", None)
+                category_value = resolve_category(t)
                 row = {
                     "id": getattr(t, "id", None),
                     "name": getattr(t, "name", None) or getattr(t, "title", None),
                     "city": getattr(t, "city", None),
                     "country": getattr(t, "country", None),
-                    "category": resolve_category(t),
+                    "category": category_value,
+                    "tour": resolve_tour(t, category_value),
                     "start_date": _to_iso(start_attr),
                     "end_date": _to_iso(end_attr),
                     "url": build_url(t),
