@@ -234,9 +234,170 @@ def test_tournament_matches_api_orders_and_includes_court(client):
     assert data["count"] == 3
     ordered_ids = [item["id"] for item in data["matches"]]
     assert ordered_ids == [match_a.id, match_b.id, match_c.id]
+    assert all(item["status"] == "scheduled" for item in data["matches"])
     for item in data["matches"]:
         assert isinstance(item["court"], dict)
         assert item["court"]["name"]
+
+
+def test_tournament_matches_api_fax_month_13_ok(client):
+    tournament = create_tournament()
+    player_a = Player.objects.create(full_name="Player Month A")
+    player_b = Player.objects.create(full_name="Player Month B")
+    player_c = Player.objects.create(full_name="Player Month C")
+    player_d = Player.objects.create(full_name="Player Month D")
+
+    match_month_13 = Match.objects.create(
+        tournament=tournament,
+        phase="MD",
+        round_name="R64",
+        player1=player_a,
+        player2=player_b,
+        state="SCHEDULED",
+        score={"sets": []},
+    )
+    Schedule.objects.create(
+        tournament=tournament,
+        match=match_month_13,
+        play_date="2024-13-05",
+        order=1,
+    )
+
+    match_month_12 = Match.objects.create(
+        tournament=tournament,
+        phase="MD",
+        round_name="R32",
+        player1=player_c,
+        player2=player_d,
+        state="SCHEDULED",
+        score={"sets": []},
+    )
+    Schedule.objects.create(
+        tournament=tournament,
+        match=match_month_12,
+        play_date="2024-12-15",
+        order=2,
+    )
+
+    url = reverse("msa-tournament-matches-api", args=[tournament.id])
+
+    response_month_13 = client.get(url, {"fax_month": 13})
+    assert response_month_13.status_code == 200
+    data_month_13 = response_month_13.json()
+    ids_month_13 = [item["id"] for item in data_month_13["matches"]]
+    assert match_month_13.id in ids_month_13
+    assert match_month_12.id not in ids_month_13
+
+    response_month_12 = client.get(url, {"fax_month": 12})
+    assert response_month_12.status_code == 200
+    data_month_12 = response_month_12.json()
+    ids_month_12 = [item["id"] for item in data_month_12["matches"]]
+    assert match_month_12.id in ids_month_12
+    assert match_month_13.id not in ids_month_12
+
+
+def test_tournament_courts_api_sorted(client):
+    tournament = create_tournament()
+    player_a = Player.objects.create(full_name="Court Player A")
+    player_b = Player.objects.create(full_name="Court Player B")
+
+    def make_match(identifier, name, order, play_date="2024-05-10"):
+        match = Match.objects.create(
+            tournament=tournament,
+            phase="MD",
+            round_name=f"R{order}",
+            round=f"R{order}",
+            position=order,
+            player1=player_a,
+            player2=player_b,
+            state="SCHEDULED",
+            score={"court": {"id": identifier, "name": name}},
+        )
+        Schedule.objects.create(
+            tournament=tournament,
+            match=match,
+            play_date=play_date,
+            order=order,
+        )
+        return match
+
+    make_match("court-beta", "Beta Court", 1, "2024-05-10")
+    make_match("court-alpha", "Alpha Court", 2, "2024-05-11")
+    make_match("court-alpha", "Alpha Court", 3, "2024-05-12")
+
+    match_without_name = Match.objects.create(
+        tournament=tournament,
+        phase="MD",
+        round_name="R99",
+        round="R99",
+        position=99,
+        player1=player_a,
+        player2=player_b,
+        state="SCHEDULED",
+        score={"court": {"id": "court-001"}},
+    )
+    Schedule.objects.create(
+        tournament=tournament,
+        match=match_without_name,
+        play_date="2024-05-13",
+        order=4,
+    )
+
+    url = reverse("msa-tournament-courts-api", args=[tournament.id])
+    response = client.get(url)
+
+    assert response.status_code == 200
+    data = response.json()
+    courts = data["courts"]
+    assert courts == [
+        {"id": "court-001", "name": None},
+        {"id": "court-alpha", "name": "Alpha Court"},
+        {"id": "court-beta", "name": "Beta Court"},
+    ]
+
+
+def test_matches_api_pagination_next_offset(client):
+    tournament = create_tournament()
+    player_one = Player.objects.create(full_name="Paging A")
+    player_two = Player.objects.create(full_name="Paging B")
+
+    for index in range(60):
+        match = Match.objects.create(
+            tournament=tournament,
+            phase="MD",
+            round_name=f"R{index}",
+            round=f"R{index}",
+            position=index,
+            player1=player_one,
+            player2=player_two,
+            state="SCHEDULED",
+            score={"sets": []},
+        )
+        Schedule.objects.create(
+            tournament=tournament,
+            match=match,
+            play_date="2024-05-10",
+            order=index + 1,
+        )
+
+    url = reverse("msa-tournament-matches-api", args=[tournament.id])
+
+    first_page = client.get(url, {"limit": 50})
+    assert first_page.status_code == 200
+    first_data = first_page.json()
+    assert first_data["count"] == 60
+    assert len(first_data["matches"]) == 50
+    assert first_data["next_offset"] == 50
+
+    second_page = client.get(url, {"limit": 50, "offset": 50})
+    assert second_page.status_code == 200
+    second_data = second_page.json()
+    assert second_data["count"] == 60
+    assert len(second_data["matches"]) == 10
+    assert second_data["next_offset"] is None
+    first_ids = {item["id"] for item in first_data["matches"]}
+    second_ids = {item["id"] for item in second_data["matches"]}
+    assert not first_ids & second_ids
 
 
 def test_tournament_matches_api_limit_clamped(client):

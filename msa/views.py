@@ -725,9 +725,9 @@ def tournament_matches_api(request, tournament_id: int):
             month_int = int(fax_month_param)
         except (TypeError, ValueError):
             month_int = None
-        if month_int and 1 <= month_int <= 12:
+        if month_int and 1 <= month_int <= 15:
             mm = f"{month_int:02d}"
-            month_re = rf"^\\d{{4}}-{mm}-"
+            month_re = rf"^\d{{4}}-{mm}-"
             month_filters = []
             if _model_has_field(Schedule, "play_date"):
                 month_filters.append(Q(schedule__play_date__regex=month_re))
@@ -901,7 +901,10 @@ def tournament_matches_api(request, tournament_id: int):
 
         if base_status != "finished":
             in_progress_flag = bool(getattr(match, "in_progress", False))
-            if base_status == "live" or in_progress_flag or has_partial:
+            has_recorded_sets = bool(sets)
+            if base_status == "live" or in_progress_flag:
+                base_status = "live"
+            elif has_partial and (base_status != "scheduled" or has_recorded_sets):
                 base_status = "live"
 
         phase_value = (getattr(match, "phase", None) or "").lower()
@@ -980,7 +983,7 @@ def tournament_courts_api(request, tournament_id: int):
     except OperationalError:
         return JsonResponse({"courts": []})
 
-    seen = {}
+    seen = set()
     courts = []
 
     def _append_court(candidate):
@@ -992,18 +995,29 @@ def tournament_courts_api(request, tournament_id: int):
         else:
             cid = getattr(candidate, "id", None)
             name = getattr(candidate, "name", None) or (str(candidate) if candidate else None)
-        key = cid or name
-        if not key or key in seen:
+        name_value = name or ""
+        key = (cid, name_value)
+        if (cid is None and not name_value) or key in seen:
             return
-        seen[key] = True
+        seen.add(key)
         courts.append({"id": cid, "name": name})
 
     for match in qs:
         for attr in ("court", "court_name"):
             _append_court(getattr(match, attr, None))
+        score_payload = getattr(match, "score", None)
+        if isinstance(score_payload, dict):
+            for key in ("court", "court_name"):
+                _append_court(score_payload.get(key))
+            meta = score_payload.get("meta")
+            if isinstance(meta, dict):
+                for key in ("court", "court_name"):
+                    _append_court(meta.get(key))
         schedule = getattr(match, "schedule", None)
         if schedule:
             for attr in ("court", "court_name"):
                 _append_court(getattr(schedule, attr, None))
+
+    courts.sort(key=lambda c: ((c.get("name") or "").lower(), str(c.get("id") or "")))
 
     return JsonResponse({"courts": courts})

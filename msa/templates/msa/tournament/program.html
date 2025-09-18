@@ -86,7 +86,7 @@
 
       <div id="prog-order" class="hidden space-y-4" aria-live="polite"></div>
 
-      <div id="prog-table" class="hidden overflow-x-auto">
+      <div id="prog-table" class="hidden overflow-x-auto" aria-live="polite">
         <table class="min-w-full divide-y divide-slate-200 text-sm" aria-describedby="prog-empty">
           <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
             <tr>
@@ -102,6 +102,15 @@
           <tbody id="prog-table-body" class="divide-y divide-slate-100 bg-white"></tbody>
         </table>
       </div>
+
+      <button
+        id="prog-load-more"
+        type="button"
+        class="hidden rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+        aria-label="Načíst další zápasy"
+      >
+        Načíst další
+      </button>
     </div>
   </section>
 {% endblock %}
