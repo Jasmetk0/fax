@@ -1,0 +1,27 @@
+{% extends "msa/tournament/base.html" %}
+
+{% block tournament_content %}
+  <section class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+    <header class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <div>
+        <h2 class="text-lg font-semibold text-slate-900">Draws</h2>
+        <p class="mt-1 text-sm text-slate-500">Přepni mezi hlavní soutěží a kvalifikací. Obsah bude doplněn po integraci.</p>
+      </div>
+      <div class="inline-flex rounded-md border" role="tablist" aria-label="Draw selection">
+        <button type="button" class="px-3 py-1 text-sm font-medium text-slate-900" aria-selected="true">Main</button>
+        <button type="button" class="border-l px-3 py-1 text-sm text-slate-500" aria-selected="false">Qualification</button>
+      </div>
+    </header>
+
+    <div class="mt-6 space-y-4 text-sm text-slate-600">
+      <div class="rounded-lg border border-dashed border-slate-200 p-4">
+        <h3 class="text-base font-semibold text-slate-800">Main draw</h3>
+        <p class="mt-1">Brackets, zápasy a postup hráčů se zde zobrazí po napojení na generátor.</p>
+      </div>
+      <div class="rounded-lg border border-dashed border-slate-200 p-4">
+        <h3 class="text-base font-semibold text-slate-800">Qualification</h3>
+        <p class="mt-1">Kvalifikační pavouk a výsledky budou k dispozici v této sekci.</p>
+      </div>
+    </div>
+  </section>
+{% endblock %}

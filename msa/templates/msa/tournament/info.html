@@ -1,0 +1,43 @@
+{% extends "msa/tournament/base.html" %}
+
+{% block tournament_content %}
+  <article class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+    <h2 class="text-lg font-semibold text-slate-900">Turnajový přehled</h2>
+    <p class="mt-2 text-sm text-slate-500">Základní parametry turnaje. Detailní logika se doplní později.</p>
+    <dl class="mt-4 grid gap-4 sm:grid-cols-2">
+      <div>
+        <dt class="text-xs uppercase tracking-wide text-slate-500">Draw size</dt>
+        <dd class="text-sm text-slate-900">{{ tournament.draw_size|default:"—" }}</dd>
+      </div>
+      <div>
+        <dt class="text-xs uppercase tracking-wide text-slate-500">Qualifiers</dt>
+        <dd class="text-sm text-slate-900">{{ tournament.qualifiers_count|default:"—" }}</dd>
+      </div>
+      <div>
+        <dt class="text-xs uppercase tracking-wide text-slate-500">WC slots</dt>
+        <dd class="text-sm text-slate-900">{{ tournament.wc_slots|default:"—" }}</dd>
+      </div>
+      <div>
+        <dt class="text-xs uppercase tracking-wide text-slate-500">Qual WC slots</dt>
+        <dd class="text-sm text-slate-900">{{ tournament.q_wc_slots|default:"—" }}</dd>
+      </div>
+      <div>
+        <dt class="text-xs uppercase tracking-wide text-slate-500">Best of (Qualification)</dt>
+        <dd class="text-sm text-slate-900">{{ tournament.q_best_of|default:"—" }}</dd>
+      </div>
+      <div>
+        <dt class="text-xs uppercase tracking-wide text-slate-500">Best of (Main)</dt>
+        <dd class="text-sm text-slate-900">{{ tournament.md_best_of|default:"—" }}</dd>
+      </div>
+      <div class="sm:col-span-2">
+        <dt class="text-xs uppercase tracking-wide text-slate-500">Third place match</dt>
+        <dd class="text-sm text-slate-900">{% if tournament.third_place_enabled %}Ano{% else %}Ne{% endif %}</dd>
+      </div>
+    </dl>
+  </article>
+
+  <article class="mt-6 rounded-xl border border-dashed border-slate-200 bg-slate-50 p-6">
+    <h3 class="text-base font-semibold text-slate-800">Město &amp; země</h3>
+    <p class="mt-2 text-sm text-slate-600">Informace o lokaci budou doplněny po napojení na zdroj dat. Zatím počítej s placeholderem.</p>
+  </article>
+{% endblock %}

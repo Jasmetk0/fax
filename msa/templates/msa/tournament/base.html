@@ -1,0 +1,58 @@
+{% extends "msa/_base.html" %}
+{% load static %}
+
+{% block title %}
+  {{ tournament.name|default:"Tournament" }} – MSA
+{% endblock %}
+
+{% block body %}
+  <header class="rounded-xl border border-slate-200 bg-white/70 p-6 shadow-sm">
+    <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+      <div>
+        <h1 class="text-2xl font-bold text-slate-900">
+          {{ tournament.name|default:"Unnamed tournament" }}
+        </h1>
+        <div class="mt-3 flex flex-wrap items-center gap-2 text-sm text-slate-600">
+          {% if tour_label %}
+            <span class="inline-flex items-center rounded-md border px-2 py-0.5 text-xs {{ tour_badge_class }}">
+              {{ tour_label }}
+            </span>
+          {% endif %}
+          {% if category_label %}
+            <span class="inline-flex items-center rounded-md border px-2 py-0.5 text-xs {{ category_badge_class }}">
+              {{ category_label }}
+            </span>
+          {% endif %}
+          {% if season %}
+            <span class="text-xs text-slate-500">Season {{ season }}</span>
+          {% endif %}
+        </div>
+        <p class="mt-2 text-sm text-slate-500">
+          FAX range:
+          <span class="font-medium text-slate-700">
+            {% if fax_range_start or fax_range_end %}
+              {{ fax_range_start|default:"TBD" }} – {{ fax_range_end|default:"TBD" }}
+            {% else %}
+              TBD
+            {% endif %}
+          </span>
+        </p>
+      </div>
+      <div class="flex items-center gap-3">
+        <span class="inline-flex items-center rounded-md border px-2 py-1 text-xs font-semibold uppercase tracking-wide {{ status.class }}">
+          {{ status.label }}
+        </span>
+      </div>
+    </div>
+  </header>
+
+  {% include "msa/tournament/_tabs.html" %}
+
+  <section class="mt-6">
+    {% block tournament_content %}{% endblock %}
+  </section>
+{% endblock %}
+
+{% block extra_js %}
+  {{ block.super }}
+{% endblock %}

@@ -1,0 +1,113 @@
+{% extends "msa/tournament/base.html" %}
+{% load static %}
+
+{% block tournament_content %}
+  <section
+    id="prog-root"
+    class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
+    data-matches-url="{{ matches_api_url|default:'' }}"
+    data-courts-url="{{ courts_api_url|default:'' }}"
+    data-start="{{ fax_range_start }}"
+    data-end="{{ fax_range_end }}"
+  >
+    <header class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <div>
+        <h2 class="text-lg font-semibold text-slate-900">Program &amp; zápasy</h2>
+        <p class="mt-1 text-sm text-slate-500">Denní pořad a tabulka zápasů sdílí stejné filtry. Data se načtou automaticky.</p>
+      </div>
+      <div class="flex items-center gap-2 text-sm">
+        <span class="text-slate-600">Režim zobrazení:</span>
+        <div class="inline-flex rounded-md border" role="tablist" aria-label="Program view mode">
+          <button id="prog-mode-order" type="button" class="px-3 py-1 text-sm" data-mode="order" aria-selected="true">Order of Play</button>
+          <button id="prog-mode-table" type="button" class="border-l px-3 py-1 text-sm" data-mode="table" aria-selected="false">Tabulka zápasů</button>
+        </div>
+      </div>
+    </header>
+
+    <section class="mt-4 grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+      <label class="flex flex-col text-xs font-medium uppercase tracking-wide text-slate-500">
+        <span class="mb-1">FAX měsíc</span>
+        <select id="filter-fax-month" class="rounded-md border border-slate-200 px-3 py-2 text-sm">
+          <option value="">Vše</option>
+        </select>
+      </label>
+      <label class="flex flex-col text-xs font-medium uppercase tracking-wide text-slate-500">
+        <span class="mb-1">FAX den</span>
+        <select id="filter-fax-day" class="rounded-md border border-slate-200 px-3 py-2 text-sm">
+          <option value="">Vše</option>
+        </select>
+      </label>
+      <label class="flex flex-col text-xs font-medium uppercase tracking-wide text-slate-500">
+        <span class="mb-1">Kurt</span>
+        <select id="filter-court" class="rounded-md border border-slate-200 px-3 py-2 text-sm">
+          <option value="">Vše</option>
+        </select>
+      </label>
+      <label class="flex flex-col text-xs font-medium uppercase tracking-wide text-slate-500">
+        <span class="mb-1">Fáze</span>
+        <select id="filter-phase" class="rounded-md border border-slate-200 px-3 py-2 text-sm">
+          <option value="all">Vše</option>
+          <option value="md">Main Draw</option>
+          <option value="qual">Qualification</option>
+        </select>
+      </label>
+      <label class="flex flex-col text-xs font-medium uppercase tracking-wide text-slate-500">
+        <span class="mb-1">Stav</span>
+        <select id="filter-status" class="rounded-md border border-slate-200 px-3 py-2 text-sm">
+          <option value="all">Vše</option>
+          <option value="scheduled">Naplánované</option>
+          <option value="live">Živé</option>
+          <option value="finished">Dokončené</option>
+        </select>
+      </label>
+      <label class="flex flex-col text-xs font-medium uppercase tracking-wide text-slate-500">
+        <span class="mb-1">Best of</span>
+        <select id="filter-best-of" class="rounded-md border border-slate-200 px-3 py-2 text-sm">
+          <option value="">Vše</option>
+          <option value="3">Best of 3</option>
+          <option value="5">Best of 5</option>
+          <option value="win_only">Výhra potřebná</option>
+          <option value="default">Default</option>
+        </select>
+      </label>
+      <label class="flex flex-col text-xs font-medium uppercase tracking-wide text-slate-500 lg:col-span-2 xl:col-span-3">
+        <span class="mb-1">Hledání</span>
+        <input id="filter-q" type="search" class="w-full rounded-md border border-slate-200 px-3 py-2 text-sm" placeholder="Hráč, poznámka…" />
+      </label>
+      <label class="flex items-center gap-2 text-sm font-medium text-slate-600">
+        <input id="filter-live-only" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
+        Pouze živé
+      </label>
+    </section>
+
+    <div class="mt-6 space-y-4">
+      <div id="prog-loading" class="rounded-lg border border-dashed border-slate-200 p-6 text-sm text-slate-500">Načítám program…</div>
+      <div id="prog-empty" class="hidden rounded-lg border border-dashed border-slate-200 p-6 text-sm text-slate-500">Pro vybranou kombinaci filtrů zatím nejsou dostupné žádné zápasy.</div>
+
+      <div id="prog-order" class="hidden space-y-4" aria-live="polite"></div>
+
+      <div id="prog-table" class="hidden overflow-x-auto">
+        <table class="min-w-full divide-y divide-slate-200 text-sm" aria-describedby="prog-empty">
+          <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+            <tr>
+              <th scope="col" class="px-4 py-2 text-left">FAX den</th>
+              <th scope="col" class="px-4 py-2 text-left">Kurt</th>
+              <th scope="col" class="px-4 py-2 text-left">Fáze / kolo</th>
+              <th scope="col" class="px-4 py-2 text-left">Hráč A</th>
+              <th scope="col" class="px-4 py-2 text-left">Hráč B</th>
+              <th scope="col" class="px-4 py-2 text-left">Skóre</th>
+              <th scope="col" class="px-4 py-2 text-left">Stav</th>
+            </tr>
+          </thead>
+          <tbody id="prog-table-body" class="divide-y divide-slate-100 bg-white"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+{% endblock %}
+
+{% block extra_js %}
+  {{ block.super }}
+  <script defer src="{% static 'msa/js/fax-dates.js' %}?v={% now 'U' %}"></script>
+  <script defer src="{% static 'msa/js/program.js' %}?v={% now 'U' %}"></script>
+{% endblock %}

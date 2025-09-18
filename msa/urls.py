@@ -20,6 +20,36 @@ urlpatterns = [
     path("media", views.media, name="media"),
     path("docs", views.docs, name="docs"),
     path("search", views.search, name="search"),
+    path(
+        "tournament/<int:tournament_id>/",
+        views.tournament_info,
+        name="tournament_info",
+    ),
+    path(
+        "tournament/<int:tournament_id>/program/",
+        views.tournament_program,
+        name="tournament_program",
+    ),
+    path(
+        "tournament/<int:tournament_id>/draws/",
+        views.tournament_draws,
+        name="tournament_draws",
+    ),
+    path(
+        "tournament/<int:tournament_id>/players/",
+        views.tournament_players,
+        name="tournament_players",
+    ),
+    path(
+        "tournament/<int:tournament_id>/scoring/",
+        views.tournament_scoring,
+        name="tournament_scoring",
+    ),
+    path(
+        "tournament/<int:tournament_id>/media/",
+        views.tournament_media,
+        name="tournament_media",
+    ),
     # ↓↓↓ doplň tento řádek
     path("status/live-badge", views.nav_live_badge, name="nav_live_badge"),
 ]

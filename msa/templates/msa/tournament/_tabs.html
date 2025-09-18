@@ -1,0 +1,65 @@
+{% load static %}
+{% url 'msa:tournament_info' tournament.id as info_url %}
+{% url 'msa:tournament_program' tournament.id as program_url %}
+{% url 'msa:tournament_draws' tournament.id as draws_url %}
+{% url 'msa:tournament_players' tournament.id as players_url %}
+{% url 'msa:tournament_scoring' tournament.id as scoring_url %}
+{% url 'msa:tournament_media' tournament.id as media_url %}
+<nav class="mt-6 border-b border-slate-200">
+  <ul class="flex flex-wrap gap-2" role="tablist" aria-label="Tournament navigation">
+    <li>
+      <a
+        href="{{ info_url }}"
+        class="inline-flex items-center rounded-t-md border-b-2 px-3 py-2 text-sm font-medium transition {% if active_tab == 'info' %}border-slate-900 text-slate-900{% else %}border-transparent text-slate-500 hover:text-slate-900 hover:border-slate-200{% endif %}"
+        aria-current="{% if active_tab == 'info' %}page{% else %}false{% endif %}"
+      >
+        Info
+      </a>
+    </li>
+    <li>
+      <a
+        href="{{ program_url }}"
+        class="inline-flex items-center rounded-t-md border-b-2 px-3 py-2 text-sm font-medium transition {% if active_tab == 'program' %}border-slate-900 text-slate-900{% else %}border-transparent text-slate-500 hover:text-slate-900 hover:border-slate-200{% endif %}"
+        aria-current="{% if active_tab == 'program' %}page{% else %}false{% endif %}"
+      >
+        Program &amp; Zápasy
+      </a>
+    </li>
+    <li>
+      <a
+        href="{{ draws_url }}"
+        class="inline-flex items-center rounded-t-md border-b-2 px-3 py-2 text-sm font-medium transition {% if active_tab == 'draws' %}border-slate-900 text-slate-900{% else %}border-transparent text-slate-500 hover:text-slate-900 hover:border-slate-200{% endif %}"
+        aria-current="{% if active_tab == 'draws' %}page{% else %}false{% endif %}"
+      >
+        Draws
+      </a>
+    </li>
+    <li>
+      <a
+        href="{{ players_url }}"
+        class="inline-flex items-center rounded-t-md border-b-2 px-3 py-2 text-sm font-medium transition {% if active_tab == 'players' %}border-slate-900 text-slate-900{% else %}border-transparent text-slate-500 hover:text-slate-900 hover:border-slate-200{% endif %}"
+        aria-current="{% if active_tab == 'players' %}page{% else %}false{% endif %}"
+      >
+        Hráči
+      </a>
+    </li>
+    <li>
+      <a
+        href="{{ scoring_url }}"
+        class="inline-flex items-center rounded-t-md border-b-2 px-3 py-2 text-sm font-medium transition {% if active_tab == 'scoring' %}border-slate-900 text-slate-900{% else %}border-transparent text-slate-500 hover:text-slate-900 hover:border-slate-200{% endif %}"
+        aria-current="{% if active_tab == 'scoring' %}page{% else %}false{% endif %}"
+      >
+        Body &amp; Prize
+      </a>
+    </li>
+    <li>
+      <a
+        href="{{ media_url }}"
+        class="inline-flex items-center rounded-t-md border-b-2 px-3 py-2 text-sm font-medium transition {% if active_tab == 'media' %}border-slate-900 text-slate-900{% else %}border-transparent text-slate-500 hover:text-slate-900 hover:border-slate-200{% endif %}"
+        aria-current="{% if active_tab == 'media' %}page{% else %}false{% endif %}"
+      >
+        Media
+      </a>
+    </li>
+  </ul>
+</nav>
