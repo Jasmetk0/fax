@@ -1,6 +1,7 @@
 from django.apps import apps
 from django.core.exceptions import FieldDoesNotExist
 from django.db import OperationalError
+from django.db.models import Q
 from django.db.models.fields.related import ForeignKey
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import render
@@ -556,8 +557,99 @@ def ranking_api(request):
 def tournament_matches_api(request, tournament_id: int):
     tournament = _get_tournament_or_404(tournament_id)
     Match = apps.get_model("msa", "Match") if apps.is_installed("msa") else None
+    Schedule = apps.get_model("msa", "Schedule") if apps.is_installed("msa") else None
+
+    try:
+        limit = min(max(int(request.GET.get("limit", 100)), 1), 500)
+    except (TypeError, ValueError):
+        limit = 100
+    try:
+        offset = max(int(request.GET.get("offset", 0)), 0)
+    except (TypeError, ValueError):
+        offset = 0
+
+    def _base_response(matches: list[dict] | None = None) -> JsonResponse:
+        return JsonResponse(
+            {
+                "matches": matches or [],
+                "count": len(matches or []),
+                "limit": limit,
+                "offset": offset,
+                "next_offset": None,
+            }
+        )
+
     if not Match:
-        return JsonResponse({"matches": []})
+        return _base_response([])
+
+    def _model_has_field(model, field_name: str) -> bool:
+        if not model:
+            return False
+        try:
+            model._meta.get_field(field_name)
+            return True
+        except FieldDoesNotExist:
+            return False
+
+    def _combine_or(filters: list[Q]) -> Q | None:
+        if not filters:
+            return None
+        combined = filters[0]
+        for item in filters[1:]:
+            combined |= item
+        return combined
+
+    def _serialize_court(candidate):
+        if not candidate:
+            return None
+        if isinstance(candidate, dict):
+            cid = candidate.get("id") or candidate.get("pk")
+            name = (
+                candidate.get("name")
+                or candidate.get("label")
+                or candidate.get("title")
+                or candidate.get("court")
+            )
+            if cid is None and name is None and candidate:
+                name = str(candidate)
+            if cid is None and name is None:
+                return None
+            return {"id": cid, "name": name}
+        if isinstance(candidate, str):
+            cleaned = candidate.strip()
+            if not cleaned:
+                return None
+            return {"id": None, "name": cleaned}
+        cid = getattr(candidate, "id", None)
+        name = getattr(candidate, "name", None)
+        if name:
+            return {"id": cid, "name": name}
+        text = str(candidate)
+        if text:
+            return {"id": cid, "name": text}
+        return None
+
+    def _resolve_court(match, schedule):
+        for obj in (schedule, match):
+            if not obj:
+                continue
+            for attr in ("court", "court_name"):
+                resolved = _serialize_court(getattr(obj, attr, None))
+                if resolved:
+                    return resolved
+        score = getattr(match, "score", None)
+        if isinstance(score, dict):
+            for key in ("court", "court_name"):
+                resolved = _serialize_court(score.get(key))
+                if resolved:
+                    return resolved
+            meta = score.get("meta")
+            if isinstance(meta, dict):
+                for key in ("court", "court_name"):
+                    resolved = _serialize_court(meta.get(key))
+                    if resolved:
+                        return resolved
+        return None
 
     try:
         qs = Match.objects.filter(tournament=tournament)
@@ -580,30 +672,204 @@ def tournament_matches_api(request, tournament_id: int):
         elif phase_normalized in {"qual", "qualification", "q"}:
             qs = qs.filter(phase__iexact="QUAL")
 
-    status_param = request.GET.get("status", "").strip().lower()
-    status_map = {
-        "scheduled": ["SCHEDULED", "PENDING"],
-        "pending": ["PENDING"],
-        "finished": ["DONE"],
-        "live": ["SCHEDULED"],
-    }
-    if status_param and status_param not in {"all", ""}:
-        states = status_map.get(status_param)
-        if states:
-            qs = qs.filter(state__in=states)
+    status_param = (request.GET.get("status", "") or "").strip().lower()
+    status_filter = status_param if status_param not in {"", "all"} else None
+    explicit_live_state = False
+    try:
+        state_field = Match._meta.get_field("state")
+        explicit_live_state = any(
+            str(choice[0]).upper() == "LIVE" for choice in getattr(state_field, "choices", [])
+        )
+    except FieldDoesNotExist:
+        state_field = None
+
+    if status_filter == "live":
+        live_states = ["LIVE"] if explicit_live_state else ["SCHEDULED", "PENDING"]
+        if state_field:
+            qs = qs.filter(state__in=live_states)
+    elif status_filter == "finished":
+        if state_field:
+            qs = qs.filter(state__in=["DONE"])
+    elif status_filter == "scheduled":
+        if state_field:
+            qs = qs.filter(state__in=["SCHEDULED", "PENDING"])
+    elif status_filter == "pending":
+        if state_field:
+            qs = qs.filter(state__in=["PENDING"])
 
     best_of_param = request.GET.get("best_of")
     if best_of_param and best_of_param not in {"default", ""}:
-        try:
-            qs = qs.filter(best_of=int(best_of_param))
-        except (TypeError, ValueError):
+        if str(best_of_param).lower() == "win_only":
+            # TODO: implement dedicated filter once "win only" matches are modeled explicitly.
             pass
+        else:
+            try:
+                qs = qs.filter(best_of=int(best_of_param))
+            except (TypeError, ValueError):
+                pass
+
+    fax_day_param = (request.GET.get("fax_day") or "").strip()
+    if fax_day_param:
+        day_filters = []
+        if _model_has_field(Schedule, "play_date"):
+            day_filters.append(Q(schedule__play_date=fax_day_param))
+        if _model_has_field(Match, "play_date"):
+            day_filters.append(Q(play_date=fax_day_param))
+        combined = _combine_or(day_filters)
+        if combined is not None:
+            qs = qs.filter(combined)
+
+    fax_month_param = request.GET.get("fax_month")
+    if fax_month_param:
+        try:
+            month_int = int(fax_month_param)
+        except (TypeError, ValueError):
+            month_int = None
+        if month_int and 1 <= month_int <= 12:
+            mm = f"{month_int:02d}"
+            month_re = rf"^\\d{{4}}-{mm}-"
+            month_filters = []
+            if _model_has_field(Schedule, "play_date"):
+                month_filters.append(Q(schedule__play_date__regex=month_re))
+            if _model_has_field(Match, "play_date"):
+                month_filters.append(Q(play_date__regex=month_re))
+            combined = _combine_or(month_filters)
+            if combined is not None:
+                qs = qs.filter(combined)
+
+    court_param = (request.GET.get("court") or "").strip()
+    if court_param:
+        court_filters = []
+        if _model_has_field(Schedule, "court"):
+            court_filters.extend(
+                [
+                    Q(schedule__court__id__iexact=court_param),
+                    Q(schedule__court__name__icontains=court_param),
+                    Q(schedule__court__iexact=court_param),
+                ]
+            )
+        if _model_has_field(Schedule, "court_name"):
+            court_filters.append(Q(schedule__court_name__icontains=court_param))
+        if _model_has_field(Match, "court"):
+            court_filters.extend(
+                [
+                    Q(court__id__iexact=court_param),
+                    Q(court__name__icontains=court_param),
+                    Q(court__iexact=court_param),
+                ]
+            )
+        if _model_has_field(Match, "court_name"):
+            court_filters.append(Q(court_name__icontains=court_param))
+        # Fallback for court information stored in JSON score payloads.
+        court_filters.extend(
+            [
+                Q(score__court__id__iexact=court_param),
+                Q(score__court__name__icontains=court_param),
+                Q(score__court__icontains=court_param),
+                Q(score__meta__court__id__iexact=court_param),
+                Q(score__meta__court__name__icontains=court_param),
+            ]
+        )
+        combined = _combine_or(court_filters)
+        if combined is not None:
+            qs = qs.filter(combined)
+
+    search_param = (request.GET.get("q") or "").strip()
+    if search_param:
+        search_filters = [
+            Q(player1__full_name__icontains=search_param),
+            Q(player1__name__icontains=search_param),
+            Q(player2__full_name__icontains=search_param),
+            Q(player2__name__icontains=search_param),
+            Q(player_top__full_name__icontains=search_param),
+            Q(player_top__name__icontains=search_param),
+            Q(player_bottom__full_name__icontains=search_param),
+            Q(player_bottom__name__icontains=search_param),
+            Q(round_name__icontains=search_param),
+            Q(round__icontains=search_param),
+        ]
+        if _model_has_field(Match, "notes"):
+            search_filters.append(Q(notes__icontains=search_param))
+        combined = _combine_or(search_filters)
+        if combined is not None:
+            qs = qs.filter(combined)
+
+    ordering_fields = []
+    if _model_has_field(Schedule, "play_date"):
+        ordering_fields.append("schedule__play_date")
+    if _model_has_field(Match, "play_date"):
+        ordering_fields.append("play_date")
+    if _model_has_field(Schedule, "court"):
+        ordering_fields.append("schedule__court__name")
+    if _model_has_field(Schedule, "court_name"):
+        ordering_fields.append("schedule__court_name")
+    if _model_has_field(Match, "court"):
+        ordering_fields.append("court__name")
+    if _model_has_field(Match, "court_name"):
+        ordering_fields.append("court_name")
+    if _model_has_field(Schedule, "order"):
+        ordering_fields.append("schedule__order")
+    if _model_has_field(Match, "position"):
+        ordering_fields.append("position")
+    ordering_fields.append("id")
+
+    seen = []
+    final_ordering = []
+    for field in ordering_fields:
+        if field not in seen:
+            seen.append(field)
+            final_ordering.append(field)
+    qs = qs.order_by(*final_ordering) if final_ordering else qs.order_by("id")
 
     matches = []
-    for match in qs:
+    raw_matches = list(qs)
+
+    def _parse_sets(score_payload):
+        sets = []
+        has_partial = False
+        raw_sets = []
+        if isinstance(score_payload, dict):
+            raw_sets = score_payload.get("sets") or []
+        for item in raw_sets:
+            if isinstance(item, dict):
+                raw_a = item.get("a", item.get("top"))
+                raw_b = item.get("b", item.get("bottom"))
+                status_raw = item.get("status")
+                if raw_a in (None, "", "-") or raw_b in (None, "", "-"):
+                    has_partial = True
+                try:
+                    a_val = int(raw_a)
+                    b_val = int(raw_b)
+                except (TypeError, ValueError):
+                    if raw_a is not None or raw_b is not None:
+                        has_partial = True
+                    continue
+                if status_raw:
+                    status_norm = str(status_raw).strip().lower()
+                    if status_norm and status_norm not in {"finished", "done", "completed"}:
+                        has_partial = True
+                sets.append({"a": a_val, "b": b_val, "status": status_raw})
+            elif isinstance(item, list | tuple) and len(item) >= 2:
+                raw_a, raw_b = item[0], item[1]
+                try:
+                    a_val = int(raw_a)
+                    b_val = int(raw_b)
+                except (TypeError, ValueError):
+                    if raw_a is not None or raw_b is not None:
+                        has_partial = True
+                    continue
+                sets.append({"a": a_val, "b": b_val, "status": None})
+        if isinstance(score_payload, dict) and len(sets) < len(raw_sets):
+            has_partial = True
+        return sets, has_partial
+
+    for match in raw_matches:
         schedule = getattr(match, "schedule", None)
         fax_day = getattr(schedule, "play_date", None) or getattr(match, "play_date", None)
-        order = getattr(schedule, "order", None) or getattr(match, "position", None)
+        fax_day = _to_iso(fax_day) if fax_day else fax_day
+        order_value = getattr(schedule, "order", None)
+        if order_value is None:
+            order_value = getattr(match, "position", None)
 
         player_candidates = [
             getattr(match, "player1", None) or getattr(match, "player_top", None),
@@ -623,31 +889,20 @@ def tournament_matches_api(request, tournament_id: int):
             players.append({"id": getattr(player, "id", None), "name": name, "country": country})
 
         score = getattr(match, "score", None) or {}
-        raw_sets = []
-        if isinstance(score, dict):
-            raw_sets = score.get("sets") or []
-
-        sets = []
-        for item in raw_sets:
-            if isinstance(item, dict):
-                a_val = item.get("a", item.get("top"))
-                b_val = item.get("b", item.get("bottom"))
-                sets.append({"a": a_val, "b": b_val, "status": item.get("status")})
-                continue
-            if isinstance(item, list | tuple) and len(item) >= 2:
-                try:
-                    a_val = int(item[0])
-                    b_val = int(item[1])
-                except (TypeError, ValueError):
-                    continue
-                sets.append({"a": a_val, "b": b_val, "status": None})
+        sets, has_partial = _parse_sets(score)
 
         state_value = (getattr(match, "state", None) or "").upper()
-        status_value = {
+        base_status = {
             "DONE": "finished",
             "SCHEDULED": "scheduled",
             "PENDING": "scheduled",
+            "LIVE": "live",
         }.get(state_value, state_value.lower() or "scheduled")
+
+        if base_status != "finished":
+            in_progress_flag = bool(getattr(match, "in_progress", False))
+            if base_status == "live" or in_progress_flag or has_partial:
+                base_status = "live"
 
         phase_value = (getattr(match, "phase", None) or "").lower()
         if phase_value in {"qual", "qualification"}:
@@ -655,24 +910,63 @@ def tournament_matches_api(request, tournament_id: int):
         elif phase_value in {"md", "main", "main_draw"}:
             phase_value = "md"
 
+        if status_filter == "live" and base_status != "live":
+            continue
+        if status_filter == "finished" and base_status != "finished":
+            continue
+        if status_filter == "scheduled" and base_status != "scheduled":
+            continue
+        if status_filter == "pending" and state_value != "PENDING":
+            continue
+
+        court_value = _resolve_court(match, schedule)
+
         matches.append(
             {
                 "id": getattr(match, "id", None),
                 "phase": phase_value,
                 "round_label": getattr(match, "round_name", None) or getattr(match, "round", None),
-                "court": None,
+                "court": court_value,
                 "fax_day": fax_day,
-                "order": order,
+                "order": order_value,
                 "players": players,
                 "best_of": getattr(match, "best_of", None),
                 "sets": sets,
                 "winner_id": getattr(match, "winner_id", None),
-                "status": status_value,
+                "status": base_status,
                 "needs_review": bool(getattr(match, "needs_review", False)),
             }
         )
 
-    return JsonResponse({"matches": matches})
+    def _sort_key(item):
+        fax_day_val = str(item.get("fax_day") or "")
+        court_val = item.get("court")
+        if isinstance(court_val, dict):
+            court_key = court_val.get("name") or court_val.get("id") or ""
+        else:
+            court_key = court_val or ""
+        order_val = item.get("order")
+        try:
+            order_key = int(order_val)
+        except (TypeError, ValueError):
+            order_key = 10**6
+        return (fax_day_val, str(court_key), order_key, item.get("id") or 0)
+
+    matches.sort(key=_sort_key)
+
+    total = len(matches)
+    paginated = matches[offset : offset + limit]
+    next_offset = offset + limit if offset + limit < total else None
+
+    return JsonResponse(
+        {
+            "matches": paginated,
+            "count": total,
+            "limit": limit,
+            "offset": offset,
+            "next_offset": next_offset,
+        }
+    )
 
 
 def tournament_courts_api(request, tournament_id: int):

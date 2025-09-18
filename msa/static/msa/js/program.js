@@ -196,6 +196,8 @@
     modeTableBtn?.setAttribute("aria-selected", isTable ? "true" : "false");
     modeOrderBtn?.classList.toggle("bg-slate-100", !isTable);
     modeTableBtn?.classList.toggle("bg-slate-100", isTable);
+    if (modeOrderBtn) modeOrderBtn.tabIndex = isTable ? -1 : 0;
+    if (modeTableBtn) modeTableBtn.tabIndex = isTable ? 0 : -1;
   }
 
   function renderOrder(hasData) {
