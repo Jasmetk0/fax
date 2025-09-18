@@ -56,6 +56,10 @@
   {{ block.super }}
   <script
     defer
+    src="{% static 'msa/js/fax-dates.js' %}?v={% now "U" %}"
+  ></script>
+  <script
+    defer
     src="{% static 'msa/js/calendar.js' %}?v={% now "U" %}"
   ></script>
 {% endblock %}
