@@ -17,6 +17,7 @@
 
   const API = "/api/msa/tournaments";
   const FAX_MONTHS_IN_YEAR = 15;
+  const FAX_META_CACHE = new Map(); // year -> { monthLengths: Map<number, number> }
   const MODE_KEY = "msa_calendar_mode";
   const initFilters = {
     month: getQS().get("month") || "",
@@ -143,16 +144,6 @@
     return `${d}.${m}.${y}`;
   }
 
-  function toDateObj(s) {
-    const [y, m, d] = String(s || "")
-      .split("-")
-      .map((n) => Number.parseInt(n, 10));
-    if (!y || !m || !d) {
-      return new Date(NaN);
-    }
-    return new Date(y, m - 1, d);
-  }
-
   function ymd(d) {
     const year = d.getFullYear();
     const month = String(d.getMonth() + 1).padStart(2, "0");
@@ -160,30 +151,181 @@
     return `${year}-${month}-${day}`;
   }
 
-  function daysBetween(a, b) {
-    const start = toDateObj(a);
-    const end = toDateObj(b);
-    const diff = end - start;
-    if (!Number.isFinite(diff)) return NaN;
-    return Math.floor(diff / (24 * 3600 * 1000));
+  function parseFaxDate(iso) {
+    const parts = String(iso ?? "")
+      .trim()
+      .split("-")
+      .slice(0, 3)
+      .map((value) => Number.parseInt(value, 10));
+    const [y, m, d] = parts;
+    if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) {
+      throw new Error(`Invalid FAX date: ${iso}`);
+    }
+    if (m < 1 || m > FAX_MONTHS_IN_YEAR) {
+      throw new Error(`Invalid FAX month: ${iso}`);
+    }
+    if (d < 1) {
+      throw new Error(`Invalid FAX day: ${iso}`);
+    }
+    return { y, m, d };
   }
 
-  function buildDayArray(startISO, endISO) {
-    const out = [];
-    let cursor = toDateObj(startISO);
-    const end = toDateObj(endISO);
-    if (Number.isNaN(cursor.getTime()) || Number.isNaN(end.getTime())) {
-      return out;
+  function formatFaxDate({ y, m, d }) {
+    const year = Number.parseInt(y, 10);
+    const month = Number.parseInt(m, 10);
+    const day = Number.parseInt(d, 10);
+    if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+      throw new Error("Invalid FAX date parts");
     }
-    while (cursor <= end) {
-      out.push(ymd(cursor));
-      cursor = new Date(
-        cursor.getFullYear(),
-        cursor.getMonth(),
-        cursor.getDate() + 1,
-      );
+    const mm = String(month).padStart(2, "0");
+    const dd = String(day).padStart(2, "0");
+    return `${year}-${mm}-${dd}`;
+  }
+
+  function normalizeFaxDate(value) {
+    try {
+      return formatFaxDate(parseFaxDate(value));
+    } catch (err) {
+      return null;
     }
-    return out;
+  }
+
+  async function getFaxYearMeta(year) {
+    const numericYear = Number.parseInt(year, 10);
+    const key = Number.isFinite(numericYear) ? numericYear : year;
+    if (FAX_META_CACHE.has(key)) {
+      return FAX_META_CACHE.get(key);
+    }
+
+    let monthLengths = new Map();
+
+    try {
+      const resp = await fetch(`/api/fax_calendar/year/${key}/meta`, {
+        headers: { Accept: "application/json" },
+      });
+      if (resp.ok) {
+        const json = await resp.json();
+        const raw = json?.month_lengths ?? json?.months ?? null;
+        const map = new Map();
+        if (Array.isArray(raw)) {
+          raw.forEach((value, index) => {
+            const monthIndex = index + 1;
+            const length = Number.parseInt(value, 10);
+            if (
+              Number.isFinite(length) &&
+              length > 0 &&
+              monthIndex >= 1 &&
+              monthIndex <= FAX_MONTHS_IN_YEAR
+            ) {
+              map.set(monthIndex, length);
+            }
+          });
+        } else if (raw && typeof raw === "object") {
+          Object.entries(raw).forEach(([monthKey, value]) => {
+            const monthIndex = Number.parseInt(monthKey, 10);
+            const length = Number.parseInt(value, 10);
+            if (
+              Number.isFinite(monthIndex) &&
+              Number.isFinite(length) &&
+              monthIndex >= 1 &&
+              monthIndex <= FAX_MONTHS_IN_YEAR &&
+              length > 0
+            ) {
+              map.set(monthIndex, length);
+            }
+          });
+        }
+        if (map.size) {
+          monthLengths = map;
+        }
+      }
+    } catch (err) {
+      // Silently ignore errors; fall back to empty month lengths.
+    }
+
+    const meta = { monthLengths };
+    FAX_META_CACHE.set(key, meta);
+    return meta;
+  }
+
+  function nextFaxDay(current) {
+    const meta = FAX_META_CACHE.get(current.y);
+    if (!meta || !(meta.monthLengths instanceof Map) || meta.monthLengths.size === 0) {
+      return null;
+    }
+
+    const monthLen = meta.monthLengths.get(current.m);
+    if (!Number.isFinite(monthLen) || monthLen <= 0 || current.d > monthLen) {
+      return null;
+    }
+
+    let y = current.y;
+    let m = current.m;
+    let d = current.d + 1;
+
+    if (d > monthLen) {
+      d = 1;
+      m += 1;
+      if (m > FAX_MONTHS_IN_YEAR) {
+        y += 1;
+        m = 1;
+      }
+      const targetMeta = FAX_META_CACHE.get(y);
+      if (!targetMeta || !(targetMeta.monthLengths instanceof Map) || targetMeta.monthLengths.size === 0) {
+        return null;
+      }
+      const nextMonthLen = targetMeta.monthLengths.get(m);
+      if (!Number.isFinite(nextMonthLen) || nextMonthLen <= 0) {
+        return null;
+      }
+    }
+
+    return { y, m, d };
+  }
+
+  function compareFaxDates(a, b) {
+    if (a.y !== b.y) return a.y - b.y;
+    if (a.m !== b.m) return a.m - b.m;
+    return a.d - b.d;
+  }
+
+  function enumerateFaxDays(startISO, endISO, maxSteps = 20000) {
+    let start;
+    let end;
+    try {
+      start = parseFaxDate(startISO);
+      end = parseFaxDate(endISO);
+    } catch (err) {
+      return [];
+    }
+
+    if (compareFaxDates(start, end) > 0) {
+      return [];
+    }
+
+    const startMeta = FAX_META_CACHE.get(start.y);
+    const startLen = startMeta?.monthLengths?.get(start.m);
+    if (!Number.isFinite(startLen) || startLen <= 0 || start.d > startLen) {
+      return [];
+    }
+
+    const days = [];
+    let current = start;
+    let steps = 0;
+    while (steps < maxSteps) {
+      steps += 1;
+      days.push(formatFaxDate(current));
+      if (current.y === end.y && current.m === end.m && current.d === end.d) {
+        return days;
+      }
+      const next = nextFaxDay(current);
+      if (!next) {
+        break;
+      }
+      current = next;
+    }
+
+    return [];
   }
 
   function showSeasonRange() {
@@ -402,7 +544,7 @@
       return;
     }
 
-    const allDays = buildDayArray(seasonMeta.start_date, seasonMeta.end_date);
+    const allDays = enumerateFaxDays(seasonMeta.start_date, seasonMeta.end_date);
     if (!allDays.length) {
       listEl.classList.add("hidden");
       emptyEl.classList.remove("hidden");
@@ -439,14 +581,21 @@
 
     const intervals = filtered
       .map((t) => {
-        if (!t.start_date) return null;
-        const startDiff = daysBetween(allDays[0], t.start_date);
-        const endDiff = daysBetween(allDays[0], t.end_date || t.start_date);
-        if (!Number.isFinite(startDiff) || !Number.isFinite(endDiff)) {
+        const startIso = normalizeFaxDate(t.start_date);
+        if (!startIso) {
           return null;
         }
-        const start = Math.max(0, startDiff);
-        const end = Math.max(start, Math.min(allDays.length - 1, endDiff));
+        const startIdx = allDays.indexOf(startIso);
+        if (startIdx === -1) {
+          return null;
+        }
+        const endIso = normalizeFaxDate(t.end_date || t.start_date);
+        let endIdx = endIso ? allDays.indexOf(endIso) : -1;
+        if (endIdx === -1) {
+          endIdx = startIdx;
+        }
+        const start = startIdx;
+        const end = Math.max(start, endIdx);
         const clippedStart = Math.max(start, visibleStartIndex);
         const clippedEnd = Math.min(end, visibleEndIndex);
         if (clippedStart > clippedEnd) {
@@ -484,7 +633,15 @@
 
     const dayCol = visibleDays
       .map((d) => {
-        const label = formatYMD(d);
+        let label = formatYMD(d);
+        try {
+          const parsed = parseFaxDate(d);
+          const dd = String(parsed.d).padStart(2, "0");
+          const mm = String(parsed.m).padStart(2, "0");
+          label = `${dd}.${mm}.${parsed.y}`;
+        } catch (err) {
+          // fall back to original label
+        }
         return `<div data-day="${d}" class="h-[${DAY_H}px] border-b text-xs text-slate-500 px-3 flex items-center">${label}</div>`;
       })
       .join("");
@@ -586,6 +743,19 @@
             start_date: meta.start_date || null,
             end_date: meta.end_date || null,
           };
+          if (seasonMeta.start_date && seasonMeta.end_date) {
+            try {
+              const start = parseFaxDate(seasonMeta.start_date);
+              const end = parseFaxDate(seasonMeta.end_date);
+              const startYear = Math.min(start.y, end.y);
+              const endYear = Math.max(start.y, end.y);
+              for (let year = startYear; year <= endYear; year += 1) {
+                await getFaxYearMeta(year);
+              }
+            } catch (err) {
+              // Ignore parse errors; missing metadata will fall back to empty view.
+            }
+          }
           if (Array.isArray(meta.month_sequence)) {
             sequence = meta.month_sequence
               .map((n) => Number.parseInt(n, 10))
