@@ -118,14 +118,32 @@ def calendar(request):
     Kalendář – respektuje ?season=<id>, jinak vybere sezónu dle aktivního data.
     """
     d = get_active_date(request)
+
     try:
-        season = _get_season_by_query_param(request) or find_season_for_date(d)
+        season = _get_season_by_query_param(request)
     except OperationalError:
         season = None
+
+    if not season:
+        try:
+            season = find_season_for_date(d)
+        except OperationalError:
+            season = None
+
     if not season:
         return seasons_list(request)
 
-    context = {"active_season": season, "active_date": d, "season": season}
+    season_id = request.GET.get("season")
+    if not season_id:
+        season_id = getattr(season, "id", "")
+    season_id = str(season_id) if season_id not in {None, ""} else ""
+
+    context = {
+        "active_season": season,
+        "active_date": d,
+        "season": season,
+        "season_id": season_id,
+    }
     return render(request, "msa/calendar/index.html", context)
 
 

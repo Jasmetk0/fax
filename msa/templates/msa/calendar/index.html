@@ -38,7 +38,11 @@
     </div>
   </section>
 
-  <section id="cal-root" class="rounded-xl border overflow-hidden">
+  <section
+    id="cal-root"
+    class="rounded-xl border overflow-hidden"
+    data-season="{{ season_id|default:'' }}"
+  >
     <div id="cal-loading" class="p-6 text-sm text-slate-500">Loading season tournaments…</div>
     <div id="cal-empty" class="hidden p-6 text-sm text-slate-500">No tournaments found for this season.</div>
 
@@ -50,5 +54,8 @@
 
 {% block extra_js %}
   {{ block.super }}
-  <script defer src="{% static 'msa/js/calendar.js' %}"></script>
+  <script
+    defer
+    src="{% static 'msa/js/calendar.js' %}?v={% now "U" %}"
+  ></script>
 {% endblock %}
