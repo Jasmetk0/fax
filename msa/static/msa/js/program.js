@@ -12,6 +12,7 @@
   const tableBody = document.getElementById("prog-table-body");
   const emptyEl = document.getElementById("prog-empty");
   const loadingEl = document.getElementById("prog-loading");
+  const loadMoreBtn = document.getElementById("prog-load-more");
 
   const filterMonth = document.getElementById("filter-fax-month");
   const filterDay = document.getElementById("filter-fax-day");
@@ -26,6 +27,13 @@
 
   const params = new URLSearchParams(location.search);
   const initialMode = params.get("mode") === "table" ? "table" : "order";
+  const DEFAULT_LIMIT = 50;
+  const rawLimit = Number.parseInt(params.get("limit") || "", 10);
+  const initialLimit = Number.isFinite(rawLimit)
+    ? Math.min(Math.max(rawLimit, 1), 500)
+    : DEFAULT_LIMIT;
+  const rawOffset = Number.parseInt(params.get("offset") || "", 10);
+  const initialOffset = Number.isFinite(rawOffset) && rawOffset > 0 ? rawOffset : 0;
 
   const state = {
     month: params.get("fax_month") || "",
@@ -36,6 +44,9 @@
     best_of: params.get("best_of") || "",
     q: params.get("q") || "",
     mode: initialMode,
+    limit: initialLimit,
+    offset: initialOffset,
+    next_offset: null,
   };
 
   let matches = [];
@@ -89,6 +100,8 @@
     emptyEl?.classList.add("hidden");
     orderContainer?.classList.add("hidden");
     tableContainer?.classList.add("hidden");
+    loadMoreBtn?.classList.add("hidden");
+    if (loadMoreBtn) loadMoreBtn.disabled = true;
   }
 
   function hideLoading() {
@@ -342,8 +355,24 @@
     });
   }
 
+  function updateLoadMoreButton() {
+    if (!loadMoreBtn) return;
+    const hasNext = state.next_offset !== null && state.next_offset !== undefined;
+    const shouldShow = !isLoading && hasNext && matches.length > 0;
+    if (shouldShow) {
+      loadMoreBtn.classList.remove("hidden");
+      loadMoreBtn.disabled = false;
+    } else {
+      loadMoreBtn.classList.add("hidden");
+      loadMoreBtn.disabled = true;
+    }
+  }
+
   function renderMatches() {
-    if (isLoading) return;
+    if (isLoading) {
+      updateLoadMoreButton();
+      return;
+    }
     const hasData = matches.length > 0;
     if (hasData) emptyEl?.classList.add("hidden");
     else emptyEl?.classList.remove("hidden");
@@ -358,6 +387,8 @@
     } else {
       renderOrder(hasData);
     }
+
+    updateLoadMoreButton();
   }
 
   function setMode(mode) {
@@ -424,26 +455,75 @@
     if (state.status && state.status !== "all") search.set("status", state.status);
     if (state.best_of) search.set("best_of", state.best_of);
     if (state.q) search.set("q", state.q);
+    search.set("limit", String(state.limit || DEFAULT_LIMIT));
+    search.set("offset", String(state.offset || 0));
     const qs = search.toString();
     return `${matchesUrl}${qs ? `?${qs}` : ""}`;
   }
 
-  async function fetchMatches() {
+  async function fetchMatches(options = {}) {
     if (!matchesUrl) return;
-    showLoading();
+    const { append = false, previousOffset = 0, previousNext = null } = options;
+    if (!append) {
+      showLoading();
+    } else if (loadMoreBtn) {
+      loadMoreBtn.disabled = true;
+    }
+    const priorMatches = matches.slice();
     try {
       const resp = await fetch(buildMatchesUrl(), { headers: { Accept: "application/json" } });
-      if (resp.ok) {
-        const json = await resp.json();
-        matches = Array.isArray(json?.matches) ? json.matches : [];
+      if (!resp.ok) {
+        if (!append) {
+          matches = [];
+          state.next_offset = null;
+        } else {
+          matches = priorMatches;
+          state.offset = previousOffset;
+          state.next_offset = previousNext;
+        }
       } else {
-        matches = [];
+        const json = await resp.json();
+        const fetched = Array.isArray(json?.matches) ? json.matches : [];
+        if (append) {
+          matches = priorMatches.concat(fetched);
+        } else {
+          matches = fetched;
+        }
+        if (typeof json?.offset === "number") {
+          state.offset = json.offset;
+        } else if (!append) {
+          state.offset = 0;
+        }
+        if (typeof json?.limit === "number") {
+          state.limit = json.limit;
+        }
+        const rawNext = json?.next_offset;
+        if (typeof rawNext === "number") {
+          state.next_offset = rawNext;
+        } else if (rawNext === 0) {
+          state.next_offset = 0;
+        } else {
+          state.next_offset = null;
+        }
       }
     } catch (err) {
-      matches = [];
+      if (!append) {
+        matches = [];
+        state.next_offset = null;
+      } else {
+        matches = priorMatches;
+        state.offset = previousOffset;
+        state.next_offset = previousNext;
+      }
     }
     hideLoading();
     renderMatches();
+  }
+
+  function resetPagination() {
+    state.offset = 0;
+    state.next_offset = null;
+    matches = [];
   }
 
   function debounce(fn, delay = 250) {
@@ -459,24 +539,28 @@
       state.month = filterMonth.value || "";
       if (!state.month) state.day = "";
       updateDayOptions();
+      resetPagination();
       updateQueryString();
       fetchMatches();
     });
 
     filterDay?.addEventListener("change", () => {
       state.day = filterDay.value || "";
+      resetPagination();
       updateQueryString();
       fetchMatches();
     });
 
     filterCourt?.addEventListener("change", () => {
       state.court = filterCourt.value || "";
+      resetPagination();
       updateQueryString();
       fetchMatches();
     });
 
     filterPhase?.addEventListener("change", () => {
       state.phase = filterPhase.value || "all";
+      resetPagination();
       updateQueryString();
       fetchMatches();
     });
@@ -486,12 +570,14 @@
       if (filterLiveOnly) {
         filterLiveOnly.checked = state.status === "live";
       }
+      resetPagination();
       updateQueryString();
       fetchMatches();
     });
 
     filterBestOf?.addEventListener("change", () => {
       state.best_of = filterBestOf.value || "";
+      resetPagination();
       updateQueryString();
       fetchMatches();
     });
@@ -504,6 +590,7 @@
         state.status = "all";
         if (filterStatus) filterStatus.value = "all";
       }
+      resetPagination();
       updateQueryString();
       fetchMatches();
     });
@@ -511,6 +598,7 @@
     if (filterSearch) {
       const handler = debounce(() => {
         state.q = filterSearch.value.trim();
+        resetPagination();
         updateQueryString();
         fetchMatches();
       }, 350);
@@ -519,6 +607,15 @@
 
     modeOrderBtn?.addEventListener("click", () => setMode("order"));
     modeTableBtn?.addEventListener("click", () => setMode("table"));
+
+    loadMoreBtn?.addEventListener("click", () => {
+      if (state.next_offset === null || state.next_offset === undefined) return;
+      const nextOffset = state.next_offset;
+      const previousOffset = state.offset;
+      const previousNext = state.next_offset;
+      state.offset = nextOffset;
+      fetchMatches({ append: true, previousOffset, previousNext });
+    });
   }
 
   function setInitialFilterValues() {
