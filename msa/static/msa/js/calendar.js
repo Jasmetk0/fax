@@ -12,7 +12,8 @@
   const btnModeDays = document.getElementById("mode-days");
 
   const params = new URLSearchParams(location.search);
-  const season = params.get("season") || "";
+  const season =
+    params.get("season") || root.getAttribute("data-season") || "";
 
   const API = "/api/msa/tournaments";
   const FAX_MONTHS_IN_YEAR = 15;
@@ -637,7 +638,6 @@
       buildTourOptionsFromRows();
       buildCategoryOptionsFromRows();
       loading.style.display = "none";
-      render();
     } catch (err) {
       console.error(err);
       loading.textContent = "Failed to load tournaments.";
@@ -761,7 +761,7 @@
       }
     }
     initEvents();
-    render(); // první render až po navázání handlerů a dosazení filtrů
+    render(); // první render až po navázání handlerů
   }
 
   if (document.readyState === "loading") {
