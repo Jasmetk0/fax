@@ -30,6 +30,26 @@ urlpatterns = [
         msa_views.tournament_courts_api,
         name="msa-tournament-courts-api",
     ),
+    path(
+        "api/msa/tournament/<int:tournament_id>/entries",
+        msa_views.tournament_entries_api,
+        name="msa-tournament-entries-api",
+    ),
+    path(
+        "api/msa/tournament/<int:tournament_id>/qualification",
+        msa_views.tournament_qualification_api,
+        name="msa-tournament-qualification-api",
+    ),
+    path(
+        "api/msa/tournament/<int:tournament_id>/maindraw",
+        msa_views.tournament_maindraw_api,
+        name="msa-tournament-maindraw-api",
+    ),
+    path(
+        "api/msa/tournament/<int:tournament_id>/history",
+        msa_views.tournament_history_api,
+        name="msa-tournament-history-api",
+    ),
     # pouze nový MSA mount s namespace "msa"
     path("msa/", include("msa.urls", namespace="msa")),
     path("status/live-badge", msa_views.nav_live_badge, name="nav_live_badge"),

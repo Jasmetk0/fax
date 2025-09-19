@@ -1,8 +1,71 @@
 {% extends "msa/tournament/base.html" %}
 
 {% block tournament_content %}
-  <section class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm text-sm text-slate-600">
-    <h2 class="text-lg font-semibold text-slate-900">Body &amp; Prize</h2>
-    <p class="mt-2">Výplatní tabulky, bodování i rozdělení prize money budou doplněny po implementaci scoring modulů. Aktuálně jde o placeholder pro budoucí komponenty.</p>
+  <section class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+    <h2 class="text-lg font-semibold text-slate-900">Points &amp; scoring tables</h2>
+    <p class="mt-1 text-sm text-slate-500">Read-only náhled. Skutečný výpočet bodů zůstává v serverových službách.</p>
+    <dl class="mt-4 grid gap-4 md:grid-cols-3 text-sm text-slate-600">
+      <div>
+        <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Main draw slots</dt>
+        <dd class="mt-1 text-base font-semibold text-slate-900">{{ entry_summary.draw_size|default:"—" }}</dd>
+      </div>
+      <div>
+        <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Qualifiers</dt>
+        <dd class="mt-1 text-base font-semibold text-slate-900">{{ entry_summary.qualifiers|default:"0" }} (Q draw {{ entry_summary.qual_draw_size|default:"0" }})</dd>
+      </div>
+      <div>
+        <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Seeds</dt>
+        <dd class="mt-1 text-base font-semibold text-slate-900">{{ entry_summary.seeds|default:"0" }}</dd>
+      </div>
+    </dl>
+  </section>
+
+  <section class="mt-6 grid gap-6 lg:grid-cols-2">
+    <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <h3 class="text-base font-semibold text-slate-900">Main draw points</h3>
+      {% if scoring_md_items %}
+        <table class="mt-3 w-full text-sm text-slate-700">
+          <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+            <tr>
+              <th class="px-3 py-2 text-left">Round</th>
+              <th class="px-3 py-2 text-right">Points</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for label, points in scoring_md_items %}
+              <tr class="border-t border-slate-100">
+                <td class="px-3 py-2 text-left">{{ label }}</td>
+                <td class="px-3 py-2 text-right">{{ points }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p class="mt-3 text-sm text-slate-500">Žádná bodová tabulka pro hlavní soutěž.</p>
+      {% endif %}
+    </div>
+    <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <h3 class="text-base font-semibold text-slate-900">Qualification points</h3>
+      {% if scoring_qual_items %}
+        <table class="mt-3 w-full text-sm text-slate-700">
+          <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+            <tr>
+              <th class="px-3 py-2 text-left">Round</th>
+              <th class="px-3 py-2 text-right">Points</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for label, points in scoring_qual_items %}
+              <tr class="border-t border-slate-100">
+                <td class="px-3 py-2 text-left">{{ label }}</td>
+                <td class="px-3 py-2 text-right">{{ points }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p class="mt-3 text-sm text-slate-500">Žádná bodová tabulka pro kvalifikaci.</p>
+      {% endif %}
+    </div>
   </section>
 {% endblock %}

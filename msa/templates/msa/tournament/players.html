@@ -1,8 +1,129 @@
 {% extends "msa/tournament/base.html" %}
 
 {% block tournament_content %}
-  <section class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm text-sm text-slate-600">
-    <h2 class="text-lg font-semibold text-slate-900">Hráči</h2>
-    <p class="mt-2">Seznam hráčů, jejich status a pořadí nasazení budou doplněny po napojení na registrace. V tuto chvíli slouží sekce jako placeholder.</p>
+  <section class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+    <h2 class="text-lg font-semibold text-slate-900">Player list (read-only)</h2>
+    <p class="mt-1 text-sm text-slate-500">Rozdělení registrací podle typu vstupu. Všechny hodnoty jsou čistě informační.</p>
+    <table class="mt-4 w-full overflow-hidden rounded-lg text-sm text-slate-700" data-testid="players-table">
+      <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+        <tr>
+          <th scope="col" class="px-3 py-2 text-left">Slot</th>
+          <th scope="col" class="px-3 py-2 text-left">Player</th>
+          <th scope="col" class="px-3 py-2 text-left">Type</th>
+          <th scope="col" class="px-3 py-2 text-right">WR</th>
+          <th scope="col" class="px-3 py-2 text-center">License</th>
+        </tr>
+      </thead>
+      <tbody data-block="seeds">
+        <tr class="bg-slate-100">
+          <th colspan="5" class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">Seeds ({{ entry_blocks.seeds|length }})</th>
+        </tr>
+        {% for row in entry_blocks.seeds %}
+          <tr class="border-t border-slate-100">
+            <td class="px-3 py-2 text-left">#{{ row.seed }}</td>
+            <td class="px-3 py-2">
+              {{ row.name }}
+              {% if row.is_placeholder %}<span class="ml-2 rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-500">Placeholder</span>{% endif %}
+            </td>
+            <td class="px-3 py-2 text-left">Seed</td>
+            <td class="px-3 py-2 text-right">{{ row.wr|default:"NR" }}</td>
+            <td class="px-3 py-2 text-center">
+              {% if not row.license_ok %}
+                <span class="inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">License missing</span>
+              {% else %}
+                <span class="text-xs text-emerald-600">✓</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% empty %}
+          <tr class="border-t border-slate-100">
+            <td colspan="5" class="px-3 py-2 text-sm text-slate-500">No seeds assigned.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+      <tbody data-block="da">
+        <tr class="bg-slate-100">
+          <th colspan="5" class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">Direct acceptance ({{ entry_blocks.da|length }})</th>
+        </tr>
+        {% for row in entry_blocks.da %}
+          <tr class="border-t border-slate-100">
+            <td class="px-3 py-2 text-left">{{ row.position|default:"—" }}</td>
+            <td class="px-3 py-2">
+              {{ row.name }}
+              {% if row.is_placeholder %}<span class="ml-2 rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-500">Placeholder</span>{% endif %}
+            </td>
+            <td class="px-3 py-2 text-left">{% if row.is_wc %}DA (WC){% else %}DA{% endif %}</td>
+            <td class="px-3 py-2 text-right">{{ row.wr|default:"NR" }}</td>
+            <td class="px-3 py-2 text-center">
+              {% if not row.license_ok %}
+                <span class="inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">License missing</span>
+              {% else %}
+                <span class="text-xs text-emerald-600">✓</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% if da_cut_index and forloop.counter == da_cut_index %}
+            <tr class="border-t-2 border-slate-300" data-separator="cutline">
+              <td colspan="5" class="px-3 py-1 text-xs text-slate-500">Cutline – Direct acceptance limit ({{ entry_summary.direct_acceptances }})</td>
+            </tr>
+          {% endif %}
+        {% empty %}
+          <tr class="border-t border-slate-100">
+            <td colspan="5" class="px-3 py-2 text-sm text-slate-500">No direct acceptances.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+      <tbody data-block="q">
+        <tr class="bg-slate-100">
+          <th colspan="5" class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">Qualification ({{ entry_blocks.q|length }})</th>
+        </tr>
+        {% for row in entry_blocks.q %}
+          <tr class="border-t border-slate-100">
+            <td class="px-3 py-2 text-left">{{ row.position|default:"—" }}</td>
+            <td class="px-3 py-2">
+              {{ row.name }}
+              {% if row.is_placeholder %}<span class="ml-2 rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-500">Winner K placeholder</span>{% endif %}
+            </td>
+            <td class="px-3 py-2 text-left">{% if row.is_qwc %}QWC{% else %}Q{% endif %}</td>
+            <td class="px-3 py-2 text-right">{{ row.wr|default:"NR" }}</td>
+            <td class="px-3 py-2 text-center">
+              {% if not row.license_ok %}
+                <span class="inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">License missing</span>
+              {% else %}
+                <span class="text-xs text-emerald-600">✓</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% empty %}
+          <tr class="border-t border-slate-100">
+            <td colspan="5" class="px-3 py-2 text-sm text-slate-500">No qualification entries.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+      <tbody data-block="reserve">
+        <tr class="bg-slate-100">
+          <th colspan="5" class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">Reserve / alternates ({{ entry_blocks.reserve|length }})</th>
+        </tr>
+        {% for row in entry_blocks.reserve %}
+          <tr class="border-t border-slate-100">
+            <td class="px-3 py-2 text-left">{{ row.position|default:"—" }}</td>
+            <td class="px-3 py-2">{{ row.name }}</td>
+            <td class="px-3 py-2 text-left">{{ row.entry_type|default:"ALT" }}</td>
+            <td class="px-3 py-2 text-right">{{ row.wr|default:"NR" }}</td>
+            <td class="px-3 py-2 text-center">
+              {% if not row.license_ok %}
+                <span class="inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">License missing</span>
+              {% else %}
+                <span class="text-xs text-emerald-600">✓</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% empty %}
+          <tr class="border-t border-slate-100">
+            <td colspan="5" class="px-3 py-2 text-sm text-slate-500">No alternates in the pool.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </section>
 {% endblock %}

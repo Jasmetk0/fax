@@ -50,6 +50,26 @@ urlpatterns = [
         views.tournament_media,
         name="tournament_media",
     ),
+    path(
+        "api/tournament/<int:tournament_id>/entries",
+        views.tournament_entries_api,
+        name="tournament_entries_api",
+    ),
+    path(
+        "api/tournament/<int:tournament_id>/qualification",
+        views.tournament_qualification_api,
+        name="tournament_qualification_api",
+    ),
+    path(
+        "api/tournament/<int:tournament_id>/maindraw",
+        views.tournament_maindraw_api,
+        name="tournament_maindraw_api",
+    ),
+    path(
+        "api/tournament/<int:tournament_id>/history",
+        views.tournament_history_api,
+        name="tournament_history_api",
+    ),
     # ↓↓↓ doplň tento řádek
     path("status/live-badge", views.nav_live_badge, name="nav_live_badge"),
 ]

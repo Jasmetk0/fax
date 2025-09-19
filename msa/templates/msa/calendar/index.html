@@ -42,12 +42,54 @@
     id="cal-root"
     class="rounded-xl border overflow-hidden"
     data-season="{{ season_id|default:'' }}"
+    data-total="{{ cards|length }}"
   >
-    <div id="cal-loading" class="p-6 text-sm text-slate-500">Loading season tournaments…</div>
-    <div id="cal-empty" class="hidden p-6 text-sm text-slate-500">No tournaments found for this season.</div>
+    <div id="cal-loading" class="p-6 text-sm text-slate-500 {% if month_groups %}hidden{% endif %}">Loading season tournaments…</div>
+    <div id="cal-empty" class="p-6 text-sm text-slate-500 {% if month_groups %}hidden{% endif %}">No tournaments found for this season.</div>
 
-    <div id="cal-list" class="hidden divide-y">
-      <!-- JS will inject grouped-by-month sections -->
+    <div id="cal-list" class="{% if month_groups %}divide-y{% else %}hidden{% endif %}">
+      {% for month in month_groups %}
+        <div class="bg-white" data-testid="calendar-month" data-fax-month="{{ month.key }}">
+          <div class="sticky top-[4.25rem] z-10 flex items-center justify-between border-b border-slate-100 bg-white/95 px-4 py-3 backdrop-blur">
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-600">{{ month.label }}</h2>
+            <span class="text-xs text-slate-500">{{ month.count }}&nbsp;events</span>
+          </div>
+          <div class="divide-y" aria-label="{{ month.label }}">
+            {% for item in month.items %}
+              <a
+                href="{{ item.detail_url }}"
+                class="flex items-center justify-between gap-4 px-4 py-3 hover:bg-slate-50"
+                data-testid="calendar-entry"
+              >
+                <div class="min-w-0">
+                  <div class="flex flex-wrap items-center gap-2 text-xs">
+                    {% if item.category_label %}
+                      <span class="inline-flex items-center rounded-md border px-2 py-0.5 {{ item.category_badge_class }}">{{ item.category_label }}</span>
+                    {% endif %}
+                    {% if item.tour_label %}
+                      <span class="inline-flex items-center rounded-md border px-2 py-0.5 {{ item.tour_badge_class }}">{{ item.tour_label }}</span>
+                    {% endif %}
+                  </div>
+                  <p class="mt-1 truncate text-sm font-medium text-slate-900">{{ item.name }}</p>
+                  <p class="text-xs text-slate-500">
+                    {% if item.start_date or item.end_date %}
+                      {{ item.start_date|default:"TBD" }} – {{ item.end_date|default:"TBD" }}
+                    {% else %}
+                      Termín TBD
+                    {% endif %}
+                    {% if item.location %}
+                      · {{ item.location }}
+                    {% endif %}
+                  </p>
+                </div>
+                <span class="text-xs font-medium text-slate-500">{{ item.status.label }}</span>
+              </a>
+            {% empty %}
+              <div class="px-4 py-3 text-xs text-slate-400">Žádné turnaje v tomto měsíci.</div>
+            {% endfor %}
+          </div>
+        </div>
+      {% endfor %}
     </div>
   </section>
 {% endblock %}
