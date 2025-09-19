@@ -15,6 +15,13 @@
         </tr>
       </thead>
       <tbody data-block="seeds">
+        {% if admin_mode and is_staff_user %}
+          <tr>
+            <td colspan="5">
+              {% include 'msa/_partials/admin_section_controls.html' with section_id='players-seeds' buttons=admin_controls_players_seeds %}
+            </td>
+          </tr>
+        {% endif %}
         <tr class="bg-slate-100">
           <th colspan="5" class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">Seeds ({{ entry_blocks.seeds|length }})</th>
         </tr>
@@ -42,6 +49,13 @@
         {% endfor %}
       </tbody>
       <tbody data-block="da">
+        {% if admin_mode and is_staff_user %}
+          <tr>
+            <td colspan="5">
+              {% include 'msa/_partials/admin_section_controls.html' with section_id='players-da' buttons=admin_controls_players_da %}
+            </td>
+          </tr>
+        {% endif %}
         <tr class="bg-slate-100">
           <th colspan="5" class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">Direct acceptance ({{ entry_blocks.da|length }})</th>
         </tr>
@@ -74,6 +88,13 @@
         {% endfor %}
       </tbody>
       <tbody data-block="q">
+        {% if admin_mode and is_staff_user %}
+          <tr>
+            <td colspan="5">
+              {% include 'msa/_partials/admin_section_controls.html' with section_id='players-q' buttons=admin_controls_players_q %}
+            </td>
+          </tr>
+        {% endif %}
         <tr class="bg-slate-100">
           <th colspan="5" class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">Qualification ({{ entry_blocks.q|length }})</th>
         </tr>
@@ -101,6 +122,13 @@
         {% endfor %}
       </tbody>
       <tbody data-block="reserve">
+        {% if admin_mode and is_staff_user %}
+          <tr>
+            <td colspan="5">
+              {% include 'msa/_partials/admin_section_controls.html' with section_id='players-reserve' buttons=admin_controls_players_reserve %}
+            </td>
+          </tr>
+        {% endif %}
         <tr class="bg-slate-100">
           <th colspan="5" class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">Reserve / alternates ({{ entry_blocks.reserve|length }})</th>
         </tr>

@@ -55,6 +55,7 @@
   </form>
 
   <section class="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" data-testid="tournament-metrics">
+    {% include 'msa/_partials/admin_section_controls.html' with section_id='tournaments-metrics' buttons=admin_controls_tournaments_metrics %}
     <div class="rounded-lg border border-slate-200 bg-white p-4" data-total="{{ stats.total }}">
       <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Total</dt>
       <dd class="mt-1 text-2xl font-semibold text-slate-900">{{ stats.total }}</dd>
@@ -130,9 +131,14 @@
               <span class="inline-flex items-center rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-600">{{ chip.label }}</span>
             {% endfor %}
           </div>
-          <footer class="mt-6 flex items-center justify-between border-t border-slate-100 pt-4">
-            <span class="text-xs text-slate-500">Season {{ card.season_label|default:"—" }}</span>
-            <a href="{{ card.detail_url }}" class="text-sm font-medium text-slate-900 hover:underline">Detail →</a>
+          <footer class="mt-6 border-t border-slate-100 pt-4">
+            <div class="flex items-center justify-between">
+              <span class="text-xs text-slate-500">Season {{ card.season_label|default:"—" }}</span>
+              <a href="{{ card.detail_url }}" class="text-sm font-medium text-slate-900 hover:underline">Detail →</a>
+            </div>
+            {% with card_id=card.id|stringformat:"s" %}
+              {% include 'msa/_partials/admin_section_controls.html' with section_id='tournaments-card-'|add:card_id buttons=admin_controls_tournament_card %}
+            {% endwith %}
           </footer>
         </article>
       {% endfor %}

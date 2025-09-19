@@ -4,6 +4,8 @@ from django.urls import reverse
 
 pytestmark = pytest.mark.django_db
 
+pytest_plugins = ["msa.tests.test_readonly_pages"]
+
 
 def _set_admin_mode(client, on=True):
     session = client.session
@@ -59,3 +61,21 @@ def test_admin_toolbar_actions_render_for_tournaments_list(client):
     assert 'data-admin-controls="true"' in html
     for action in ("new-tournament", "bulk-ops", "export-calendar"):
         assert f'data-admin-action="{action}"' in html
+
+
+def test_tournament_overview_has_section_controls(client, sample_tournament):
+    user_model = get_user_model()
+    staff = user_model.objects.create_user("overview-staff", "overview@example.com", "x")
+    staff.is_staff = True
+    staff.save()
+    client.force_login(staff)
+    _set_admin_mode(client, True)
+
+    url = reverse("msa:tournament_info", args=[sample_tournament.id])
+    response = client.get(url)
+    assert response.status_code == 200
+
+    html = response.content.decode()
+    assert 'data-admin-section="info-summary"' in html
+    assert 'data-admin-action="edit-scoring"' in html
+    assert 'data-admin-mode="true"' in html

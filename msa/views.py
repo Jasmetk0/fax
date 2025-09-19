@@ -981,6 +981,16 @@ def tournaments_seasons(request):
         "stats": stats,
         "active_season": active_season,
         "admin_toolbar_title": toolbar_title,
+        "admin_controls_tournaments_metrics": [
+            {"label": "Export", "action": "export"},
+            {"label": "New tournament", "action": "new-tournament"},
+            {"label": "Bulk ops", "action": "bulk-ops"},
+        ],
+        "admin_controls_tournament_card": [
+            {"label": "Open", "action": "open"},
+            {"label": "Archive", "action": "archive"},
+            {"label": "Export", "action": "export"},
+        ],
     }
     query_params = request.GET.copy()
     if "page" in query_params:
@@ -1135,6 +1145,11 @@ def calendar(request):
         "month_sequence": month_sequence,
         "cards": cards,
         "admin_toolbar_title": toolbar_title,
+        "admin_controls_calendar_filters": [
+            {"label": "Export ICS", "action": "export-ics"},
+            {"label": "Normalize day", "action": "normalize-day"},
+            {"label": "Clear day", "action": "clear-day"},
+        ],
     }
     return render(request, "msa/calendar/index.html", context)
 
@@ -1201,6 +1216,25 @@ def tournament_info(request, tournament_id: int):
             "snapshot_label": getattr(tournament, "snapshot_label", None),
             "seeding_monday": _to_iso(getattr(tournament, "seeding_monday", None)),
             "rng_seed_active": getattr(tournament, "rng_seed_active", None),
+            "admin_controls_info_summary": [
+                {"label": "Edit meta", "action": "edit-meta"},
+                {"label": "Manage seeds", "action": "manage-seeds"},
+                {"label": "Sync calendar", "action": "sync-calendar"},
+                {"label": "Toggle third place", "action": "toggle-third-place"},
+            ],
+            "admin_controls_info_seeding": [
+                {"label": "Change source", "action": "change-source"},
+                {"label": "Reseed", "action": "reseed"},
+                {"label": "New snapshot", "action": "new-snapshot"},
+            ],
+            "admin_controls_info_scoring_md": [
+                {"label": "Edit scoring", "action": "edit-scoring"},
+                {"label": "Export scoring", "action": "export-scoring"},
+            ],
+            "admin_controls_info_scoring_qual": [
+                {"label": "Edit Q points", "action": "edit-q-points"},
+                {"label": "Export scoring", "action": "export-scoring"},
+            ],
         }
     )
     return render(request, "msa/tournament/info.html", context)
@@ -1241,6 +1275,17 @@ def tournament_draws(request, tournament_id: int):
             "active_tab": "draws",
             "qualification_data": _qualification_structure(tournament, entry_data),
             "maindraw_data": _main_draw_structure(tournament, entry_data),
+            "admin_controls_draws_qual": [
+                {"label": "Seed K", "action": "seed-k"},
+                {"label": "Regenerate", "action": "regenerate"},
+                {"label": "Publish", "action": "publish"},
+            ],
+            "admin_controls_draws_md": [
+                {"label": "Reseed", "action": "reseed"},
+                {"label": "Swap", "action": "swap"},
+                {"label": "Lock", "action": "lock"},
+                {"label": "Publish", "action": "publish"},
+            ],
         }
     )
     return render(request, "msa/tournament/draws.html", context)
@@ -1256,6 +1301,25 @@ def tournament_players(request, tournament_id: int):
             "entry_summary": entry_data["summary"],
             "entry_blocks": entry_data["blocks"],
             "da_cut_index": entry_data["da_cut_index"],
+            "admin_controls_players_seeds": [
+                {"label": "Assign seed", "action": "assign-seed"},
+                {"label": "Clear seed", "action": "clear-seed"},
+                {"label": "Export list", "action": "export-list"},
+            ],
+            "admin_controls_players_da": [
+                {"label": "Add WC", "action": "add-wc"},
+                {"label": "Promote", "action": "promote-da"},
+                {"label": "Export list", "action": "export-list"},
+            ],
+            "admin_controls_players_q": [
+                {"label": "Add QWC", "action": "add-qwc"},
+                {"label": "Move to DA", "action": "move-to-da"},
+                {"label": "Export list", "action": "export-list"},
+            ],
+            "admin_controls_players_reserve": [
+                {"label": "Promote", "action": "promote-reserve"},
+                {"label": "Export list", "action": "export-list"},
+            ],
         }
     )
     return render(request, "msa/tournament/players.html", context)

@@ -1,0 +1,13 @@
+{% if admin_mode and is_staff_user and section_id and buttons %}
+<div class="mt-3 flex flex-wrap gap-2" data-admin-section="{{ section_id }}" role="group" aria-label="Admin controls">
+  {% if subtitle %}
+    <span class="w-full text-[11px] font-semibold uppercase tracking-wide text-slate-500">{{ subtitle }}</span>
+  {% endif %}
+  {% for b in buttons %}
+    <button type="button"
+            class="rounded-md border border-slate-300 bg-slate-100 px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-slate-600 opacity-60 cursor-not-allowed"
+            disabled aria-disabled="true" role="button" title="Read-only mode"
+            data-admin-action="{{ b.action }}">{{ b.label }}</button>
+  {% endfor %}
+</div>
+{% endif %}

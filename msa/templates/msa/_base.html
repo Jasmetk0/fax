@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load static %}
+{% block body_attrs %}data-admin-mode="{% if admin_mode and is_staff_user %}true{% else %}false{% endif %}"{% endblock %}
 {% block title %}MSA{% endblock %}
 {% block extra_head %}{{ block.super }}
   <link rel="stylesheet" href="{% static 'msa/css/tailwind.css' %}">
