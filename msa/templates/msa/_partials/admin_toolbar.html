@@ -1,9 +1,50 @@
 {% if admin_mode and is_staff_user %}
-<div id="msa-admin-toolbar" style="position:sticky;top:0;z-index:50;background:#111;color:#fff;padding:6px 10px;border-bottom:2px solid #444;display:flex;gap:12px;align-items:center;">
-  <strong>MSA Admin mód</strong>
-  <span style="opacity:.8">— vidíš editační ovládací prvky</span>
-  <a href="/admin-toggle/" style="margin-left:auto;color:#8fd;">vypnout</a>
-  <!-- marker pro testy: -->
-  <span data-admin-controls="1" hidden></span>
-</div>
+  {% with actions=admin_toolbar_actions %}
+    <div
+      id="msa-admin-toolbar"
+      data-admin-controls="true"
+      class="sticky top-0 z-50 border-b border-slate-800 bg-slate-900 text-slate-100 shadow-sm"
+    >
+      <div class="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 text-sm sm:flex-row sm:items-center sm:gap-4 sm:px-6 lg:px-8">
+        <div class="flex flex-col">
+          <span class="text-xs font-semibold uppercase tracking-wide text-emerald-200">Admin mód (read-only)</span>
+          {% if tournament %}
+            <span class="text-sm font-semibold text-white">{{ tournament.name|default:"Tournament" }}</span>
+            {% with toolbar_status=admin_toolbar_status|default:status %}
+              {% if toolbar_status %}
+                <span class="text-xs text-slate-300">Status: {{ toolbar_status.label|default:toolbar_status }}</span>
+              {% endif %}
+            {% endwith %}
+          {% elif admin_toolbar_title %}
+            <span class="text-sm font-semibold text-white">{{ admin_toolbar_title }}</span>
+          {% else %}
+            <span class="text-sm text-slate-300">Placeholder ovládací lišta – bez serverových akcí.</span>
+          {% endif %}
+        </div>
+        <div class="flex flex-wrap gap-2 sm:ml-auto">
+          {% for action in actions %}
+            <button
+              type="button"
+              class="rounded-md border border-slate-700 bg-slate-800 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-200 opacity-60 cursor-not-allowed"
+              disabled
+              aria-disabled="true"
+              role="button"
+              title="Read-only mode"
+              data-admin-action="{{ action.action|default:action }}"
+            >
+              {{ action.label|default:action }}
+            </button>
+          {% empty %}
+            <span class="text-xs text-slate-400">Žádné akce pro tuto stránku.</span>
+          {% endfor %}
+        </div>
+        <a
+          href="/admin-toggle/"
+          class="text-xs font-semibold text-emerald-200 underline-offset-2 hover:underline"
+        >
+          vypnout
+        </a>
+      </div>
+    </div>
+  {% endwith %}
 {% endif %}

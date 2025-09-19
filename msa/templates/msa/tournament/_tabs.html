@@ -3,7 +3,6 @@
 {% url 'msa:tournament_program' tournament.id as program_url %}
 {% url 'msa:tournament_draws' tournament.id as draws_url %}
 {% url 'msa:tournament_players' tournament.id as players_url %}
-{% url 'msa:tournament_scoring' tournament.id as scoring_url %}
 {% url 'msa:tournament_media' tournament.id as media_url %}
 <nav class="mt-6 border-b border-slate-200">
   <ul class="flex flex-wrap gap-2" role="tablist" aria-label="Tournament navigation">
@@ -41,15 +40,6 @@
         aria-current="{% if active_tab == 'players' %}page{% else %}false{% endif %}"
       >
         Hráči
-      </a>
-    </li>
-    <li>
-      <a
-        href="{{ scoring_url }}"
-        class="inline-flex items-center rounded-t-md border-b-2 px-3 py-2 text-sm font-medium transition {% if active_tab == 'scoring' %}border-slate-900 text-slate-900{% else %}border-transparent text-slate-500 hover:text-slate-900 hover:border-slate-200{% endif %}"
-        aria-current="{% if active_tab == 'scoring' %}page{% else %}false{% endif %}"
-      >
-        Body &amp; Prize
       </a>
     </li>
     <li>

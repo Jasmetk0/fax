@@ -41,11 +41,6 @@ urlpatterns = [
         name="tournament_players",
     ),
     path(
-        "tournament/<int:tournament_id>/scoring/",
-        views.tournament_scoring,
-        name="tournament_scoring",
-    ),
-    path(
         "tournament/<int:tournament_id>/media/",
         views.tournament_media,
         name="tournament_media",

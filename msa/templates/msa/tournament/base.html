@@ -5,6 +5,10 @@
   {{ tournament.name|default:"Tournament" }} – MSA
 {% endblock %}
 
+{% block admin_toolbar %}
+  {% include "msa/_partials/admin_toolbar.html" with admin_toolbar_title=tournament.name admin_toolbar_status=status %}
+{% endblock %}
+
 {% block body %}
   <header class="rounded-xl border border-slate-200 bg-white/70 p-6 shadow-sm">
     <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">

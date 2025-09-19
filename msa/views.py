@@ -962,6 +962,11 @@ def tournaments_seasons(request):
             None,
         )
 
+    toolbar_title = "Tournaments overview"
+    if active_season:
+        season_name = getattr(active_season, "name", None) or str(active_season)
+        toolbar_title = f"Tournaments · {season_name}"
+
     context = {
         "seasons": seasons,
         "categories": categories,
@@ -975,6 +980,7 @@ def tournaments_seasons(request):
         "cards": page_obj.object_list,
         "stats": stats,
         "active_season": active_season,
+        "admin_toolbar_title": toolbar_title,
     }
     query_params = request.GET.copy()
     if "page" in query_params:
@@ -1115,6 +1121,11 @@ def calendar(request):
             }
         )
 
+    toolbar_title = "Calendar overview"
+    if season:
+        season_name = getattr(season, "name", None) or str(season)
+        toolbar_title = f"Calendar · {season_name}"
+
     context = {
         "active_season": season,
         "active_date": d,
@@ -1123,6 +1134,7 @@ def calendar(request):
         "month_groups": month_groups,
         "month_sequence": month_sequence,
         "cards": cards,
+        "admin_toolbar_title": toolbar_title,
     }
     return render(request, "msa/calendar/index.html", context)
 
@@ -1247,21 +1259,6 @@ def tournament_players(request, tournament_id: int):
         }
     )
     return render(request, "msa/tournament/players.html", context)
-
-
-def tournament_scoring(request, tournament_id: int):
-    tournament = _get_tournament_or_404(tournament_id)
-    context = _tournament_base_context(request, tournament)
-    entry_data = _entry_rows_for_tournament(tournament)
-    context.update(
-        {
-            "active_tab": "scoring",
-            "entry_summary": entry_data["summary"],
-            "scoring_md_items": _scoring_items(getattr(tournament, "scoring_md", {})),
-            "scoring_qual_items": _scoring_items(getattr(tournament, "scoring_qual_win", {})),
-        }
-    )
-    return render(request, "msa/tournament/scoring.html", context)
 
 
 def tournament_media(request, tournament_id: int):
