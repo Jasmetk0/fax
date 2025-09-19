@@ -7,7 +7,16 @@
       return;
     }
     var actionName = target.getAttribute("data-admin-action") || "unknown";
-    console.info("[MSA admin] Placeholder action triggered:", actionName);
+    var sectionTarget = target.closest ? target.closest("[data-admin-section]") : null;
+    var sectionName = sectionTarget && sectionTarget.getAttribute
+      ? sectionTarget.getAttribute("data-admin-section")
+      : "toolbar";
+    console.info(
+      "[MSA admin] Placeholder action triggered:",
+      actionName,
+      "section:",
+      sectionName || "unknown"
+    );
   }
 
   document.addEventListener(

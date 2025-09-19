@@ -9,6 +9,7 @@
           <p class="text-sm text-slate-500">Read-only pavouk. K = {{ qualification_data.K }} · rounds = {{ qualification_data.R }}</p>
         </div>
       </header>
+      {% include 'msa/_partials/admin_section_controls.html' with section_id='draws-qual' buttons=admin_controls_draws_qual %}
       {% if qualification_data.K and qualification_data.brackets %}
         <div class="mt-4 space-y-6">
           {% for bracket in qualification_data.brackets %}
@@ -79,6 +80,7 @@
           <p class="text-sm text-slate-500">Template size {{ maindraw_data.template_size|default:"—" }}</p>
         </div>
       </header>
+      {% include 'msa/_partials/admin_section_controls.html' with section_id='draws-md' buttons=admin_controls_draws_md %}
       {% if maindraw_data.template_size %}
         <div class="mt-4 grid gap-6 lg:grid-cols-2">
           <div>

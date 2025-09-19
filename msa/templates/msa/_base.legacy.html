@@ -17,7 +17,7 @@
     <script defer src="{% static 'msa/js/topbar.js' %}"></script>
     <script defer src="{% static 'msa/js/admin.js' %}"></script>
   </head>
-  <body class="min-h-screen bg-white text-slate-900 antialiased">
+  <body class="min-h-screen bg-white text-slate-900 antialiased" data-admin-mode="{% if admin_mode and is_staff_user %}true{% else %}false{% endif %}">
     <!-- Skip link pro přístupnost -->
     <a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:bg-white focus:text-slate-900 focus:px-3 focus:py-2 focus:rounded-md">
       Přeskočit na obsah

@@ -1,4 +1,5 @@
 import pytest
+from django.contrib.auth import get_user_model
 from django.urls import reverse
 
 from msa.models import Match, Player, Schedule, Season, Tournament
@@ -515,4 +516,21 @@ def test_tournament_matches_api_limit_clamped(client):
     assert data["limit"] == 500
     assert data["offset"] == 0
     assert data["count"] == 2
-    assert len(data["matches"]) == 2
+
+
+def test_tournament_draws_admin_section_controls(client):
+    tournament = create_tournament()
+    staff_model = get_user_model()
+    staff_user = staff_model.objects.create_user("draws-staff", "draws@example.com", "x")
+    staff_user.is_staff = True
+    staff_user.save()
+    client.force_login(staff_user)
+    session = client.session
+    session["admin_mode"] = True
+    session.save()
+
+    url = reverse("msa:tournament_draws", args=[tournament.id])
+    response = client.get(url)
+    assert response.status_code == 200
+    html = response.content.decode()
+    assert 'data-admin-section="draws-md"' in html

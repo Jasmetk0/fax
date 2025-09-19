@@ -1,4 +1,5 @@
 import pytest
+from django.contrib.auth import get_user_model
 from django.urls import reverse
 
 from msa.models import (
@@ -193,6 +194,19 @@ def test_tournament_players_page(client, sample_tournament):
     assert "Reserve / alternates" in html
     assert 'data-separator="cutline"' in html
     assert "License missing" in html
+
+    staff_model = get_user_model()
+    staff_user = staff_model.objects.create_user("players-staff", "players@example.com", "x")
+    staff_user.is_staff = True
+    staff_user.save()
+    client.force_login(staff_user)
+    session = client.session
+    session["admin_mode"] = True
+    session.save()
+    admin_response = client.get(url)
+    assert admin_response.status_code == 200
+    admin_html = admin_response.content.decode()
+    assert 'data-admin-section="players-seeds"' in admin_html
 
 
 @pytest.mark.django_db
