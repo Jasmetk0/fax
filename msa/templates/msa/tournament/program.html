@@ -9,6 +9,8 @@
     data-courts-url="{{ courts_api_url|default:'' }}"
     data-start="{{ fax_range_start }}"
     data-end="{{ fax_range_end }}"
+    data-limit="{{ request.GET.limit|default:50 }}"
+    data-offset="{{ request.GET.offset|default:0 }}"
   >
     <header class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
       <div>
@@ -79,6 +81,8 @@
         Pouze živé
       </label>
     </section>
+
+    <p id="prog-count" class="text-xs text-slate-500" aria-live="polite"></p>
 
     <div class="mt-6 space-y-4">
       <div id="prog-loading" class="rounded-lg border border-dashed border-slate-200 p-6 text-sm text-slate-500">Načítám program…</div>

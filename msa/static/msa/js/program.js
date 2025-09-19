@@ -10,6 +10,7 @@
   const orderContainer = document.getElementById("prog-order");
   const tableContainer = document.getElementById("prog-table");
   const tableBody = document.getElementById("prog-table-body");
+  const countEl = document.getElementById("prog-count");
   const emptyEl = document.getElementById("prog-empty");
   const loadingEl = document.getElementById("prog-loading");
   const loadMoreBtn = document.getElementById("prog-load-more");
@@ -25,15 +26,46 @@
   const modeOrderBtn = document.getElementById("prog-mode-order");
   const modeTableBtn = document.getElementById("prog-mode-table");
 
+  let liveAnnouncer = document.getElementById("prog-live-status");
+  if (!liveAnnouncer && root) {
+    liveAnnouncer = document.createElement("div");
+    liveAnnouncer.id = "prog-live-status";
+    liveAnnouncer.className = "sr-only";
+    liveAnnouncer.setAttribute("role", "status");
+    liveAnnouncer.setAttribute("aria-live", "polite");
+    root.appendChild(liveAnnouncer);
+  }
+
+  const STORAGE_KEY = "msa_program_mode";
   const params = new URLSearchParams(location.search);
-  const initialMode = params.get("mode") === "table" ? "table" : "order";
   const DEFAULT_LIMIT = 50;
+  const datasetLimitRaw = Number.parseInt(root.dataset.limit || "", 10);
+  const datasetOffsetRaw = Number.parseInt(root.dataset.offset || "", 10);
+
+  function clampLimit(value) {
+    if (!Number.isFinite(value)) return DEFAULT_LIMIT;
+    return Math.min(Math.max(value, 1), 500);
+  }
+
+  function readStoredMode() {
+    try {
+      return window.localStorage.getItem(STORAGE_KEY);
+    } catch (err) {
+      return null;
+    }
+  }
+
+  const storedMode = readStoredMode();
+  const initialMode = params.get("mode") === "table" ? "table" : storedMode === "table" ? "table" : "order";
+
   const rawLimit = Number.parseInt(params.get("limit") || "", 10);
   const initialLimit = Number.isFinite(rawLimit)
-    ? Math.min(Math.max(rawLimit, 1), 500)
-    : DEFAULT_LIMIT;
+    ? clampLimit(rawLimit)
+    : clampLimit(datasetLimitRaw);
+
   const rawOffset = Number.parseInt(params.get("offset") || "", 10);
-  const initialOffset = Number.isFinite(rawOffset) && rawOffset > 0 ? rawOffset : 0;
+  const datasetOffset = Number.isFinite(datasetOffsetRaw) && datasetOffsetRaw > 0 ? datasetOffsetRaw : 0;
+  const initialOffset = Number.isFinite(rawOffset) && rawOffset > 0 ? rawOffset : datasetOffset;
 
   const state = {
     month: params.get("fax_month") || "",
@@ -53,6 +85,14 @@
   let courts = [];
   let faxDays = [];
   let isLoading = false;
+  let isAppending = false;
+  let totalCount = null;
+  let currentController = null;
+  let requestCounter = 0;
+
+  if (countEl) {
+    countEl.classList.add("hidden");
+  }
 
   const FaxDates = window.MSAFaxDates || {};
   const { parseFaxDate, getFaxYearMeta, enumerateFaxDays } = FaxDates;
@@ -102,11 +142,23 @@
     tableContainer?.classList.add("hidden");
     loadMoreBtn?.classList.add("hidden");
     if (loadMoreBtn) loadMoreBtn.disabled = true;
+    if (countEl) countEl.classList.add("hidden");
   }
 
   function hideLoading() {
     isLoading = false;
     loadingEl?.classList.add("hidden");
+  }
+
+  function updateCounter() {
+    if (!countEl) return;
+    if (typeof totalCount === "number" && Number.isFinite(totalCount)) {
+      countEl.textContent = `Zobrazeno ${matches.length} z ${totalCount}`;
+      countEl.classList.remove("hidden");
+    } else {
+      countEl.textContent = "";
+      countEl.classList.add("hidden");
+    }
   }
 
   function formatScore(sets) {
@@ -358,10 +410,11 @@
   function updateLoadMoreButton() {
     if (!loadMoreBtn) return;
     const hasNext = state.next_offset !== null && state.next_offset !== undefined;
-    const shouldShow = !isLoading && hasNext && matches.length > 0;
+    const shouldShow = !isLoading && !isAppending && hasNext && matches.length > 0;
     if (shouldShow) {
       loadMoreBtn.classList.remove("hidden");
       loadMoreBtn.disabled = false;
+      loadMoreBtn.removeAttribute("aria-busy");
     } else {
       loadMoreBtn.classList.add("hidden");
       loadMoreBtn.disabled = true;
@@ -369,6 +422,7 @@
   }
 
   function renderMatches() {
+    updateCounter();
     if (isLoading) {
       updateLoadMoreButton();
       return;
@@ -391,10 +445,22 @@
     updateLoadMoreButton();
   }
 
-  function setMode(mode) {
-    state.mode = mode === "table" ? "table" : "order";
+  function setMode(mode, options = {}) {
+    const { force = false, persist = true } = options;
+    const nextMode = mode === "table" ? "table" : "order";
+    if (!force && state.mode === nextMode) {
+      return;
+    }
+    state.mode = nextMode;
     updateModeButtons();
     updateQueryString();
+    if (persist) {
+      try {
+        window.localStorage.setItem(STORAGE_KEY, state.mode);
+      } catch (err) {
+        /* ignore */
+      }
+    }
     renderMatches();
   }
 
@@ -455,48 +521,101 @@
     if (state.status && state.status !== "all") search.set("status", state.status);
     if (state.best_of) search.set("best_of", state.best_of);
     if (state.q) search.set("q", state.q);
-    search.set("limit", String(state.limit || DEFAULT_LIMIT));
+    const limitValue = clampLimit(state.limit || DEFAULT_LIMIT);
+    search.set("limit", String(limitValue));
     search.set("offset", String(state.offset || 0));
     const qs = search.toString();
     return `${matchesUrl}${qs ? `?${qs}` : ""}`;
   }
 
+  function isAbortError(error) {
+    if (!error) return false;
+    if (error.name === "AbortError") return true;
+    if (typeof DOMException !== "undefined" && error instanceof DOMException) {
+      return error.name === "AbortError";
+    }
+    return false;
+  }
+
+  function announce(message) {
+    if (!liveAnnouncer) return;
+    liveAnnouncer.textContent = message || "";
+  }
+
   async function fetchMatches(options = {}) {
     if (!matchesUrl) return;
-    const { append = false, previousOffset = 0, previousNext = null } = options;
+    const {
+      append = false,
+      previousOffset = state.offset,
+      previousNext = state.next_offset,
+      previousCount = totalCount,
+    } = options;
+
+    const priorMatches = matches.slice();
+
+    if (currentController) {
+      currentController.abort();
+    }
+    const controller = new AbortController();
+    currentController = controller;
+    const requestId = ++requestCounter;
+
+    let appendedCount = 0;
+    let aborted = false;
+    let failed = false;
+
     if (!append) {
       showLoading();
-    } else if (loadMoreBtn) {
-      loadMoreBtn.disabled = true;
+      announce("");
+    } else {
+      isAppending = true;
+      if (loadMoreBtn) {
+        loadMoreBtn.disabled = true;
+        loadMoreBtn.setAttribute("aria-busy", "true");
+      }
+      updateLoadMoreButton();
     }
-    const priorMatches = matches.slice();
+
     try {
-      const resp = await fetch(buildMatchesUrl(), { headers: { Accept: "application/json" } });
+      const resp = await fetch(buildMatchesUrl(), {
+        headers: { Accept: "application/json" },
+        signal: controller.signal,
+      });
       if (!resp.ok) {
-        if (!append) {
-          matches = [];
-          state.next_offset = null;
-        } else {
-          matches = priorMatches;
-          state.offset = previousOffset;
-          state.next_offset = previousNext;
-        }
+        failed = true;
       } else {
         const json = await resp.json();
-        const fetched = Array.isArray(json?.matches) ? json.matches : [];
-        if (append) {
-          matches = priorMatches.concat(fetched);
-        } else {
-          matches = fetched;
+        if (requestId !== requestCounter) {
+          return;
         }
-        if (typeof json?.offset === "number") {
-          state.offset = json.offset;
+        const fetched = Array.isArray(json?.matches) ? json.matches : [];
+        appendedCount = append ? fetched.length : 0;
+        matches = append ? priorMatches.concat(fetched) : fetched;
+
+        if (typeof json?.count === "number") {
+          totalCount = json.count;
+        } else if (append && typeof previousCount === "number") {
+          totalCount = previousCount;
+        } else if (!append) {
+          totalCount = matches.length;
+        } else {
+          totalCount = null;
+        }
+
+        const limitFromJson = Number.parseInt(json?.limit, 10);
+        if (Number.isFinite(limitFromJson)) {
+          state.limit = clampLimit(limitFromJson);
+        }
+
+        const offsetFromJson = Number.parseInt(json?.offset, 10);
+        if (Number.isFinite(offsetFromJson) && offsetFromJson >= 0) {
+          state.offset = offsetFromJson;
         } else if (!append) {
           state.offset = 0;
+        } else {
+          state.offset = previousOffset;
         }
-        if (typeof json?.limit === "number") {
-          state.limit = json.limit;
-        }
+
         const rawNext = json?.next_offset;
         if (typeof rawNext === "number") {
           state.next_offset = rawNext;
@@ -507,23 +626,68 @@
         }
       }
     } catch (err) {
-      if (!append) {
-        matches = [];
-        state.next_offset = null;
+      if (isAbortError(err)) {
+        aborted = true;
       } else {
+        failed = true;
+      }
+    } finally {
+      if (requestId !== requestCounter) {
+        if (append) {
+          isAppending = false;
+          if (loadMoreBtn) {
+            loadMoreBtn.removeAttribute("aria-busy");
+            loadMoreBtn.disabled = false;
+          }
+          updateLoadMoreButton();
+        }
+        return;
+      }
+
+      if (currentController === controller) {
+        currentController = null;
+      }
+
+      if (failed) {
         matches = priorMatches;
         state.offset = previousOffset;
         state.next_offset = previousNext;
+        totalCount = typeof previousCount === "number" ? previousCount : totalCount;
+      } else if (append && aborted) {
+        matches = priorMatches;
+        state.offset = previousOffset;
+        state.next_offset = previousNext;
+        totalCount = typeof previousCount === "number" ? previousCount : totalCount;
+      }
+
+      if (!append) {
+        hideLoading();
+      } else {
+        isAppending = false;
+        if (loadMoreBtn) {
+          loadMoreBtn.removeAttribute("aria-busy");
+        }
+      }
+
+      renderMatches();
+
+      if (append) {
+        if (!failed && !aborted && appendedCount > 0) {
+          announce(`Načteno ${appendedCount} nových zápasů.`);
+        } else {
+          announce("");
+        }
+      } else {
+        announce("");
       }
     }
-    hideLoading();
-    renderMatches();
   }
 
   function resetPagination() {
     state.offset = 0;
     state.next_offset = null;
     matches = [];
+    totalCount = null;
   }
 
   function debounce(fn, delay = 250) {
@@ -609,12 +773,21 @@
     modeTableBtn?.addEventListener("click", () => setMode("table"));
 
     loadMoreBtn?.addEventListener("click", () => {
-      if (state.next_offset === null || state.next_offset === undefined) return;
+      if (
+        isLoading ||
+        isAppending ||
+        matches.length === 0 ||
+        state.next_offset === null ||
+        state.next_offset === undefined
+      ) {
+        return;
+      }
       const nextOffset = state.next_offset;
       const previousOffset = state.offset;
       const previousNext = state.next_offset;
+      const previousCount = totalCount;
       state.offset = nextOffset;
-      fetchMatches({ append: true, previousOffset, previousNext });
+      fetchMatches({ append: true, previousOffset, previousNext, previousCount });
     });
   }
 
@@ -638,6 +811,6 @@
     bindEvents();
     await fetchCourts();
     await fetchMatches();
-    setMode(state.mode);
+    setMode(state.mode, { force: true });
   })();
 })();
