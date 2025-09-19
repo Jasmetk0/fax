@@ -232,7 +232,7 @@ def test_tournament_draws_page_and_apis(client, sample_tournament):
 
 @pytest.mark.django_db
 def test_live_badge_counts_live_matches(client, sample_tournament):
-    response = client.get("/msa/status/live-badge")
+    response = client.get(reverse("nav_live_badge"))
     assert response.status_code == 200
     payload = response.content.decode()
     assert "● 1" in payload
