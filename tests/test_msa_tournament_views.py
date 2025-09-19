@@ -57,6 +57,22 @@ def test_tournament_info_view_shows_range(client):
     assert "2024-05-15" in response.content.decode()
 
 
+def test_tournament_info_contains_scoring_points(client):
+    tournament = create_tournament(
+        scoring_md={"Winner": 100, "RunnerUp": 60},
+        scoring_qual_win={"Q1": 10},
+    )
+
+    url = reverse("msa:tournament_info", args=[tournament.id])
+    response = client.get(url)
+
+    assert response.status_code == 200
+    html = response.content.decode()
+    assert ("Main draw points" in html) or ("Qualification points" in html)
+    assert "Winner" in html
+    assert "100" in html
+
+
 def test_tournament_matches_api_returns_empty_list(client):
     tournament = create_tournament()
     url = reverse("msa-tournament-matches-api", args=[tournament.id])

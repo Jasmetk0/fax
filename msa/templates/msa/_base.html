@@ -4,9 +4,13 @@
 {% block extra_head %}{{ block.super }}
   <link rel="stylesheet" href="{% static 'msa/css/tailwind.css' %}">
   <script defer src="{% static 'msa/js/topbar.js' %}"></script>
+  <script defer src="{% static 'msa/js/admin.js' %}"></script>
 {% endblock %}
 {% block content %}
   {% include 'msa/_partials/topbar.html' %}
+  {% block admin_toolbar %}
+    {% include 'msa/_partials/admin_toolbar.html' %}
+  {% endblock %}
   <main id="main" class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
     {% block body %}{% endblock %}
   </main>
