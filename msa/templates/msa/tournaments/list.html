@@ -1,6 +1,159 @@
 {% extends "msa/_base.html" %}
 {% block title %}MSA – Tournaments{% endblock %}
 {% block body %}
-  <h1 class="text-2xl font-semibold mb-4">Tournaments</h1>
-  <p class="text-slate-600">Seznam zatím prázdný.</p>
+  <header class="mb-6 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+    <div>
+      <h1 class="text-3xl font-semibold text-slate-900">Tournaments</h1>
+      <p class="text-sm text-slate-600">Aktuální kalendář MSA turnajů seřazený podle začátku. Filtry jsou čistě GET (read-only).</p>
+    </div>
+    {% if active_season %}
+      <span class="inline-flex items-center rounded-md border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600">Season {{ active_season }}</span>
+    {% endif %}
+  </header>
+
+  <form method="get" class="mb-6 grid gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-2 xl:grid-cols-4" aria-label="Filtry turnajů">
+    <label class="flex flex-col text-xs font-semibold uppercase tracking-wide text-slate-500">
+      <span class="mb-1">Season</span>
+      <select name="season" class="rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-700">
+        <option value="">Všechny</option>
+        {% for item in seasons %}
+          {% with sid=item.id|stringformat:"s" %}
+            <option value="{{ sid }}" {% if sid == selected_season %}selected{% endif %}>{{ item }}</option>
+          {% endwith %}
+        {% endfor %}
+      </select>
+    </label>
+    <label class="flex flex-col text-xs font-semibold uppercase tracking-wide text-slate-500">
+      <span class="mb-1">Category</span>
+      <select name="category" class="rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-700">
+        <option value="">Všechny</option>
+        {% for item in categories %}
+          {% with cid=item.id|stringformat:"s" %}
+            <option value="{{ cid }}" {% if cid == selected_category %}selected{% endif %}>
+              {{ item.tour|default:item.tour.name|default:"" }}{% if item.tour %} · {% endif %}{{ item.name|default:item }}
+            </option>
+          {% endwith %}
+        {% endfor %}
+      </select>
+    </label>
+    <label class="flex flex-col text-xs font-semibold uppercase tracking-wide text-slate-500">
+      <span class="mb-1">Status</span>
+      <select name="status" class="rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-700">
+        {% for option in status_choices %}
+          <option value="{{ option.value }}" {% if option.value == selected_status %}selected{% endif %}>{{ option.label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="flex flex-col text-xs font-semibold uppercase tracking-wide text-slate-500 md:col-span-2 xl:col-span-1">
+      <span class="mb-1">Fulltext</span>
+      <input type="search" name="q" value="{{ search_query }}" class="rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-700" placeholder="Název turnaje" />
+    </label>
+    <div class="flex items-center gap-3 md:col-span-2 xl:col-span-4">
+      <button type="submit" class="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow">Apply filters</button>
+      <a href="{{ request.path }}" class="text-sm text-slate-500 hover:text-slate-700">Reset</a>
+    </div>
+  </form>
+
+  <section class="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" data-testid="tournament-metrics">
+    <div class="rounded-lg border border-slate-200 bg-white p-4" data-total="{{ stats.total }}">
+      <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Total</dt>
+      <dd class="mt-1 text-2xl font-semibold text-slate-900">{{ stats.total }}</dd>
+    </div>
+    <div class="rounded-lg border border-slate-200 bg-white p-4">
+      <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Upcoming</dt>
+      <dd class="mt-1 text-2xl font-semibold text-slate-900">{{ stats.upcoming }}</dd>
+    </div>
+    <div class="rounded-lg border border-slate-200 bg-white p-4">
+      <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Running</dt>
+      <dd class="mt-1 text-2xl font-semibold text-slate-900">{{ stats.running }}</dd>
+    </div>
+    <div class="rounded-lg border border-slate-200 bg-white p-4">
+      <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Completed</dt>
+      <dd class="mt-1 text-2xl font-semibold text-slate-900">{{ stats.completed }}</dd>
+    </div>
+  </section>
+
+  <section
+    id="tournaments-list"
+    class="grid gap-4 md:grid-cols-2 xl:grid-cols-3"
+    data-total="{{ stats.total }}"
+    data-page="{{ page_obj.number }}"
+    data-pages="{{ page_obj.paginator.num_pages }}"
+  >
+    {% if cards %}
+      {% for card in cards %}
+        <article class="flex h-full flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-sm" data-testid="tournament-card">
+          <header class="flex items-start justify-between gap-3">
+            <div>
+              <h2 class="text-lg font-semibold text-slate-900">
+                <a href="{{ card.detail_url }}" class="hover:underline">{{ card.name }}</a>
+              </h2>
+              <div class="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                {% if card.tour_label %}
+                  <span class="inline-flex items-center rounded-md border px-2 py-0.5 {{ card.tour_badge_class }}">{{ card.tour_label }}</span>
+                {% endif %}
+                {% if card.category_label %}
+                  <span class="inline-flex items-center rounded-md border px-2 py-0.5 {{ card.category_badge_class }}">{{ card.category_label }}</span>
+                {% endif %}
+              </div>
+            </div>
+            {% if card.status %}
+              <span class="inline-flex items-center rounded-md border px-2 py-1 text-xs font-semibold {{ card.status.class }}">{{ card.status.label }}</span>
+            {% endif %}
+          </header>
+          <dl class="mt-4 grid flex-1 grid-cols-2 gap-3 text-sm text-slate-600">
+            <div>
+              <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Draw</dt>
+              <dd class="mt-1 text-slate-900">{{ card.draw_size|default:"—" }}</dd>
+            </div>
+            <div>
+              <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Qualifiers</dt>
+              <dd class="mt-1 text-slate-900">
+                {% if card.qualifiers %}
+                  {{ card.qualifiers }}{% if card.qual_round_size %} × Q{{ card.qual_round_size }}{% endif %}
+                {% else %}
+                  —
+                {% endif %}
+              </dd>
+            </div>
+            <div>
+              <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">FAX range</dt>
+              <dd class="mt-1 text-slate-900">{% if card.start_date or card.end_date %}{{ card.start_date|default:"TBD" }} – {{ card.end_date|default:"TBD" }}{% else %}TBD{% endif %}</dd>
+            </div>
+            <div>
+              <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Location</dt>
+              <dd class="mt-1 text-slate-900">{{ card.location|default:"—" }}</dd>
+            </div>
+          </dl>
+          <div class="mt-4 flex flex-wrap gap-2">
+            {% for chip in card.chips %}
+              <span class="inline-flex items-center rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-600">{{ chip.label }}</span>
+            {% endfor %}
+          </div>
+          <footer class="mt-6 flex items-center justify-between border-t border-slate-100 pt-4">
+            <span class="text-xs text-slate-500">Season {{ card.season_label|default:"—" }}</span>
+            <a href="{{ card.detail_url }}" class="text-sm font-medium text-slate-900 hover:underline">Detail →</a>
+          </footer>
+        </article>
+      {% endfor %}
+    {% else %}
+      <p class="rounded-xl border border-dashed border-slate-200 bg-white p-6 text-sm text-slate-500">Pro zadané filtry nebyly nalezeny žádné turnaje.</p>
+    {% endif %}
+  </section>
+
+  {% if page_obj.paginator.num_pages > 1 %}
+    <nav class="mt-8 flex items-center justify-between text-sm text-slate-600" aria-label="Pagination">
+      {% if page_obj.has_previous %}
+        <a href="?{% if query_string %}{{ query_string }}&{% endif %}page={{ page_obj.previous_page_number }}" class="hover:text-slate-900">← Previous</a>
+      {% else %}
+        <span class="text-slate-400">← Previous</span>
+      {% endif %}
+      <span>Page {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+      {% if page_obj.has_next %}
+        <a href="?{% if query_string %}{{ query_string }}&{% endif %}page={{ page_obj.next_page_number }}" class="hover:text-slate-900">Next →</a>
+      {% else %}
+        <span class="text-slate-400">Next →</span>
+      {% endif %}
+    </nav>
+  {% endif %}
 {% endblock %}

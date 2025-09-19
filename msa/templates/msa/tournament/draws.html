@@ -1,27 +1,142 @@
 {% extends "msa/tournament/base.html" %}
 
 {% block tournament_content %}
-  <section class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-    <header class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-      <div>
-        <h2 class="text-lg font-semibold text-slate-900">Draws</h2>
-        <p class="mt-1 text-sm text-slate-500">Přepni mezi hlavní soutěží a kvalifikací. Obsah bude doplněn po integraci.</p>
-      </div>
-      <div class="inline-flex rounded-md border" role="tablist" aria-label="Draw selection">
-        <button type="button" class="px-3 py-1 text-sm font-medium text-slate-900" aria-selected="true">Main</button>
-        <button type="button" class="border-l px-3 py-1 text-sm text-slate-500" aria-selected="false">Qualification</button>
-      </div>
-    </header>
+  <section class="grid gap-6 lg:grid-cols-2">
+    <article class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm" data-testid="qualification-section">
+      <header class="flex items-center justify-between">
+        <div>
+          <h2 class="text-lg font-semibold text-slate-900">Qualification</h2>
+          <p class="text-sm text-slate-500">Read-only pavouk. K = {{ qualification_data.K }} · rounds = {{ qualification_data.R }}</p>
+        </div>
+      </header>
+      {% if qualification_data.K and qualification_data.brackets %}
+        <div class="mt-4 space-y-6">
+          {% for bracket in qualification_data.brackets %}
+            <section class="rounded-lg border border-slate-100">
+              <header class="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-4 py-2">
+                <h3 class="text-sm font-semibold text-slate-700">Bracket K{{ bracket.index }}</h3>
+                <span class="text-xs text-slate-500">{{ qualification_data.R }} rounds</span>
+              </header>
+              <div class="grid gap-4 px-4 py-4 md:grid-cols-2">
+                <div>
+                  <h4 class="text-xs font-semibold uppercase tracking-wide text-slate-500">Seed tiers</h4>
+                  <ul class="mt-2 space-y-1 text-sm text-slate-600">
+                    {% for tier, entries in bracket.tiers.items %}
+                      <li>
+                        <span class="font-semibold text-slate-700">{{ tier }}</span>:
+                        {% if entries %}
+                          {% for payload in entries %}
+                            {{ payload.name|default:"—" }}{% if not forloop.last %}, {% endif %}
+                          {% endfor %}
+                        {% else %}
+                          —
+                        {% endif %}
+                      </li>
+                    {% endfor %}
+                  </ul>
+                </div>
+                <div>
+                  <h4 class="text-xs font-semibold uppercase tracking-wide text-slate-500">Rounds</h4>
+                  <div class="mt-2 space-y-3 text-sm">
+                    {% for round in bracket.rounds %}
+                      <div class="rounded-lg border border-slate-100">
+                        <div class="border-b border-slate-100 bg-slate-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-500">{{ round.label }}</div>
+                        <ul class="divide-y text-sm text-slate-600">
+                          {% for pair in round.pairs %}
+                            <li class="flex flex-col gap-1 px-3 py-2">
+                              <div class="flex items-center justify-between text-xs text-slate-500">
+                                <span>Slots {{ pair.slot_top }} vs {{ pair.slot_bottom }}</span>
+                                <span>{{ pair.status|capfirst }}</span>
+                              </div>
+                              <div class="flex items-center justify-between">
+                                <span>{{ pair.player_top.name|default:"—" }}</span>
+                                <span class="text-slate-400">vs</span>
+                                <span>{{ pair.player_bottom.name|default:"—" }}</span>
+                              </div>
+                              <div class="text-xs text-slate-500">Best of {{ pair.best_of }}</div>
+                            </li>
+                          {% empty %}
+                            <li class="px-3 py-2 text-xs text-slate-500">No pairs yet.</li>
+                          {% endfor %}
+                        </ul>
+                      </div>
+                    {% endfor %}
+                  </div>
+                </div>
+              </div>
+            </section>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="mt-3 text-sm text-slate-500">Qualification není pro tento turnaj definovaná.</p>
+      {% endif %}
+    </article>
 
-    <div class="mt-6 space-y-4 text-sm text-slate-600">
-      <div class="rounded-lg border border-dashed border-slate-200 p-4">
-        <h3 class="text-base font-semibold text-slate-800">Main draw</h3>
-        <p class="mt-1">Brackets, zápasy a postup hráčů se zde zobrazí po napojení na generátor.</p>
-      </div>
-      <div class="rounded-lg border border-dashed border-slate-200 p-4">
-        <h3 class="text-base font-semibold text-slate-800">Qualification</h3>
-        <p class="mt-1">Kvalifikační pavouk a výsledky budou k dispozici v této sekci.</p>
-      </div>
-    </div>
+    <article class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm" data-testid="maindraw-section">
+      <header class="flex items-center justify-between">
+        <div>
+          <h2 class="text-lg font-semibold text-slate-900">Main draw</h2>
+          <p class="text-sm text-slate-500">Template size {{ maindraw_data.template_size|default:"—" }}</p>
+        </div>
+      </header>
+      {% if maindraw_data.template_size %}
+        <div class="mt-4 grid gap-6 lg:grid-cols-2">
+          <div>
+            <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-500">Seed bands</h3>
+            <ul class="mt-2 space-y-1 text-sm text-slate-600">
+              {% for label, slots in maindraw_data.seed_bands.items %}
+                <li><span class="font-semibold text-slate-700">{{ label }}</span>: {{ slots|join:", " }}</li>
+              {% empty %}
+                <li>No band data.</li>
+              {% endfor %}
+            </ul>
+          </div>
+          <div>
+            <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-500">Placeholder mapping</h3>
+            <ul class="mt-2 space-y-1 text-sm text-slate-600">
+              {% for key, slot in maindraw_data.placeholders.qual_winner_map.items %}
+                <li>{{ key }} → slot {{ slot }}</li>
+              {% empty %}
+                <li>No qualification placeholders.</li>
+              {% endfor %}
+            </ul>
+          </div>
+        </div>
+        <table class="mt-6 w-full text-sm text-slate-700" aria-label="Main draw slots">
+          <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+            <tr>
+              <th scope="col" class="px-3 py-2 text-left">Slot</th>
+              <th scope="col" class="px-3 py-2 text-left">Seed</th>
+              <th scope="col" class="px-3 py-2 text-left">Player</th>
+              <th scope="col" class="px-3 py-2 text-left">Tag</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for slot in maindraw_data.slots %}
+              <tr class="border-t border-slate-100">
+                <td class="px-3 py-2">{{ slot.pos }}</td>
+                <td class="px-3 py-2">{{ slot.seed|default:"—" }}</td>
+                <td class="px-3 py-2">
+                  {% if slot.player %}
+                    {{ slot.player.name|default:"—" }}
+                  {% else %}
+                    <span class="text-slate-400">Vacant</span>
+                  {% endif %}
+                </td>
+                <td class="px-3 py-2">
+                  {% if slot.player %}
+                    {{ slot.player.tag|default:"—" }}
+                  {% else %}
+                    —
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p class="mt-3 text-sm text-slate-500">Main draw template zatím není připraven.</p>
+      {% endif %}
+    </article>
   </section>
 {% endblock %}
