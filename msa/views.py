@@ -3,6 +3,7 @@ from collections import OrderedDict, defaultdict
 from typing import Any
 
 from django.apps import apps
+from django.conf import settings
 from django.core.exceptions import FieldDoesNotExist, ValidationError
 from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
 from django.db import OperationalError
@@ -14,11 +15,32 @@ from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
 
 from msa.services.md_embed import effective_template_size_for_md, md_anchor_map
-from msa.services.qual_generator import (
-    bracket_anchor_tiers,
-    generate_qualification_mapping,
-    seeds_per_bracket,
-)
+
+try:
+    from msa.services.qual_generator import (
+        bracket_anchor_tiers,
+        generate_qualification_mapping,
+        seeds_per_bracket,
+    )
+except Exception:
+
+    def bracket_anchor_tiers(R: int):
+        tiers: list[str] = []
+        if R >= 2:
+            tiers.append("TOP")
+        if R >= 3:
+            tiers.append("BOTTOM")
+        if R >= 4:
+            tiers += ["MIDDLE_A", "MIDDLE_B"]
+        return {name: [] for name in tiers}
+
+    def seeds_per_bracket(R: int):
+        return 2 ** max(R - 2, 0)
+
+    def generate_qualification_mapping(*args, **kwargs):
+        return []
+
+
 from msa.utils.dates import find_season_for_date, get_active_date
 
 from .utils import enumerate_fax_months
@@ -1122,17 +1144,24 @@ def nav_live_badge(request):
     live_count = 0
     if Match:
         try:
-            qs = Match.objects.all()
-            iterator = qs.iterator() if hasattr(qs, "iterator") else qs
-            for match in iterator:
-                try:
-                    status, _ = _match_status_and_sets(match)
-                except Exception:
-                    continue
-                if status == "live":
-                    live_count += 1
+            live_count = Match.objects.filter(state="LIVE").count()
         except OperationalError:
             live_count = 0
+        if live_count == 0 and getattr(settings, "MSA_BADGE_INCLUDE_PARTIALS", False):
+            try:
+                qs = Match.objects.all()
+                iterator = qs.iterator() if hasattr(qs, "iterator") else qs
+                partial_count = 0
+                for match in iterator:
+                    try:
+                        status, _ = _match_status_and_sets(match)
+                    except Exception:
+                        continue
+                    if status == "live":
+                        partial_count += 1
+                live_count = partial_count
+            except OperationalError:
+                live_count = 0
     if live_count > 0:
         badge = (
             '<span id="live-badge" aria-live="polite" '
