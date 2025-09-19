@@ -865,8 +865,10 @@ def tournament_matches_api(request, tournament_id: int):
 
     for match in raw_matches:
         schedule = getattr(match, "schedule", None)
-        fax_day = getattr(schedule, "play_date", None) or getattr(match, "play_date", None)
-        fax_day = _to_iso(fax_day) if fax_day else fax_day
+        fax_day_raw = getattr(schedule, "play_date", None) or getattr(match, "play_date", None)
+        if isinstance(fax_day_raw, str):
+            fax_day_raw = fax_day_raw.strip() or None
+        fax_day = _to_iso(fax_day_raw) if fax_day_raw else None
         order_value = getattr(schedule, "order", None)
         if order_value is None:
             order_value = getattr(match, "position", None)
@@ -888,8 +890,13 @@ def tournament_matches_api(request, tournament_id: int):
             )
             players.append({"id": getattr(player, "id", None), "name": name, "country": country})
 
-        score = getattr(match, "score", None) or {}
-        sets, has_partial = _parse_sets(score)
+        score_payload = getattr(match, "score", None) or {}
+        sets, has_partial = _parse_sets(score_payload)
+        meta_status = ""
+        if isinstance(score_payload, dict):
+            meta = score_payload.get("meta")
+            if isinstance(meta, dict):
+                meta_status = (meta.get("status") or "").strip().lower()
 
         state_value = (getattr(match, "state", None) or "").upper()
         base_status = {
@@ -899,10 +906,16 @@ def tournament_matches_api(request, tournament_id: int):
             "LIVE": "live",
         }.get(state_value, state_value.lower() or "scheduled")
 
+        if state_value == "DONE":
+            base_status = "finished"
+
         if base_status != "finished":
             in_progress_flag = bool(getattr(match, "in_progress", False))
             has_recorded_sets = bool(sets)
-            if base_status == "live" or in_progress_flag:
+            live_from_meta = meta_status == "live"
+            if live_from_meta:
+                base_status = "live"
+            elif base_status == "live" or in_progress_flag:
                 base_status = "live"
             elif has_partial and (base_status != "scheduled" or has_recorded_sets):
                 base_status = "live"
@@ -1018,6 +1031,21 @@ def tournament_courts_api(request, tournament_id: int):
             for attr in ("court", "court_name"):
                 _append_court(getattr(schedule, attr, None))
 
-    courts.sort(key=lambda c: ((c.get("name") or "").lower(), str(c.get("id") or "")))
+    def _sort_key(court):
+        if not isinstance(court, dict):
+            return ("", "")
+        raw_name = court.get("name")
+        if isinstance(raw_name, str):
+            cleaned_name = raw_name.strip()
+        elif raw_name is None:
+            cleaned_name = ""
+        else:
+            cleaned_name = str(raw_name).strip()
+        name_key = cleaned_name.casefold()
+        raw_id = court.get("id")
+        id_key = "" if raw_id in (None, "") else str(raw_id)
+        return (name_key, id_key)
+
+    courts.sort(key=_sort_key)
 
     return JsonResponse({"courts": courts})
