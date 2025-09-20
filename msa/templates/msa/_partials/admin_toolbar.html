@@ -9,7 +9,9 @@
     >
       <div class="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 text-sm sm:flex-row sm:items-center sm:gap-4 sm:px-6 lg:px-8">
         <div class="flex flex-col">
-          <span class="text-xs font-semibold uppercase tracking-wide text-emerald-200">Admin mód (read-only)</span>
+          <span class="text-xs font-semibold uppercase tracking-wide text-emerald-200">
+            Admin mód{% if admin_readonly %} (read-only){% else %} (akce aktivní){% endif %}
+          </span>
           {% if tournament %}
             <span class="text-sm font-semibold text-white">{{ tournament.name|default:"Tournament" }}</span>
             {% with toolbar_status=admin_toolbar_status|default:status %}
@@ -25,17 +27,47 @@
         </div>
         <div class="flex flex-wrap gap-2 sm:ml-auto">
           {% for action in actions %}
-            <button
-              type="button"
-              class="rounded-md border border-slate-700 bg-slate-800 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-200 opacity-60 cursor-not-allowed"
-              disabled
-              aria-disabled="true"
-              role="button"
-              title="Read-only mode"
-              data-admin-action="{{ action.action|default:action }}"
-            >
-              {{ action.label|default:action }}
-            </button>
+            {% with action_name=action.action|default:action %}
+              {% if admin_readonly %}
+                <button
+                  type="button"
+                  class="rounded-md border border-slate-700 bg-slate-800 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-200 opacity-60 cursor-not-allowed"
+                  disabled
+                  aria-disabled="true"
+                  role="button"
+                  title="Read-only mode"
+                  data-admin-action="{{ action_name }}"
+                >
+                  {{ action.label|default:action }}
+                </button>
+              {% else %}
+                <form
+                  method="post"
+                  action="{% url 'msa:admin_action' %}"
+                  class="inline"
+                  data-admin-section="toolbar"
+                  data-admin-enhance="fetch"
+                >
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="{{ action_name }}" />
+                  {% if tournament %}
+                    <input type="hidden" name="tournament_id" value="{{ tournament.id }}" />
+                  {% endif %}
+                  {% if action.payload %}
+                    {% for key, value in action.payload.items %}
+                      <input type="hidden" name="{{ key }}" value="{{ value }}" />
+                    {% endfor %}
+                  {% endif %}
+                  <button
+                    type="submit"
+                    class="rounded-md border border-emerald-400/70 bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-100 transition hover:bg-emerald-500/20 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 focus:ring-offset-slate-900"
+                    data-admin-action="{{ action_name }}"
+                  >
+                    {{ action.label|default:action }}
+                  </button>
+                </form>
+              {% endif %}
+            {% endwith %}
           {% empty %}
             <span class="text-xs text-slate-400">Žádné akce pro tuto stránku.</span>
           {% endfor %}

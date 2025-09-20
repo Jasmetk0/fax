@@ -11,6 +11,7 @@ urlpatterns = [
         RedirectView.as_view(pattern_name="msa:tournaments_list", permanent=False),
         name="home",
     ),
+    path("admin/action", views.admin_action, name="admin_action"),
     # Landing na seznam sezón pro Tournaments
     path("tournaments/", views.tournaments_seasons, name="tournaments_list"),
     path("seasons/", views.seasons_list, name="seasons_list"),

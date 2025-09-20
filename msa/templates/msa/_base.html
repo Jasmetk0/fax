@@ -1,6 +1,9 @@
 {% extends "base.html" %}
 {% load static %}
-{% block body_attrs %}data-admin-mode="{% if admin_mode and is_staff_user %}true{% else %}false{% endif %}"{% endblock %}
+{% block body_attrs %}
+  data-admin-mode="{% if admin_mode and is_staff_user %}true{% else %}false{% endif %}"
+  data-admin-readonly="{{ admin_readonly|yesno:'true,false' }}"
+{% endblock %}
 {% block title %}MSA{% endblock %}
 {% block extra_head %}{{ block.super }}
   <link rel="stylesheet" href="{% static 'msa/css/tailwind.css' %}">
@@ -9,6 +12,7 @@
 {% endblock %}
 {% block content %}
   {% include 'msa/_partials/topbar.html' %}
+  {% include 'msa/_partials/toast.html' %}
   {% block admin_toolbar %}
     {% include 'msa/_partials/admin_toolbar.html' %}
   {% endblock %}

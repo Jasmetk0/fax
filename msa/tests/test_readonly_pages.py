@@ -1,5 +1,6 @@
 import pytest
 from django.contrib.auth import get_user_model
+from django.test import override_settings
 from django.urls import reverse
 
 from msa.models import (
@@ -207,6 +208,29 @@ def test_tournament_players_page(client, sample_tournament):
     assert admin_response.status_code == 200
     admin_html = admin_response.content.decode()
     assert 'data-admin-section="players-seeds"' in admin_html
+
+
+@override_settings(MSA_ADMIN_READONLY=False)
+@pytest.mark.django_db
+def test_admin_controls_render_forms_when_enabled(client, sample_tournament):
+    staff_model = get_user_model()
+    staff_user = staff_model.objects.create_user("forms-staff", "forms@example.com", "x")
+    staff_user.is_staff = True
+    staff_user.save()
+    client.force_login(staff_user)
+    session = client.session
+    session["admin_mode"] = True
+    session.save()
+
+    url = reverse("msa:tournament_players", args=[sample_tournament.id])
+    response = client.get(url)
+    assert response.status_code == 200
+    html = response.content.decode()
+
+    assert 'data-admin-readonly="false"' in html
+    assert 'data-admin-enhance="fetch"' in html
+    assert 'aria-disabled="true"' not in html
+    assert 'action="/msa/admin/action"' in html
 
 
 @pytest.mark.django_db

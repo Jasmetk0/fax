@@ -4,10 +4,47 @@
     <span class="w-full text-[11px] font-semibold uppercase tracking-wide text-slate-500">{{ subtitle }}</span>
   {% endif %}
   {% for b in buttons %}
-    <button type="button"
-            class="rounded-md border border-slate-300 bg-slate-100 px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-slate-600 opacity-60 cursor-not-allowed"
-            disabled aria-disabled="true" role="button" title="Read-only mode"
-            data-admin-action="{{ b.action }}">{{ b.label }}</button>
+    {% with action_name=b.action|default:b label=b.label|default:b %}
+      {% if admin_readonly %}
+        <button
+          type="button"
+          class="rounded-md border border-slate-300 bg-slate-100 px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-slate-600 opacity-60 cursor-not-allowed"
+          disabled
+          aria-disabled="true"
+          role="button"
+          title="Read-only mode"
+          data-admin-action="{{ action_name }}"
+        >
+          {{ label }}
+        </button>
+      {% else %}
+        <form
+          method="post"
+          action="{% url 'msa:admin_action' %}"
+          class="inline"
+          data-admin-section="{{ section_id }}"
+          data-admin-enhance="fetch"
+        >
+          {% csrf_token %}
+          <input type="hidden" name="action" value="{{ action_name }}" />
+          {% if tournament %}
+            <input type="hidden" name="tournament_id" value="{{ tournament.id }}" />
+          {% endif %}
+          {% if b.payload %}
+            {% for key, value in b.payload.items %}
+              <input type="hidden" name="{{ key }}" value="{{ value }}" />
+            {% endfor %}
+          {% endif %}
+          <button
+            type="submit"
+            class="rounded-md border border-emerald-400/60 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-700 transition hover:bg-emerald-500/20 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 focus:ring-offset-white"
+            data-admin-action="{{ action_name }}"
+          >
+            {{ label }}
+          </button>
+        </form>
+      {% endif %}
+    {% endwith %}
   {% endfor %}
 </div>
 {% endif %}

@@ -1,3 +1,4 @@
+import logging
 import re
 from collections import OrderedDict, defaultdict
 from typing import Any
@@ -13,6 +14,7 @@ from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import render
 from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
+from django.views.decorators.http import require_POST
 
 from msa.services.md_embed import effective_template_size_for_md, md_anchor_map
 
@@ -44,6 +46,8 @@ except Exception:
 from msa.utils.dates import find_season_for_date, get_active_date
 
 from .utils import enumerate_fax_months
+
+logger = logging.getLogger("msa.admin")
 
 
 def _to_iso(value):
@@ -848,6 +852,35 @@ def tournaments_list(request):
         "active_date": d,
     }
     return render(request, "msa/tournaments/list.html", context)
+
+
+@require_POST
+def admin_action(request):
+    user = getattr(request, "user", None)
+    is_staff = bool(getattr(user, "is_staff", False))
+    session = getattr(request, "session", None)
+    admin_mode = False
+    if session is not None:
+        try:
+            admin_mode = session.get("admin_mode") is True
+        except Exception:
+            admin_mode = False
+    if not (is_staff and admin_mode):
+        return JsonResponse({"ok": False, "error": "Not allowed"}, status=403)
+    if bool(getattr(settings, "MSA_ADMIN_READONLY", True)):
+        return JsonResponse({"ok": False, "error": "Read-only mode"}, status=403)
+    action = (request.POST.get("action") or "").strip()
+    if not action:
+        return JsonResponse({"ok": False, "error": "Missing action"}, status=400)
+    payload = request.POST.dict()
+    payload.pop("csrfmiddlewaretoken", None)
+    payload.pop("action", None)
+    logger.info("Admin action %s by %s payload=%r", action, request.user, payload)
+    message = f"Action '{action}' accepted"
+    return JsonResponse(
+        {"ok": True, "action": action, "message": message, "context": payload},
+        status=202,
+    )
 
 
 def tournaments_seasons(request):
