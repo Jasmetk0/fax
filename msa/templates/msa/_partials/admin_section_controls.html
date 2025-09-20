@@ -18,31 +18,77 @@
           {{ label }}
         </button>
       {% else %}
-        <form
-          method="post"
-          action="{% url 'msa:admin_action' %}"
-          class="inline"
-          data-admin-section="{{ section_id }}"
-          data-admin-enhance="fetch"
-        >
-          {% csrf_token %}
-          <input type="hidden" name="action" value="{{ action_name }}" />
-          {% if tournament %}
-            <input type="hidden" name="tournament_id" value="{{ tournament.id }}" />
-          {% endif %}
-          {% if b.payload %}
-            {% for key, value in b.payload.items %}
-              <input type="hidden" name="{{ key }}" value="{{ value }}" />
-            {% endfor %}
-          {% endif %}
-          <button
-            type="submit"
-            class="rounded-md border border-emerald-400/60 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-700 transition hover:bg-emerald-500/20 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 focus:ring-offset-white"
-            data-admin-action="{{ action_name }}"
+        {% if b.method == "get" and b.href %}
+          {% with base_classes="rounded-md border border-emerald-400/60 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-700 transition hover:bg-emerald-500/20 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 focus:ring-offset-white" %}
+            {% if b.disabled %}
+              {% with classes=base_classes|add:" opacity-50 cursor-not-allowed pointer-events-none" %}
+                <a
+                  href="{{ b.href }}"
+                  class="{{ classes }}"
+                  data-admin-action="{{ action_name }}"
+                  data-admin-section="{{ section_id }}"
+                  role="button"
+                  aria-disabled="true"
+                  tabindex="-1"
+                >
+                  {{ label }}
+                </a>
+              {% endwith %}
+            {% else %}
+              <a
+                href="{{ b.href }}"
+                class="{{ base_classes }}"
+                data-admin-action="{{ action_name }}"
+                data-admin-section="{{ section_id }}"
+                role="button"
+              >
+                {{ label }}
+              </a>
+            {% endif %}
+          {% endwith %}
+        {% else %}
+          <form
+            method="post"
+            action="{% url 'msa:admin_action' %}"
+            class="inline"
+            data-admin-section="{{ section_id }}"
+            data-admin-enhance="fetch"
           >
-            {{ label }}
-          </button>
-        </form>
+            {% csrf_token %}
+            <input type="hidden" name="action" value="{{ action_name }}" />
+            {% if tournament %}
+              <input type="hidden" name="tournament_id" value="{{ tournament.id }}" />
+            {% endif %}
+            {% if b.payload %}
+              {% for key, value in b.payload.items %}
+                <input type="hidden" name="{{ key }}" value="{{ value }}" />
+              {% endfor %}
+            {% endif %}
+            {% with base_classes="rounded-md border border-emerald-400/60 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-700 transition hover:bg-emerald-500/20 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 focus:ring-offset-white" %}
+              {% if b.disabled %}
+                {% with classes=base_classes|add:" opacity-50 cursor-not-allowed" %}
+                  <button
+                    type="submit"
+                    class="{{ classes }}"
+                    data-admin-action="{{ action_name }}"
+                    disabled
+                    aria-disabled="true"
+                  >
+                    {{ label }}
+                  </button>
+                {% endwith %}
+              {% else %}
+                <button
+                  type="submit"
+                  class="{{ base_classes }}"
+                  data-admin-action="{{ action_name }}"
+                >
+                  {{ label }}
+                </button>
+              {% endif %}
+            {% endwith %}
+          </form>
+        {% endif %}
       {% endif %}
     {% endwith %}
   {% endfor %}
