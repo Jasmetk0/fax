@@ -5,47 +5,47 @@
   {% endif %}
   {% for b in buttons %}
     {% with action_name=b.action|default:b label=b.label|default:b %}
-      {% if admin_readonly %}
-        <button
-          type="button"
-          class="rounded-md border border-slate-300 bg-slate-100 px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-slate-600 opacity-60 cursor-not-allowed"
-          disabled
-          aria-disabled="true"
-          role="button"
-          title="Read-only mode"
-          data-admin-action="{{ action_name }}"
-        >
-          {{ label }}
-        </button>
-      {% else %}
-        {% if b.method == "get" and b.href %}
-          {% with base_classes="rounded-md border border-emerald-400/60 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-700 transition hover:bg-emerald-500/20 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 focus:ring-offset-white" %}
-            {% if b.disabled %}
-              {% with classes=base_classes|add:" opacity-50 cursor-not-allowed pointer-events-none" %}
-                <a
-                  href="{{ b.href }}"
-                  class="{{ classes }}"
-                  data-admin-action="{{ action_name }}"
-                  data-admin-section="{{ section_id }}"
-                  role="button"
-                  aria-disabled="true"
-                  tabindex="-1"
-                >
-                  {{ label }}
-                </a>
-              {% endwith %}
-            {% else %}
+      {% if b.method == "get" and b.href %}
+        {% with base_classes="rounded-md border border-emerald-400/60 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-700 transition hover:bg-emerald-500/20 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 focus:ring-offset-white" %}
+          {% if b.disabled %}
+            {% with classes=base_classes|add:" opacity-50 cursor-not-allowed pointer-events-none" %}
               <a
                 href="{{ b.href }}"
-                class="{{ base_classes }}"
+                class="{{ classes }}"
                 data-admin-action="{{ action_name }}"
                 data-admin-section="{{ section_id }}"
                 role="button"
+                aria-disabled="true"
+                tabindex="-1"
               >
                 {{ label }}
               </a>
-            {% endif %}
-          {% endwith %}
+            {% endwith %}
+          {% else %}
+            <a
+              href="{{ b.href }}"
+              class="{{ base_classes }}"
+              data-admin-action="{{ action_name }}"
+              data-admin-section="{{ section_id }}"
+              role="button"
+            >
+              {{ label }}
+            </a>
+          {% endif %}
+        {% endwith %}
+      {% else %}
+        {% if admin_readonly %}
+          <button
+            type="button"
+            class="rounded-md border border-slate-300 bg-slate-100 px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-slate-600 opacity-60 cursor-not-allowed"
+            disabled
+            aria-disabled="true"
+            role="button"
+            title="Read-only mode"
+            data-admin-action="{{ action_name }}"
+          >
+            {{ label }}
+          </button>
         {% else %}
           <form
             method="post"
