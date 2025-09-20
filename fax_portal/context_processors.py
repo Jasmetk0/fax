@@ -50,6 +50,7 @@ def admin_flags(request):
     """Expose admin flags into templates.
     - admin_mode: bool (session 'admin_mode' overrides settings.MSA_ADMIN_MODE)
     - is_staff_user: bool
+    - admin_readonly: bool (settings.MSA_ADMIN_READONLY, default True)
     """
     admin_mode = bool(getattr(settings, "MSA_ADMIN_MODE", False))
     try:
@@ -60,8 +61,10 @@ def admin_flags(request):
     except Exception:
         pass
     is_staff = bool(getattr(getattr(request, "user", None), "is_staff", False))
+    admin_readonly = bool(getattr(settings, "MSA_ADMIN_READONLY", True))
     return {
         "admin_mode": admin_mode,
         "is_staff_user": is_staff,
         "admin_toolbar_actions": _toolbar_actions(request),
+        "admin_readonly": admin_readonly,
     }
