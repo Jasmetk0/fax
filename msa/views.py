@@ -3,7 +3,7 @@ import io
 import logging
 import re
 from collections import OrderedDict, defaultdict
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from django.apps import apps
@@ -16,7 +16,7 @@ from django.db.models.fields.related import ForeignKey
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import render
 from django.urls import NoReverseMatch, reverse
-from django.utils import timezone
+from django.utils import timezone as django_timezone
 from django.views.decorators.http import require_GET, require_POST
 
 from msa.services.md_embed import effective_template_size_for_md, md_anchor_map
@@ -102,6 +102,10 @@ def _csv_bool(value: Any) -> str:
     if value is None:
         return ""
     return "true" if bool(value) else "false"
+
+
+def _ics_escape(s: str) -> str:
+    return s.replace("\\", "\\\\").replace("\n", "\\n").replace(",", "\\,").replace(";", "\\;")
 
 
 def _ics_date(value) -> str | None:
@@ -219,7 +223,7 @@ def _current_fax_iso(request) -> str:
         iso = _normalize_woorld_value(value)
         if iso:
             return iso
-    today = timezone.now().date()
+    today = django_timezone.now().date()
     return f"{today.year:04d}-{today.month:02d}-{today.day:02d}"
 
 
@@ -1118,29 +1122,38 @@ def export_calendar_ics(request):
         "VERSION:2.0",
         "PRODID:-//fax//msa//EN",
     ]
+    now_utc = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     for tournament in tournaments:
         card = _tournament_card(request, tournament)
         lines.append("BEGIN:VEVENT")
         uid = f"msa-tournament-{getattr(tournament, 'id', '')}@fax"
         lines.append(f"UID:{uid}")
+        lines.append(f"DTSTAMP:{now_utc}")
         summary = card.get("name") or getattr(tournament, "name", None) or "Tournament"
-        lines.append(f"SUMMARY:{summary}")
+        lines.append(f"SUMMARY:{_ics_escape(str(summary))}")
         start_value = _ics_date(card.get("start_date"))
         if start_value:
             lines.append(f"DTSTART;VALUE=DATE:{start_value}")
-        end_value = _ics_date(card.get("end_date"))
-        if end_value:
-            lines.append(f"DTEND;VALUE=DATE:{end_value}")
+        end_raw = card.get("end_date")
+        if end_raw:
+            try:
+                parsed = datetime.strptime(str(end_raw)[:10], "%Y-%m-%d").date()
+                end_value = (parsed + timedelta(days=1)).strftime("%Y%m%d")
+            except Exception:
+                end_value = _ics_date(end_raw)
+            if end_value:
+                lines.append(f"DTEND;VALUE=DATE:{end_value}")
         categories = []
         if card.get("tour_label"):
             categories.append(str(card.get("tour_label")))
         if card.get("category_label"):
             categories.append(str(card.get("category_label")))
         if categories:
-            lines.append(f"CATEGORIES:{'/'.join(categories)}")
+            escaped_categories = ",".join(_ics_escape(str(cat)) for cat in categories)
+            lines.append(f"CATEGORIES:{escaped_categories}")
         location = card.get("location")
         if location:
-            lines.append(f"LOCATION:{location}")
+            lines.append(f"LOCATION:{_ics_escape(str(location))}")
         lines.append("END:VEVENT")
     lines.append("END:VCALENDAR")
 

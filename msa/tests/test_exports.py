@@ -1,5 +1,7 @@
 import csv
 import io
+import re
+from datetime import datetime, timedelta
 
 import pytest
 from django.contrib.auth import get_user_model
@@ -101,15 +103,17 @@ def test_export_calendar_ics_has_events(client):
         start_date=woorld_date(2040, 1, 1),
         end_date=woorld_date(2040, 12, 1),
     )
-    tour = Tour.objects.create(name="Elite Tour", rank=2, code="ET")
-    category = Category.objects.create(name="Emerald 500", tour=tour, rank=2)
+    tour = Tour.objects.create(name="Elite Tour, Stage; Finals", rank=2, code="ET")
+    category = Category.objects.create(name="Emerald 500; Finals", tour=tour, rank=2)
     CategorySeason.objects.create(category=category, season=season, draw_size=16, qual_rounds=1)
+    start_date = woorld_date(2040, 2, 5)
+    end_date = woorld_date(2040, 2, 11)
     tournament = Tournament.objects.create(
         season=season,
         category=category,
-        name="Delta Open",
-        start_date=woorld_date(2040, 2, 5),
-        end_date=woorld_date(2040, 2, 11),
+        name="Delta Open, Stage; Finals",
+        start_date=start_date,
+        end_date=end_date,
         draw_size=16,
     )
 
@@ -121,7 +125,13 @@ def test_export_calendar_ics_has_events(client):
     body = response.content.decode("utf-8")
     assert "BEGIN:VCALENDAR" in body
     assert "BEGIN:VEVENT" in body
-    assert f"SUMMARY:{tournament.name}" in body
+    assert re.search(r"DTSTAMP:\d{8}T\d{6}Z", body)
+    assert "SUMMARY:Delta Open\\, Stage\\; Finals" in body
+    expected_start = datetime.strptime(start_date, "%Y-%m-%d").strftime("%Y%m%d")
+    expected_end = (datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y%m%d")
+    assert f"DTSTART;VALUE=DATE:{expected_start}" in body
+    assert f"DTEND;VALUE=DATE:{expected_end}" in body
+    assert "CATEGORIES:Elite Tour\\, Stage\\; Finals,Emerald 500\\; Finals" in body
     assert f"UID:msa-tournament-{tournament.id}@fax" in body
 
 

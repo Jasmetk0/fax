@@ -106,6 +106,35 @@ def test_admin_controls_remain_disabled_in_readonly_mode(client, sample_tourname
         assert 'aria-disabled="true"' in html
 
 
+@override_settings(MSA_ADMIN_READONLY=True)
+def test_readonly_mode_keeps_get_export_links_active(client):
+    user_model = get_user_model()
+    staff = user_model.objects.create_user("readonly-links", "readonly-links@example.com", "x")
+    staff.is_staff = True
+    staff.save()
+    client.force_login(staff)
+    _set_admin_mode(client, True)
+
+    url = reverse("msa:tournaments_list")
+    response = client.get(url)
+    assert response.status_code == 200
+
+    html = response.content.decode()
+    marker = 'data-admin-section="tournaments-metrics"'
+    marker_index = html.find(marker)
+    assert marker_index != -1, html
+    anchor_start = html.find("<a", marker_index)
+    assert anchor_start != -1, html
+    anchor_end = html.find(">", anchor_start)
+    assert anchor_end != -1, html
+    anchor = html[anchor_start : anchor_end + 1]
+    assert 'data-admin-action="export"' in anchor
+    assert "href=" in anchor
+    assert 'aria-disabled="true"' not in anchor
+    assert "pointer-events-none" not in anchor
+    assert "opacity-50" not in anchor
+
+
 def test_admin_action_endpoint_guards(client):
     url = reverse("msa:admin_action")
 
