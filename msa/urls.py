@@ -12,6 +12,13 @@ urlpatterns = [
         name="home",
     ),
     path("admin/action", views.admin_action, name="admin_action"),
+    path("export/tournaments.csv", views.export_tournaments_csv, name="export_tournaments_csv"),
+    path("export/calendar.ics", views.export_calendar_ics, name="export_calendar_ics"),
+    path(
+        "export/tournament/<int:tournament_id>/players.csv",
+        views.export_tournament_players_csv,
+        name="export_tournament_players_csv",
+    ),
     # Landing na seznam sezón pro Tournaments
     path("tournaments/", views.tournaments_seasons, name="tournaments_list"),
     path("seasons/", views.seasons_list, name="seasons_list"),

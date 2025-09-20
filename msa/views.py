@@ -1,6 +1,9 @@
+import csv
+import io
 import logging
 import re
 from collections import OrderedDict, defaultdict
+from datetime import datetime
 from typing import Any
 
 from django.apps import apps
@@ -14,7 +17,7 @@ from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import render
 from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 
 from msa.services.md_embed import effective_template_size_for_md, md_anchor_map
 
@@ -52,6 +55,73 @@ logger = logging.getLogger("msa.admin")
 
 def _to_iso(value):
     return value.isoformat() if hasattr(value, "isoformat") else value
+
+
+ALLOWED_ADMIN_ACTIONS = {
+    "export",
+    "new-tournament",
+    "bulk-ops",
+    "open",
+    "archive",
+    "export-ics",
+    "normalize-day",
+    "clear-day",
+    "edit-meta",
+    "manage-seeds",
+    "sync-calendar",
+    "toggle-third-place",
+    "change-source",
+    "reseed",
+    "new-snapshot",
+    "edit-scoring",
+    "export-scoring",
+    "edit-q-points",
+    "seed-k",
+    "regenerate",
+    "publish",
+    "swap",
+    "lock",
+    "assign-seed",
+    "clear-seed",
+    "export-list",
+    "add-wc",
+    "promote-da",
+    "add-qwc",
+    "move-to-da",
+    "promote-reserve",
+}
+
+
+def _csv_value(value: Any) -> str:
+    if value is None:
+        return ""
+    return str(value)
+
+
+def _csv_bool(value: Any) -> str:
+    if value is None:
+        return ""
+    return "true" if bool(value) else "false"
+
+
+def _ics_date(value) -> str | None:
+    if not value:
+        return None
+    if hasattr(value, "strftime"):
+        try:
+            return value.strftime("%Y%m%d")
+        except Exception:
+            pass
+    text = str(value).strip()
+    if not text:
+        return None
+    if text.isdigit() and len(text) == 8:
+        return text
+    try:
+        parsed = datetime.strptime(text[:10], "%Y-%m-%d")
+        return parsed.strftime("%Y%m%d")
+    except ValueError:
+        return text.replace("-", "")
 
 
 DEFAULT_BADGE = "bg-slate-600/10 text-slate-800 border-slate-300"
@@ -872,6 +942,8 @@ def admin_action(request):
     action = (request.POST.get("action") or "").strip()
     if not action:
         return JsonResponse({"ok": False, "error": "Missing action"}, status=400)
+    if action not in ALLOWED_ADMIN_ACTIONS:
+        return JsonResponse({"ok": False, "error": "Unknown action"}, status=400)
     payload = request.POST.dict()
     payload.pop("csrfmiddlewaretoken", None)
     payload.pop("action", None)
@@ -883,32 +955,9 @@ def admin_action(request):
     )
 
 
-def tournaments_seasons(request):
+def _filtered_tournament_cards(request) -> list[tuple[Any, dict[str, Any]]]:
     Season = apps.get_model("msa", "Season") if apps.is_installed("msa") else None
-    Category = apps.get_model("msa", "Category") if apps.is_installed("msa") else None
     Tournament = _get_tournament_model()
-
-    seasons: list[Any] = []
-    if Season:
-        try:
-            model_fields = {f.name for f in Season._meta.get_fields()}
-            order_fields = (
-                ["-start_date", "-end_date", "-id"]
-                if {"start_date", "end_date"} <= model_fields
-                else ["-id"]
-            )
-            seasons = list(Season.objects.all().order_by(*order_fields))
-        except OperationalError:
-            seasons = []
-
-    categories: list[Any] = []
-    if Category:
-        try:
-            categories = list(
-                Category.objects.select_related("tour").all().order_by("tour__rank", "rank", "name")
-            )
-        except OperationalError:
-            categories = []
 
     selected_season = (request.GET.get("season") or "").strip()
     selected_category = (request.GET.get("category") or "").strip()
@@ -954,16 +1003,251 @@ def tournaments_seasons(request):
             if _has_model_field(Tournament, "name"):
                 order_fields.append("name")
             order_fields.append("id")
-            qs = qs.order_by(*order_fields)
-            tournaments_raw = list(qs)
+            tournaments_raw = list(qs.order_by(*order_fields))
         except OperationalError:
             tournaments_raw = []
 
-    cards = [_tournament_card(request, tournament) for tournament in tournaments_raw]
-
     valid_status = {"planned", "running", "completed"}
-    if status_filter in valid_status:
-        cards = [card for card in cards if card.get("status", {}).get("key") == status_filter]
+    result: list[tuple[Any, dict[str, Any]]] = []
+    for tournament in tournaments_raw:
+        card = _tournament_card(request, tournament)
+        if status_filter in valid_status:
+            if card.get("status", {}).get("key") != status_filter:
+                continue
+        result.append((tournament, card))
+    return result
+
+
+@require_GET
+def export_tournaments_csv(request):
+    tournaments_with_cards = _filtered_tournament_cards(request)
+
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    headers = [
+        "id",
+        "name",
+        "season",
+        "tour",
+        "category",
+        "start_date",
+        "end_date",
+        "draw_size",
+        "qualifiers",
+        "location",
+        "status",
+    ]
+    writer.writerow(headers)
+
+    for tournament, card in tournaments_with_cards:
+        season_label = card.get("season_label")
+        if not season_label:
+            season = getattr(tournament, "season", None)
+            if season:
+                season_label = getattr(season, "name", None) or str(season)
+        status_meta = card.get("status", {}) if isinstance(card, dict) else {}
+        writer.writerow(
+            [
+                _csv_value(getattr(tournament, "id", "")),
+                _csv_value(card.get("name")),
+                _csv_value(season_label),
+                _csv_value(card.get("tour_label")),
+                _csv_value(card.get("category_label")),
+                _csv_value(card.get("start_date")),
+                _csv_value(card.get("end_date")),
+                _csv_value(card.get("draw_size")),
+                _csv_value(card.get("qualifiers")),
+                _csv_value(card.get("location")),
+                _csv_value(status_meta.get("key")),
+            ]
+        )
+
+    response = HttpResponse(buffer.getvalue(), content_type="text/csv; charset=utf-8")
+    response["Content-Disposition"] = 'attachment; filename="tournaments.csv"'
+    return response
+
+
+@require_GET
+def export_calendar_ics(request):
+    season = None
+    season_param = (request.GET.get("season") or "").strip()
+    Season = apps.get_model("msa", "Season") if apps.is_installed("msa") else None
+    if Season and season_param:
+        try:
+            season = Season.objects.get(pk=season_param)
+        except (Season.DoesNotExist, OperationalError):
+            season = None
+    if not season:
+        try:
+            active_date = get_active_date(request)
+            season = find_season_for_date(active_date)
+        except OperationalError:
+            season = None
+
+    Tournament = _get_tournament_model()
+    tournaments: list[Any] = []
+    if Tournament and season:
+        try:
+            qs = Tournament.objects.all()
+            if _has_model_field(Tournament, "season"):
+                qs = qs.filter(season=season)
+            elif _has_model_field(Tournament, "start_date") and _has_model_field(
+                Tournament, "end_date"
+            ):
+                if getattr(season, "start_date", None) and getattr(season, "end_date", None):
+                    qs = qs.filter(
+                        start_date__lte=season.end_date,
+                        end_date__gte=season.start_date,
+                    )
+            try:
+                qs = qs.select_related("category", "category__tour", "season")
+            except Exception:
+                qs = qs
+            order_fields = []
+            if _has_model_field(Tournament, "start_date"):
+                order_fields.append("start_date")
+            if _has_model_field(Tournament, "name"):
+                order_fields.append("name")
+            order_fields.append("id")
+            tournaments = list(qs.order_by(*order_fields))
+        except OperationalError:
+            tournaments = []
+
+    lines = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//fax//msa//EN",
+    ]
+    for tournament in tournaments:
+        card = _tournament_card(request, tournament)
+        lines.append("BEGIN:VEVENT")
+        uid = f"msa-tournament-{getattr(tournament, 'id', '')}@fax"
+        lines.append(f"UID:{uid}")
+        summary = card.get("name") or getattr(tournament, "name", None) or "Tournament"
+        lines.append(f"SUMMARY:{summary}")
+        start_value = _ics_date(card.get("start_date"))
+        if start_value:
+            lines.append(f"DTSTART;VALUE=DATE:{start_value}")
+        end_value = _ics_date(card.get("end_date"))
+        if end_value:
+            lines.append(f"DTEND;VALUE=DATE:{end_value}")
+        categories = []
+        if card.get("tour_label"):
+            categories.append(str(card.get("tour_label")))
+        if card.get("category_label"):
+            categories.append(str(card.get("category_label")))
+        if categories:
+            lines.append(f"CATEGORIES:{'/'.join(categories)}")
+        location = card.get("location")
+        if location:
+            lines.append(f"LOCATION:{location}")
+        lines.append("END:VEVENT")
+    lines.append("END:VCALENDAR")
+
+    body = "\r\n".join(lines) + "\r\n"
+    response = HttpResponse(body, content_type="text/calendar; charset=utf-8")
+    response["Content-Disposition"] = 'attachment; filename="season.ics"'
+    return response
+
+
+@require_GET
+def export_tournament_players_csv(request, tournament_id: int):
+    tournament = _get_tournament_or_404(tournament_id)
+    entry_data = _entry_rows_for_tournament(tournament)
+    blocks = entry_data.get("blocks", {}) if isinstance(entry_data, dict) else {}
+    block_sequence = [
+        ("Seeds", blocks.get("seeds", [])),
+        ("DA", blocks.get("da", [])),
+        ("Q", blocks.get("q", [])),
+        ("Reserve", blocks.get("reserve", [])),
+    ]
+
+    prefix_map = {
+        "Seeds": "Seeds-",
+        "DA": "DA-",
+        "Q": "Q-",
+        "Reserve": "Reserve-",
+    }
+
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    headers = [
+        "slot",
+        "type",
+        "name",
+        "wr",
+        "license_ok",
+        "seed",
+        "is_wc",
+        "is_qwc",
+        "is_placeholder",
+    ]
+    writer.writerow(headers)
+
+    for label, rows in block_sequence:
+        prefix = prefix_map.get(label, "")
+        for index, row in enumerate(rows, start=1):
+            writer.writerow(
+                [
+                    _csv_value(f"{prefix}{index}" if prefix else index),
+                    _csv_value(label),
+                    _csv_value(row.get("name")),
+                    _csv_value(row.get("wr")),
+                    _csv_bool(row.get("license_ok")),
+                    _csv_value(row.get("seed")),
+                    _csv_bool(row.get("is_wc")),
+                    _csv_bool(row.get("is_qwc")),
+                    _csv_bool(row.get("is_placeholder")),
+                ]
+            )
+
+    filename = f"tournament-{getattr(tournament, 'id', 'unknown')}-players.csv"
+    response = HttpResponse(buffer.getvalue(), content_type="text/csv; charset=utf-8")
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
+
+
+def tournaments_seasons(request):
+    Season = apps.get_model("msa", "Season") if apps.is_installed("msa") else None
+    Category = apps.get_model("msa", "Category") if apps.is_installed("msa") else None
+
+    seasons: list[Any] = []
+    if Season:
+        try:
+            model_fields = {f.name for f in Season._meta.get_fields()}
+            order_fields = (
+                ["-start_date", "-end_date", "-id"]
+                if {"start_date", "end_date"} <= model_fields
+                else ["-id"]
+            )
+            seasons = list(Season.objects.all().order_by(*order_fields))
+        except OperationalError:
+            seasons = []
+
+    categories: list[Any] = []
+    if Category:
+        try:
+            categories = list(
+                Category.objects.select_related("tour").all().order_by("tour__rank", "rank", "name")
+            )
+        except OperationalError:
+            categories = []
+
+    selected_season = (request.GET.get("season") or "").strip()
+    selected_category = (request.GET.get("category") or "").strip()
+    status_filter = (request.GET.get("status") or "").strip().lower()
+    search_query = (request.GET.get("q") or "").strip()
+
+    tournaments_with_cards = _filtered_tournament_cards(request)
+    cards = [card for _, card in tournaments_with_cards]
+
+    query_params = request.GET.copy()
+    if "page" in query_params:
+        query_params.pop("page")
+    query_string = query_params.urlencode()
+    export_url = reverse("msa:export_tournaments_csv")
+    if query_string:
+        export_url = f"{export_url}?{query_string}"
 
     stats = {
         "total": len(cards),
@@ -1015,7 +1299,12 @@ def tournaments_seasons(request):
         "active_season": active_season,
         "admin_toolbar_title": toolbar_title,
         "admin_controls_tournaments_metrics": [
-            {"label": "Export", "action": "export"},
+            {
+                "label": "Export",
+                "action": "export",
+                "method": "get",
+                "href": export_url,
+            },
             {"label": "New tournament", "action": "new-tournament"},
             {"label": "Bulk ops", "action": "bulk-ops"},
         ],
@@ -1025,10 +1314,7 @@ def tournaments_seasons(request):
             {"label": "Export", "action": "export"},
         ],
     }
-    query_params = request.GET.copy()
-    if "page" in query_params:
-        query_params.pop("page")
-    context["query_string"] = query_params.urlencode()
+    context["query_string"] = query_string
     return render(request, "msa/tournaments/list.html", context)
 
 
@@ -1169,6 +1455,10 @@ def calendar(request):
         season_name = getattr(season, "name", None) or str(season)
         toolbar_title = f"Calendar · {season_name}"
 
+    export_ics_url = reverse("msa:export_calendar_ics")
+    if season_id:
+        export_ics_url = f"{export_ics_url}?season={season_id}"
+
     context = {
         "active_season": season,
         "active_date": d,
@@ -1179,7 +1469,12 @@ def calendar(request):
         "cards": cards,
         "admin_toolbar_title": toolbar_title,
         "admin_controls_calendar_filters": [
-            {"label": "Export ICS", "action": "export-ics"},
+            {
+                "label": "Export ICS",
+                "action": "export-ics",
+                "method": "get",
+                "href": export_ics_url,
+            },
             {"label": "Normalize day", "action": "normalize-day"},
             {"label": "Clear day", "action": "clear-day"},
         ],
@@ -1236,6 +1531,9 @@ def nav_live_badge(request):
 def tournament_info(request, tournament_id: int):
     tournament = _get_tournament_or_404(tournament_id)
     context = _tournament_base_context(request, tournament)
+    status_meta = context.get("status", {}) if isinstance(context, dict) else {}
+    status_key = status_meta.get("key") if isinstance(status_meta, dict) else None
+    disable_actions = status_key == "completed"
     entry_data = _entry_rows_for_tournament(tournament)
     context.update(
         {
@@ -1250,23 +1548,67 @@ def tournament_info(request, tournament_id: int):
             "seeding_monday": _to_iso(getattr(tournament, "seeding_monday", None)),
             "rng_seed_active": getattr(tournament, "rng_seed_active", None),
             "admin_controls_info_summary": [
-                {"label": "Edit meta", "action": "edit-meta"},
-                {"label": "Manage seeds", "action": "manage-seeds"},
-                {"label": "Sync calendar", "action": "sync-calendar"},
-                {"label": "Toggle third place", "action": "toggle-third-place"},
+                {
+                    "label": "Edit meta",
+                    "action": "edit-meta",
+                    "disabled": disable_actions,
+                },
+                {
+                    "label": "Manage seeds",
+                    "action": "manage-seeds",
+                    "disabled": disable_actions,
+                },
+                {
+                    "label": "Sync calendar",
+                    "action": "sync-calendar",
+                    "disabled": disable_actions,
+                },
+                {
+                    "label": "Toggle third place",
+                    "action": "toggle-third-place",
+                    "disabled": disable_actions,
+                },
             ],
             "admin_controls_info_seeding": [
-                {"label": "Change source", "action": "change-source"},
-                {"label": "Reseed", "action": "reseed"},
-                {"label": "New snapshot", "action": "new-snapshot"},
+                {
+                    "label": "Change source",
+                    "action": "change-source",
+                    "disabled": disable_actions,
+                },
+                {
+                    "label": "Reseed",
+                    "action": "reseed",
+                    "disabled": disable_actions,
+                },
+                {
+                    "label": "New snapshot",
+                    "action": "new-snapshot",
+                    "disabled": disable_actions,
+                },
             ],
             "admin_controls_info_scoring_md": [
-                {"label": "Edit scoring", "action": "edit-scoring"},
-                {"label": "Export scoring", "action": "export-scoring"},
+                {
+                    "label": "Edit scoring",
+                    "action": "edit-scoring",
+                    "disabled": disable_actions,
+                },
+                {
+                    "label": "Export scoring",
+                    "action": "export-scoring",
+                    "disabled": disable_actions,
+                },
             ],
             "admin_controls_info_scoring_qual": [
-                {"label": "Edit Q points", "action": "edit-q-points"},
-                {"label": "Export scoring", "action": "export-scoring"},
+                {
+                    "label": "Edit Q points",
+                    "action": "edit-q-points",
+                    "disabled": disable_actions,
+                },
+                {
+                    "label": "Export scoring",
+                    "action": "export-scoring",
+                    "disabled": disable_actions,
+                },
             ],
         }
     )
@@ -1302,6 +1644,9 @@ def tournament_program(request, tournament_id: int):
 def tournament_draws(request, tournament_id: int):
     tournament = _get_tournament_or_404(tournament_id)
     context = _tournament_base_context(request, tournament)
+    status_meta = context.get("status", {}) if isinstance(context, dict) else {}
+    status_key = status_meta.get("key") if isinstance(status_meta, dict) else None
+    disable_actions = status_key == "completed"
     entry_data = _entry_rows_for_tournament(tournament)
     context.update(
         {
@@ -1309,15 +1654,43 @@ def tournament_draws(request, tournament_id: int):
             "qualification_data": _qualification_structure(tournament, entry_data),
             "maindraw_data": _main_draw_structure(tournament, entry_data),
             "admin_controls_draws_qual": [
-                {"label": "Seed K", "action": "seed-k"},
-                {"label": "Regenerate", "action": "regenerate"},
-                {"label": "Publish", "action": "publish"},
+                {
+                    "label": "Seed K",
+                    "action": "seed-k",
+                    "disabled": disable_actions,
+                },
+                {
+                    "label": "Regenerate",
+                    "action": "regenerate",
+                    "disabled": disable_actions,
+                },
+                {
+                    "label": "Publish",
+                    "action": "publish",
+                    "disabled": disable_actions,
+                },
             ],
             "admin_controls_draws_md": [
-                {"label": "Reseed", "action": "reseed"},
-                {"label": "Swap", "action": "swap"},
-                {"label": "Lock", "action": "lock"},
-                {"label": "Publish", "action": "publish"},
+                {
+                    "label": "Reseed",
+                    "action": "reseed",
+                    "disabled": disable_actions,
+                },
+                {
+                    "label": "Swap",
+                    "action": "swap",
+                    "disabled": disable_actions,
+                },
+                {
+                    "label": "Lock",
+                    "action": "lock",
+                    "disabled": disable_actions,
+                },
+                {
+                    "label": "Publish",
+                    "action": "publish",
+                    "disabled": disable_actions,
+                },
             ],
         }
     )
@@ -1328,6 +1701,9 @@ def tournament_players(request, tournament_id: int):
     tournament = _get_tournament_or_404(tournament_id)
     context = _tournament_base_context(request, tournament)
     entry_data = _entry_rows_for_tournament(tournament)
+    export_players_url = reverse(
+        "msa:export_tournament_players_csv", args=[getattr(tournament, "id", 0)]
+    )
     context.update(
         {
             "active_tab": "players",
@@ -1337,21 +1713,41 @@ def tournament_players(request, tournament_id: int):
             "admin_controls_players_seeds": [
                 {"label": "Assign seed", "action": "assign-seed"},
                 {"label": "Clear seed", "action": "clear-seed"},
-                {"label": "Export list", "action": "export-list"},
+                {
+                    "label": "Export list",
+                    "action": "export-list",
+                    "method": "get",
+                    "href": export_players_url,
+                },
             ],
             "admin_controls_players_da": [
                 {"label": "Add WC", "action": "add-wc"},
                 {"label": "Promote", "action": "promote-da"},
-                {"label": "Export list", "action": "export-list"},
+                {
+                    "label": "Export list",
+                    "action": "export-list",
+                    "method": "get",
+                    "href": export_players_url,
+                },
             ],
             "admin_controls_players_q": [
                 {"label": "Add QWC", "action": "add-qwc"},
                 {"label": "Move to DA", "action": "move-to-da"},
-                {"label": "Export list", "action": "export-list"},
+                {
+                    "label": "Export list",
+                    "action": "export-list",
+                    "method": "get",
+                    "href": export_players_url,
+                },
             ],
             "admin_controls_players_reserve": [
                 {"label": "Promote", "action": "promote-reserve"},
-                {"label": "Export list", "action": "export-list"},
+                {
+                    "label": "Export list",
+                    "action": "export-list",
+                    "method": "get",
+                    "href": export_players_url,
+                },
             ],
         }
     )
