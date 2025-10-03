@@ -4,6 +4,14 @@ window.HOME_WIDGETS = window.HOME_WIDGETS || [
   { id: 'wiki', href: '/wiki/', label: 'Wiki', icon: '📚', defaultSize: 'M', desc: 'Encyklopedie FAX' },
   { id: 'maps', href: '/maps/', label: 'Mapy', icon: '🗺️', defaultSize: 'M', desc: 'Leaflet mapy' },
   { id: 'sport', href: '/livesport/', label: 'Sport', icon: '🏅', defaultSize: 'M', desc: 'LiveSport' },
+  {
+    id: 'squashengine',
+    href: '/squashengine',
+    label: 'SquashEngine – Player Growth',
+    icon: '📈',
+    defaultSize: 'L',
+    desc: 'Interaktivní křivka vývoje (OVR vs. věk), fan chart, exporty.',
+  },
   { id: 'msa', href: '/msa/', label: 'MSA Squash', icon: '🎾', defaultSize: 'M', desc: 'MSA Squash Tour' },
   { id: 'mma', href: '/mma/', label: 'MMA', icon: '🥊', defaultSize: 'M', desc: 'MMA portál' }
 ];
@@ -12,6 +20,7 @@ window.initHomeWidgets = function() {
   const REG = window.HOME_WIDGETS;
   const REG_MAP = Object.fromEntries(REG.map(r => [r.id, r]));
   const KEY = 'home.widgets.v1';
+  const SE_PREF_KEY = 'se.widget.enabled';
   const container = document.getElementById('widgets');
   const panel = document.getElementById('widgets-panel');
   const live = document.getElementById('widgets-live');
@@ -43,22 +52,109 @@ window.initHomeWidgets = function() {
     try { localStorage.setItem(KEY, JSON.stringify({ items, version: 1 })); } catch (_) {}
   }
 
+  function getSePref() {
+    let value = null;
+    try {
+      value = localStorage.getItem(SE_PREF_KEY);
+    } catch (_) {}
+    if (value !== 'true' && value !== 'false') {
+      value = 'true';
+      try { localStorage.setItem(SE_PREF_KEY, value); } catch (_) {}
+    }
+    return value;
+  }
+
+  function setSePref(value) {
+    try { localStorage.setItem(SE_PREF_KEY, value); } catch (_) {}
+  }
+
+  function createTile(reg) {
+    if (reg.id === 'squashengine') {
+      const card = document.createElement('div');
+      card.dataset.id = reg.id;
+      card.dataset.href = reg.href;
+      card.dataset.widgetKey = SE_PREF_KEY;
+      card.role = 'listitem';
+      card.tabIndex = 0;
+      card.draggable = true;
+      card.className = 'group relative rounded-2xl border border-slate-200 bg-white p-5 shadow-soft transition hover:shadow-lg focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-brand/50 dark:border-slate-800 dark:bg-slate-900';
+      card.innerHTML = `<button class="widget-remove absolute right-2 top-2 hidden h-6 w-6 items-center justify-center rounded-full bg-slate-200 text-slate-600 hover:bg-red-500 hover:text-white focus:bg-red-500 focus:text-white group-hover:flex group-focus-within:flex" aria-label="Odebrat">×</button>
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <div class="mb-1 text-sm text-slate-500">📈 SquashEngine</div>
+            <div class="font-medium">Player Growth</div>
+          </div>
+          <a class="se-widget-open inline-flex items-center justify-center rounded-lg bg-brand-500 px-3 py-1.5 text-sm font-medium text-white shadow hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-300 dark:focus:ring-brand-600" href="${reg.href}">Otevřít</a>
+        </div>
+        <div class="se-widget-body mt-4 text-xs text-slate-500">
+          Interaktivní křivka vývoje (OVR vs. věk), fan chart, exporty.
+        </div>
+        <div class="se-widget-disabled hidden mt-4 text-xs text-slate-500">
+          Widget je skryt. Zaškrtněte volbu níže pro zobrazení.
+        </div>
+        <div class="mt-4 text-right text-xs text-slate-500">
+          <label class="se-widget-toggle-wrapper inline-flex items-center gap-2">
+            <input type="checkbox" class="se-widget-toggle h-4 w-4" />
+            Zobrazit na homepage
+          </label>
+        </div>`;
+      initSeTile(card);
+      return card;
+    }
+    const a = document.createElement('a');
+    a.href = reg.href;
+    a.dataset.id = reg.id;
+    a.role = 'listitem';
+    a.draggable = true;
+    a.className = 'group relative rounded-2xl border border-slate-200 bg-white p-5 shadow-soft transition hover:shadow-lg focus:shadow-lg dark:border-slate-800 dark:bg-slate-900';
+    a.innerHTML = `<button class="widget-remove absolute right-2 top-2 hidden h-6 w-6 items-center justify-center rounded-full bg-slate-200 text-slate-600 hover:bg-red-500 hover:text-white focus:bg-red-500 focus:text-white group-hover:flex group-focus-within:flex" aria-label="Odebrat">×</button>
+      <div class="mb-1 text-sm text-slate-500">${reg.icon} ${reg.label}</div>
+      <div class="font-medium">${reg.desc}</div>
+      <div class="mt-4 text-xs text-slate-500">Aktualizováno…</div>`;
+    return a;
+  }
+
+  function initSeTile(tile) {
+    const toggle = tile.querySelector('.se-widget-toggle');
+    if (!toggle) return;
+    const body = tile.querySelector('.se-widget-body');
+    const disabled = tile.querySelector('.se-widget-disabled');
+    const openBtn = tile.querySelector('.se-widget-open');
+    const apply = value => {
+      const enabled = value === 'true';
+      toggle.checked = enabled;
+      if (body) body.classList.toggle('hidden', !enabled);
+      if (disabled) disabled.classList.toggle('hidden', enabled);
+      tile.classList.toggle('opacity-60', !enabled);
+      tile.dataset.enabled = enabled ? 'true' : 'false';
+      if (openBtn) {
+        openBtn.classList.toggle('opacity-60', !enabled);
+        openBtn.classList.toggle('pointer-events-none', !enabled);
+        openBtn.setAttribute('aria-disabled', enabled ? 'false' : 'true');
+        openBtn.setAttribute('tabindex', enabled ? '0' : '-1');
+      }
+    };
+    apply(getSePref());
+    toggle.addEventListener('click', e => {
+      e.stopPropagation();
+    });
+    toggle.addEventListener('change', e => {
+      const value = e.target.checked ? 'true' : 'false';
+      setSePref(value);
+      apply(value);
+    });
+    tile.querySelector('.se-widget-toggle-wrapper')?.addEventListener('click', e => {
+      e.stopPropagation();
+    });
+  }
+
   function render() {
     container.innerHTML = '';
     state.forEach(it => {
       const reg = REG_MAP[it.id];
       if (!reg) return;
-      const a = document.createElement('a');
-      a.href = reg.href;
-      a.dataset.id = reg.id;
-      a.role = 'listitem';
-      a.draggable = true;
-      a.className = 'group relative rounded-2xl border border-slate-200 bg-white p-5 shadow-soft transition hover:shadow-lg focus:shadow-lg dark:border-slate-800 dark:bg-slate-900';
-      a.innerHTML = `<button class="widget-remove absolute right-2 top-2 hidden h-6 w-6 items-center justify-center rounded-full bg-slate-200 text-slate-600 hover:bg-red-500 hover:text-white focus:bg-red-500 focus:text-white group-hover:flex group-focus-within:flex" aria-label="Odebrat">×</button>
-        <div class="mb-1 text-sm text-slate-500">${reg.icon} ${reg.label}</div>
-        <div class="font-medium">${reg.desc}</div>
-        <div class="mt-4 text-xs text-slate-500">Aktualizováno…</div>`;
-      container.appendChild(a);
+      const tile = createTile(reg);
+      if (tile) container.appendChild(tile);
     });
     const addBtn = document.createElement('button');
     addBtn.id = 'widgets-add';
@@ -104,7 +200,18 @@ window.initHomeWidgets = function() {
         }
       });
       tile.addEventListener('click', e => {
-        if (wasDrag) { e.preventDefault(); wasDrag = false; }
+        if (wasDrag) {
+          e.preventDefault();
+          wasDrag = false;
+          return;
+        }
+        if (tile.dataset.href && tile.dataset.enabled !== 'false') {
+          const isControl =
+            e.target.closest('.widget-remove') || e.target.closest('.se-widget-toggle-wrapper');
+          if (!isControl) {
+            window.location.href = tile.dataset.href;
+          }
+        }
       });
       tile.querySelector('.widget-remove').addEventListener('click', e => {
         e.preventDefault(); e.stopPropagation();
@@ -131,6 +238,9 @@ window.initHomeWidgets = function() {
             container.querySelector(`[data-id="${id}"]`)?.focus();
             liveMsg(REG_MAP[id].label + ' přesunuto');
           }
+        } else if (e.key === 'Enter' && tile.dataset.href && tile.dataset.enabled !== 'false') {
+          e.preventDefault();
+          window.location.href = tile.dataset.href;
         } else if (['Delete','Backspace'].includes(e.key)) {
           e.preventDefault();
           tile.querySelector('.widget-remove').click();
