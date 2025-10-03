@@ -11,10 +11,16 @@ export type FanChartPoint = {
   q95: number;
 };
 
+const EPS = 1e-9;
+
 const linspace = (min: number, max: number, count: number): number[] => {
-  if (count <= 1) return [min];
+  if (count <= 1 || Math.abs(max - min) <= EPS) return [min];
   const step = (max - min) / (count - 1);
-  return Array.from({ length: count }, (_, index) => min + step * index);
+  const values = new Array<number>(count);
+  for (let i = 0; i < count; i++) {
+    values[i] = min + step * i;
+  }
+  return values;
 };
 
 const quantile = (values: number[], q: number): number => {
@@ -35,7 +41,7 @@ export type FanChartResult = FanChartPoint[];
  */
 export function buildFanChart(params: CurveParams): FanChartResult {
   const ages: number[] = [];
-  for (let age = AGE_RANGE.min; age <= AGE_RANGE.max + 1e-9; age += AGE_RANGE.step) {
+  for (let age = AGE_RANGE.min; age <= AGE_RANGE.max + EPS; age += AGE_RANGE.step) {
     ages.push(Math.round(age * 100) / 100);
   }
 

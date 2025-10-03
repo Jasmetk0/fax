@@ -1,15 +1,12 @@
-/**
- * Matematické funkce pro ideální kariérní křivku squashového hráče.
- */
 export type CurveParams = {
   potential: number;
   floor: number;
   peakAge: number;
   k: number;
-  peakRetention: number;
-  d1: number;
-  d2: number;
-  d3: number;
+  peakRetention: number; // v letech
+  d1: number; // 28–32 (ročně)
+  d2: number; // 33–36
+  d3: number; // 37+
 };
 
 export type Point = { age: number; ovr: number };
@@ -17,6 +14,7 @@ export type Point = { age: number; ovr: number };
 const MIN_OVR = 20;
 const MAX_OVR = 100;
 const EPS = 1e-6;
+const SMOOTH_DECLINE_SPAN = 0.75; // roky pro plynulý náběh poklesu
 
 const DECLINE_SEGMENTS = [
   { start: 28, end: 33 },
@@ -24,88 +22,99 @@ const DECLINE_SEGMENTS = [
   { start: 37, end: Number.POSITIVE_INFINITY },
 ] as const;
 
-const getRate = (segmentIndex: number, params: CurveParams): number => {
-  if (segmentIndex === 0) return params.d1;
-  if (segmentIndex === 1) return params.d2;
-  return params.d3;
+const clamp = (v: number, min: number, max: number) => Math.min(Math.max(v, min), max);
+const getRate = (i: number, p: CurveParams) => (i === 0 ? p.d1 : i === 1 ? p.d2 : p.d3);
+const logit = (x: number) => Math.log(x / (1 - x));
+const easedDuration = (duration: number, span: number) => {
+  if (duration <= EPS) return 0;
+  if (span <= EPS) return duration;
+  const limited = Math.min(duration, span);
+  const eased = (limited * limited) / (span * span) * (2 * span - limited);
+  const remainder = Math.max(duration - span, 0);
+  return eased + remainder;
 };
 
-const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
-
+/** Logistický náběh mapovaný na [floor, potential], nastavený tak,
+ * aby byl v peaku (age = peakAge) ~ 99,5 % saturovaný → plateau dělá už jen jemné „cap“. */
 const logisticBase = (age: number, params: CurveParams): number => {
-  const x = age - 8;
-  const center = params.peakAge - 8;
-  const rise = 1 / (1 + Math.exp(-params.k * (x - center)));
+  const targetAtPeak = 0.995; // ~99.5 % naplnění v peaku pro velmi ploché plateau
+  const center = params.peakAge - logit(targetAtPeak) / params.k;
+  const rise = 1 / (1 + Math.exp(-params.k * (age - center)));
   const mapped = params.floor + rise * (params.potential - params.floor);
   return clamp(mapped, params.floor, params.potential);
 };
 
+/** Hladké plateau kolem peaku (C¹ spojité) pomocí kosinového vážení (easing).
+ * Na hranách má nulovou derivaci → žádné „zuby“. */
 const plateauValue = (age: number, params: CurveParams): number => {
   const base = logisticBase(age, params);
-  const plateauHalf = Math.max(params.peakRetention / 2, EPS);
-  const distance = Math.abs(age - params.peakAge);
-  if (distance >= plateauHalf) {
-    return clamp(base, MIN_OVR, MAX_OVR);
-  }
-  const blend = 1 - distance / plateauHalf;
-  const plateauTarget = Math.max(params.potential - 0.5, base);
-  const value = base * (1 - blend) + plateauTarget * blend;
-  return clamp(value, MIN_OVR, MAX_OVR);
+  const half = Math.max(params.peakRetention / 2, EPS);
+  const d = Math.abs(age - params.peakAge);
+  if (d >= half) return clamp(base, MIN_OVR, MAX_OVR);
+
+  // cosine easing 1→0 (derivace 0 na hranách)
+  const t = d / half;                      // 0..1
+  const w = 0.5 * (1 + Math.cos(Math.PI * t)); // 1..0
+  const target = Math.max(params.potential - 0.5, base);
+  const val = base * (1 - w) + target * w;
+  return clamp(val, MIN_OVR, MAX_OVR);
 };
 
+/** Násobič poklesu v čase pro zadaný interval, včetně tří pásů (28–32 / 33–36 / 37+). */
 const declineMultiplier = (startAge: number, endAge: number, params: CurveParams): number => {
-  let multiplier = 1;
-  for (let i = 0; i < DECLINE_SEGMENTS.length; i += 1) {
+  let m = 1;
+  for (let i = 0; i < DECLINE_SEGMENTS.length; i++) {
     const { start, end } = DECLINE_SEGMENTS[i];
     const segStart = Math.max(startAge, start);
     const segEnd = Math.min(endAge, end);
     if (segEnd - segStart <= EPS) continue;
     const years = segEnd - segStart;
     const rate = clamp(getRate(i, params), 0, 0.5);
-    multiplier *= Math.pow(1 - rate, years);
+    const effectiveYears = easedDuration(years, SMOOTH_DECLINE_SPAN);
+    m *= Math.pow(1 - rate, effectiveYears);
   }
-  return multiplier;
+  return m;
 };
 
-/**
- * Vrací ideální OVR pro daný věk.
- */
+/** Ideální OVR pro daný věk (bez vlivů prostředí – čistá křivka). */
 export function idealOVRAtAge(age: number, params: CurveParams): number {
-  const clampedAge = clamp(age, 0, 100);
-  const plateau = plateauValue(clampedAge, params);
-  const declineStart = Math.max(params.peakAge, 28);
-  if (clampedAge <= declineStart) {
-    return clamp(plateau, MIN_OVR, MAX_OVR);
-  }
-  const baseValue = plateauValue(declineStart, params);
-  const multiplier = declineMultiplier(declineStart, clampedAge, params);
-  const value = baseValue * multiplier;
-  return clamp(value, MIN_OVR, MAX_OVR);
+  // defenzivně sjednáme pořadí d1<d2<d3 (guardrails to řeší v UI, tady jen ochrana)
+  const p: CurveParams = {
+    ...params,
+    d1: Math.min(params.d1, params.d2 - 1e-6),
+    d2: Math.min(params.d2, params.d3 - 1e-6),
+  };
+
+  const a = clamp(age, 0, 100);
+  const half = Math.max(p.peakRetention / 2, EPS);
+  const declineStart = Math.max(p.peakAge + half, 28); // pokles až po CELÉM plateau, nejdřív v 28
+
+  const valOnPlateau = plateauValue(a, p);
+  if (a <= declineStart) return clamp(valOnPlateau, MIN_OVR, MAX_OVR);
+
+  const baseAtStart = plateauValue(declineStart, p);
+  const mult = declineMultiplier(declineStart, a, p);
+  return clamp(baseAtStart * mult, MIN_OVR, MAX_OVR);
 }
 
-/**
- * Generuje celou křivku v daném rozsahu věku.
- */
+/** Celá křivka v rozsahu věků. Výpočet věku přes indexy (méně plovoucích chyb). */
 export function idealCurve(
   params: CurveParams,
   ageFrom = 10,
   ageTo = 40,
   step = 0.25,
 ): Point[] {
-  const points: Point[] = [];
-  for (let age = ageFrom; age <= ageTo + EPS; age += step) {
-    const roundedAge = Math.round(age * 100) / 100;
-    points.push({ age: roundedAge, ovr: idealOVRAtAge(roundedAge, params) });
+  const n = Math.floor((ageTo - ageFrom) / step + EPS) + 1;
+  const out: Point[] = [];
+  for (let i = 0; i < n; i++) {
+    const age = +(ageFrom + i * step).toFixed(2);
+    out.push({ age, ovr: idealOVRAtAge(age, params) });
   }
-  return points;
+  return out;
 }
 
-/**
- * Průměrný sklon křivky mezi dvěma věky (ΔOVR na rok).
- */
+/** Průměrný sklon mezi dvěma věky (ΔOVR/rok). */
 export function slopeBetween(a1: number, a2: number, params: CurveParams): number {
   if (a2 <= a1) return 0;
-  const v1 = idealOVRAtAge(a1, params);
-  const v2 = idealOVRAtAge(a2, params);
-  return (v2 - v1) / (a2 - a1);
+  return (idealOVRAtAge(a2, params) - idealOVRAtAge(a1, params)) / (a2 - a1);
 }

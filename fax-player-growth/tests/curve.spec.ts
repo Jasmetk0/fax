@@ -34,3 +34,52 @@ describe("curve", () => {
     expect(peak.age).toBeLessThanOrEqual(28.5);
   });
 });
+
+const P: CurveParams = {
+  potential: 94,
+  floor: 38,
+  peakAge: 27.5,
+  k: 0.41,
+  peakRetention: 1.0,
+  d1: 0.03,
+  d2: 0.055,
+  d3: 0.09,
+};
+
+describe("ideal curve – continuity & behaviour", () => {
+  it("never exceeds potential or 100 and never goes below 20", () => {
+    for (let a = 10; a <= 40; a += 0.25) {
+      const v = idealOVRAtAge(a, P);
+      expect(v).toBeLessThanOrEqual(100);
+      expect(v).toBeLessThanOrEqual(P.potential + 1e-6);
+      expect(v).toBeGreaterThanOrEqual(20);
+    }
+  });
+
+  it("plateau has zero-ish slope at its edges (C¹-ish)", () => {
+    const half = P.peakRetention / 2;
+    const left = P.peakAge - half;
+    const right = P.peakAge + half;
+    const sLeft = slopeBetween(left - 0.05, left + 0.05, P);
+    const sRight = slopeBetween(right - 0.05, right + 0.05, P);
+    expect(Math.abs(sLeft)).toBeLessThan(0.15); // téměř ploché
+    expect(Math.abs(sRight)).toBeLessThan(0.15);
+  });
+
+  it("decline starts after plateau or at 28, whichever is later", () => {
+    const half = P.peakRetention / 2;
+    const declineStart = Math.max(P.peakAge + half, 28);
+    const sBefore = slopeBetween(declineStart - 0.2, declineStart - 0.01, P);
+    const sAfter = slopeBetween(declineStart + 0.01, declineStart + 0.2, P);
+    expect(sBefore).toBeGreaterThanOrEqual(-0.2); // neklesá výrazně
+    expect(sAfter).toBeLessThan(0); // po startu už klesá
+  });
+
+  it("late segments decline faster: |33–36| > |28–32| and |37+| ≥ |33–36|", () => {
+    const s1 = slopeBetween(29, 32, P); // ~ d1
+    const s2 = slopeBetween(33, 36, P); // ~ d2
+    const s3 = slopeBetween(37.5, 39.5, P); // ~ d3
+    expect(Math.abs(s2)).toBeGreaterThan(Math.abs(s1));
+    expect(Math.abs(s3)).toBeGreaterThanOrEqual(Math.abs(s2));
+  });
+});
