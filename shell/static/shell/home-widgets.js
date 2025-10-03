@@ -36,7 +36,11 @@ window.initHomeWidgets = function() {
           const id = (it.id || '').toLowerCase();
           if (REG_MAP[id] && !items.find(x => x.id === id)) items.push({ id, size: it.size || REG_MAP[id].defaultSize });
         });
-        if (items.length) return items;
+        if (items.length) {
+          const normalized = normalize(items);
+          if (normalized.length !== items.length) save(normalized);
+          return normalized;
+        }
       }
     } catch (_) {}
     const items = [];
@@ -44,12 +48,26 @@ window.initHomeWidgets = function() {
       const id = (el.dataset.id || '').toLowerCase();
       if (REG_MAP[id] && !items.find(x => x.id === id)) items.push({ id, size: REG_MAP[id].defaultSize });
     });
-    save(items);
-    return items;
+    const normalized = normalize(items);
+    save(normalized);
+    return normalized;
   }
 
   function save(items) {
     try { localStorage.setItem(KEY, JSON.stringify({ items, version: 1 })); } catch (_) {}
+  }
+
+  function normalize(items) {
+    const unique = [];
+    items.forEach(it => {
+      if (REG_MAP[it.id] && !unique.find(x => x.id === it.id)) {
+        unique.push({ id: it.id, size: it.size || REG_MAP[it.id].defaultSize });
+      }
+    });
+    if (getSePref() === 'false') {
+      return unique.filter(it => it.id !== 'squashengine');
+    }
+    return unique;
   }
 
   function getSePref() {
@@ -70,6 +88,7 @@ window.initHomeWidgets = function() {
 
   function createTile(reg) {
     if (reg.id === 'squashengine') {
+      if (getSePref() !== 'true') return null;
       const card = document.createElement('div');
       card.dataset.id = reg.id;
       card.dataset.href = reg.href;
@@ -139,8 +158,18 @@ window.initHomeWidgets = function() {
       e.stopPropagation();
     });
     toggle.addEventListener('change', e => {
+      e.stopPropagation();
       const value = e.target.checked ? 'true' : 'false';
       setSePref(value);
+      if (value === 'false') {
+        const idx = state.findIndex(i => i.id === 'squashengine');
+        if (idx !== -1) {
+          state.splice(idx, 1);
+          save(state);
+          render();
+        }
+        return;
+      }
       apply(value);
     });
     tile.querySelector('.se-widget-toggle-wrapper')?.addEventListener('click', e => {
@@ -213,9 +242,13 @@ window.initHomeWidgets = function() {
           }
         }
       });
-      tile.querySelector('.widget-remove').addEventListener('click', e => {
+      const removeBtn = tile.querySelector('.widget-remove');
+      removeBtn.addEventListener('click', e => {
         e.preventDefault(); e.stopPropagation();
         const id = tile.dataset.id;
+        if (tile.dataset.widgetKey === SE_PREF_KEY) {
+          setSePref('false');
+        }
         const idx = state.findIndex(i => i.id === id);
         const removed = state.splice(idx, 1)[0];
         save(state);
@@ -275,7 +308,10 @@ window.initHomeWidgets = function() {
         b.innerHTML = `<span>${r.icon} ${r.label}</span>${exists ? '<span class="text-xs">Přidáno</span>' : ''}`;
         b.disabled = exists;
         if (!exists) b.addEventListener('click', () => {
-          state.push({ id: r.id, size: r.defaultSize });
+          if (!state.some(i => i.id === r.id)) {
+            state.push({ id: r.id, size: r.defaultSize });
+          }
+          if (r.id === 'squashengine') setSePref('true');
           save(state);
           render();
           close();
@@ -311,6 +347,7 @@ window.initHomeWidgets = function() {
       clearTimeout(timer);
       div.remove();
       state.splice(index, 0, item);
+      if (id === 'squashengine') setSePref('true');
       save(state);
       render();
     });
