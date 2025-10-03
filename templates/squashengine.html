@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}SquashEngine – Player Growth{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'squash-engine-player-growth.css' %}">
+  <style>
+    .se-root { position: relative; z-index: 1; }
+    header, .global-topbar { position: relative; z-index: 10; }
+  </style>
+{% endblock %}
+
+{% block content %}
+  <div class="se-root">
+    <div id="se-player-growth" style="min-height: 640px;"></div>
+  </div>
+{% endblock %}
+
+{% block extra_js %}
+  <script>
+    (function loadOnce(src, cb){
+      if (document.querySelector('script[src="' + src + '"]')) return cb();
+      var s=document.createElement('script'); s.src=src; s.async=true;
+      s.onload=cb; s.onerror=function(){ console.error("Failed to load", src); };
+      document.body.appendChild(s);
+    })("{% static 'squash-engine.iife.js' %}", function(){
+      if (window.SquashEngine && window.SquashEngine.mountPlayerGrowth) {
+        window.__seUnmount && window.__seUnmount.unmount && window.__seUnmount.unmount();
+        window.__seUnmount = window.SquashEngine.mountPlayerGrowth("#se-player-growth", {
+          preset: "Hybrid",
+          showFanChart: true
+        });
+      } else {
+        console.error("SquashEngine API not found on window.");
+      }
+    });
+  </script>
+{% endblock %}

@@ -97,7 +97,9 @@ DATE_INPUT_FORMATS = ["%d-%m-%Y", "%Y-%m-%d", *DJ_DATE_INPUT_FORMATS]
 
 FORMAT_MODULE_PATH = "fax_portal.formats"
 
-STATIC_URL = "static/"
+STATIC_URL = "/static/"
+STATICFILES_DIRS = [BASE_DIR / "public/static"]
+APPEND_SLASH = True
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
