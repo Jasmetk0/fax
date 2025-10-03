@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  @apply bg-slate-50 text-slate-900 font-sans antialiased;
+}
+
+a {
+  @apply text-sky-600 hover:text-sky-700;
+}
+
+.tooltip {
+  @apply cursor-help text-sky-600;
+}
+
+input[type="range"] {
+  @apply w-full;
+}
