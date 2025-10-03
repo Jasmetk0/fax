@@ -73,4 +73,10 @@ urlpatterns = [
         ),
         name="service-worker",
     ),
+    path(
+        "squashengine",
+        TemplateView.as_view(template_name="squashengine.html"),
+        name="squashengine",
+    ),
+    path("squashengine/", TemplateView.as_view(template_name="squashengine.html")),
 ]

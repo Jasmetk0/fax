@@ -174,6 +174,7 @@
             <button data-href="/wiki/" class="rounded-lg border px-3 py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800">/wiki/</button>
             <button data-href="/maps/" class="rounded-lg border px-3 py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800">/maps/</button>
             <button data-href="/livesport/" class="rounded-lg border px-3 py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800">/livesport/</button>
+            <button data-href="/squashengine" class="rounded-lg border px-3 py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800">/squashengine</button>
           </div>
           <div class="flex items-center gap-2">
             <input id="tab-new-input" type="text" placeholder="/cesta" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" />
@@ -465,6 +466,13 @@
       if (v === 'wiki') return '/wiki/';
       if (v === 'mapy' || v === 'maps') return '/maps/';
       if (v === 'sport' || v === 'livesport') return '/livesport/';
+      if (
+        v === 'squashengine' ||
+        v === 'squash engine' ||
+        v === 'playergrowth' ||
+        v === 'player growth'
+      )
+        return '/squashengine';
       if (v === 'msa' || v === 'squash') return '/msasquashtour/';
       if (v === 'mma') return '/mma/';
       if (v === 'openfaxmap' || v === 'ofm') return '/openfaxmap/';
@@ -492,6 +500,11 @@
       { title: 'Wiki', url: '/wiki/', keys: ['wiki'] },
       { title: 'Mapy', url: '/maps/', keys: ['mapy','maps'] },
       { title: 'LiveSport', url: '/livesport/', keys: ['sport','livesport'] },
+      {
+        title: 'SquashEngine – Player Growth',
+        url: '/squashengine',
+        keys: ['squashengine','squash engine','player growth','playergrowth'],
+      },
       { title: 'MSA Squash Tour', url: '/msasquashtour/', keys: ['msa','squash'] },
       { title: 'MMA portál', url: '/mma/', keys: ['mma'] },
       { title: 'OpenFaxMap', url: '/openfaxmap/', keys: ['openfaxmap','ofm'] },

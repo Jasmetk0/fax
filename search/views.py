@@ -559,6 +559,11 @@ def suggest(request):
         {"title": "OpenFaxMap", "url": "/openfaxmap/", "source": "static"},
         {"title": "LiveSport", "url": "/livesport/", "source": "static"},
         {"title": "MMA", "url": "/mma/", "source": "static"},
+        {
+            "title": "SquashEngine – Player Growth",
+            "url": "/squashengine",
+            "source": "static",
+        },
         {"title": "MSA Squash Tour", "url": "/msasquashtour/", "source": "static"},
     ]
     results.extend(static)
