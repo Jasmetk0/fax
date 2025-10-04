@@ -1,5 +1,5 @@
 import { SLIDER_CONFIGS, STYLE_PRESETS } from "../constants";
-import type { CurveParams } from "../lib/curve";
+import type { CurveParams } from "../types";
 import type { ParameterKey, StylePresetKey } from "../types";
 
 export type ParameterSlidersProps = {

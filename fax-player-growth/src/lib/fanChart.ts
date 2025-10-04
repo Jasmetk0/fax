@@ -1,5 +1,5 @@
 import { AGE_RANGE, FAN_RANGES, FAN_SAMPLES } from "../constants";
-import type { CurveParams } from "./curve";
+import type { CurveParams } from "../types";
 import { idealCurve } from "./curve";
 
 export type FanChartPoint = {

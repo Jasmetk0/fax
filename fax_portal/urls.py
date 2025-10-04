@@ -78,5 +78,10 @@ urlpatterns = [
         TemplateView.as_view(template_name="squashengine.html"),
         name="squashengine",
     ),
+    path(
+        "squashengine/tuner",
+        TemplateView.as_view(template_name="squashengine_tuner.html"),
+        name="squashengine_tuner",
+    ),
     path("squashengine/", TemplateView.as_view(template_name="squashengine.html")),
 ]

@@ -1,4 +1,15 @@
-import type { CurveParams, Point } from "./lib/curve";
+import type { Point } from "./lib/curve";
+
+export type CurveParams = {
+  potential: number;
+  floor: number;
+  peakAge: number;
+  k: number;
+  peakRetention: number;
+  d1: number;
+  d2: number;
+  d3: number;
+};
 
 export type ParameterKey = keyof CurveParams;
 

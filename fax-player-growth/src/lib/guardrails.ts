@@ -1,6 +1,5 @@
 import { PARAM_BOUNDS } from "../constants";
-import type { GuardrailNotice } from "../types";
-import type { CurveParams } from "./curve";
+import type { CurveParams, GuardrailNotice } from "../types";
 
 const EPS = 0.0005;
 
