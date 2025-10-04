@@ -13,7 +13,8 @@ import {
   YAxis,
 } from "recharts";
 import { AGE_RANGE, COHORT_COLORS, REFERENCE_AGES, ZONES } from "../constants";
-import type { CurveParams, Point } from "../lib/curve";
+import type { Point } from "../lib/curve";
+import type { CurveParams } from "../types";
 import type { ChartPoint, CurveInsights, StylePresetKey } from "../types";
 
 export type CurveStudioProps = {

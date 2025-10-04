@@ -3,8 +3,8 @@ import { createRoot } from "react-dom/client";
 import App from "./App";
 import { DEFAULT_STATE } from "./constants";
 import { enforceGuardrails } from "./lib/guardrails";
-import type { CurveParams } from "./lib/curve";
 import { serializeUrlState } from "./lib/urlState";
+import type { CurveParams } from "./types";
 import "./styles.css";
 
 export type MountOptions = {
@@ -20,7 +20,7 @@ declare global {
   interface Window {
     SquashEngine?: {
       mountPlayerGrowth: (
-        element: HTMLElement,
+        element: string | HTMLElement,
         options?: MountOptions,
       ) => MountReturn;
     };
@@ -62,9 +62,11 @@ function applyOptions(options?: MountOptions) {
     nextState.params = params;
   }
 
-  const query = serializeUrlState(nextState);
-  const nextUrl = `${window.location.pathname}${query}${window.location.hash ?? ""}`;
-  window.history.replaceState({}, document.title, nextUrl);
+  const qs = serializeUrlState(nextState);
+  const url = new URL(window.location.href);
+  url.search = qs ? (qs.startsWith("?") ? qs.slice(1) : qs) : "";
+  const nextUrl = `${url.pathname}${url.search}${url.hash}`;
+  window.history.replaceState(null, document.title, nextUrl);
 }
 
 export function mountPlayerGrowth(element: HTMLElement, options?: MountOptions): MountReturn;

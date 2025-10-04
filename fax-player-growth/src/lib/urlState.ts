@@ -1,6 +1,5 @@
 import { DEFAULT_STATE, PARAM_BOUNDS } from "../constants";
-import type { GuardrailNotice, UrlState } from "../types";
-import type { CurveParams } from "./curve";
+import type { CurveParams, GuardrailNotice, UrlState } from "../types";
 import { enforceGuardrails } from "./guardrails";
 
 const cloneParams = (params: CurveParams): CurveParams => ({ ...params });

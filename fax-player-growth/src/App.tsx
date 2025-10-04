@@ -13,7 +13,8 @@ import {
   SLIDER_CONFIGS,
   STYLE_PRESETS,
 } from "./constants";
-import { idealCurve, slopeBetween, type CurveParams, type Point } from "./lib/curve";
+import { idealCurve, slopeBetween, type Point } from "./lib/curve";
+import type { CurveParams } from "./types";
 import { exportChartPng, exportCurveCsv } from "./lib/export";
 import { buildFanChart } from "./lib/fanChart";
 import { enforceGuardrails } from "./lib/guardrails";

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_PARAMS } from "../src/constants";
-import { idealCurve, idealOVRAtAge, slopeBetween, type CurveParams } from "../src/lib/curve";
+import { idealCurve, idealOVRAtAge, slopeBetween } from "../src/lib/curve";
+import type { CurveParams } from "../src/types";
 
 describe("curve", () => {
   it("rise je monotónní před peakem", () => {

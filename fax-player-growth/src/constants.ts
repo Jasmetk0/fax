@@ -1,5 +1,5 @@
-import type { CurveParams, Point } from "./lib/curve";
-import type { SliderConfig, StylePreset, StylePresetKey, UrlState } from "./types";
+import type { Point } from "./lib/curve";
+import type { CurveParams, SliderConfig, StylePreset, StylePresetKey, UrlState } from "./types";
 
 export const AGE_RANGE = { min: 10, max: 40, step: 0.25 } as const;
 

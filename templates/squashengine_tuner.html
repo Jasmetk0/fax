@@ -1,0 +1,358 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}SquashEngine Tuner · FAX Portal{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'squash-engine-player-growth.css' %}">
+<script defer id="squash-engine-bundle" src="{% static 'squash-engine.iife.js' %}"></script>
+<style>
+  .se-tuner-grid {
+    display: grid;
+    gap: 1.5rem;
+  }
+  @media (min-width: 1024px) {
+    .se-tuner-grid {
+      grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
+    }
+  }
+  .se-tuner-panel,
+  .se-tuner-stage {
+    border-radius: 1.5rem;
+    border: 1px solid rgba(15, 23, 42, 0.1);
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.02), rgba(15, 23, 42, 0.05));
+    padding: 1.25rem;
+  }
+  .dark .se-tuner-panel,
+  .dark .se-tuner-stage {
+    border-color: rgba(148, 163, 184, 0.15);
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.7), rgba(15, 23, 42, 0.5));
+  }
+  .se-tuner-field {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 120px;
+    gap: 0.75rem;
+    align-items: center;
+  }
+  .se-tuner-field label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: rgb(30 41 59);
+  }
+  .dark .se-tuner-field label {
+    color: rgb(203 213 225);
+  }
+  .se-tuner-field input[type="number"] {
+    width: 100%;
+    border-radius: 0.75rem;
+    border: 1px solid rgba(15, 23, 42, 0.12);
+    background: rgba(255, 255, 255, 0.9);
+    padding: 0.5rem 0.65rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .dark .se-tuner-field input[type="number"] {
+    border-color: rgba(148, 163, 184, 0.25);
+    background: rgba(15, 23, 42, 0.6);
+    color: rgb(226 232 240);
+  }
+  .se-tuner-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 1rem;
+  }
+  .se-tuner-button {
+    border-radius: 0.75rem;
+    border: 1px solid rgba(15, 23, 42, 0.12);
+    background: rgba(255, 255, 255, 0.95);
+    padding: 0.5rem 0.9rem;
+    font-weight: 600;
+    transition: border-color 0.2s ease, transform 0.2s ease;
+  }
+  .se-tuner-button:hover {
+    border-color: rgba(14, 116, 144, 0.6);
+    transform: translateY(-1px);
+  }
+  .dark .se-tuner-button {
+    border-color: rgba(148, 163, 184, 0.25);
+    background: rgba(15, 23, 42, 0.7);
+    color: rgb(226 232 240);
+  }
+  .dark .se-tuner-button:hover {
+    border-color: rgba(125, 211, 252, 0.55);
+  }
+  .se-tuner-hint {
+    font-size: 0.8rem;
+    color: rgb(71 85 105);
+  }
+  .dark .se-tuner-hint {
+    color: rgb(148 163 184);
+  }
+  #se-root {
+    height: clamp(420px, 65vh, 720px);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-6xl space-y-6">
+  <div class="space-y-1">
+    <h1 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">SquashEngine Player Growth Tuner</h1>
+    <p class="text-sm text-slate-600 dark:text-slate-400">
+      Experimentujte s parametry růstové křivky. Každá změna se propsaná do URL, takže můžete sdílet přesný stav.
+    </p>
+  </div>
+  <div class="se-tuner-grid">
+    <form id="se-controls" class="se-tuner-panel" autocomplete="off">
+      <div class="flex flex-col gap-4">
+        <div class="flex items-center justify-between gap-2">
+          <div>
+            <p class="text-sm font-semibold text-slate-800 dark:text-slate-200">Vizualizace</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Zapněte doplňkové vrstvy grafu.</p>
+          </div>
+          <div class="flex flex-col gap-2">
+            <label class="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300" for="showFanChart">
+              <input id="showFanChart" type="checkbox" class="h-4 w-4" data-bind="toggle">
+              Fan chart
+            </label>
+            <label class="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300" for="showCohort">
+              <input id="showCohort" type="checkbox" class="h-4 w-4" data-bind="toggle">
+              Kohorty
+            </label>
+          </div>
+        </div>
+        <hr class="border-slate-200/70 dark:border-slate-700/70">
+        <div class="grid gap-3">
+          <div class="se-tuner-field">
+            <label for="potential">potential</label>
+            <input id="potential" type="number" min="85" max="99" step="0.1" value="94" data-bind="param">
+          </div>
+          <div class="se-tuner-field">
+            <label for="floor">floor</label>
+            <input id="floor" type="number" min="30" max="50" step="0.1" value="38" data-bind="param">
+          </div>
+          <div class="se-tuner-field">
+            <label for="peakAge">peakAge</label>
+            <input id="peakAge" type="number" min="23" max="32" step="0.1" value="27.5" data-bind="param">
+          </div>
+          <div class="se-tuner-field">
+            <label for="k">k (growth)</label>
+            <input id="k" type="number" min="0.3" max="0.6" step="0.01" value="0.41" data-bind="param">
+          </div>
+          <div class="se-tuner-field">
+            <label for="peakRetention">peakRetention</label>
+            <input id="peakRetention" type="number" min="0.5" max="2.5" step="0.1" value="1" data-bind="param">
+          </div>
+          <div class="se-tuner-field">
+            <label for="d1">d1</label>
+            <input id="d1" type="number" min="0.02" max="0.04" step="0.001" value="0.03" data-bind="param">
+          </div>
+          <div class="se-tuner-field">
+            <label for="d2">d2</label>
+            <input id="d2" type="number" min="0.04" max="0.07" step="0.001" value="0.055" data-bind="param">
+          </div>
+          <div class="se-tuner-field">
+            <label for="d3">d3</label>
+            <input id="d3" type="number" min="0.07" max="0.12" step="0.001" value="0.09" data-bind="param">
+          </div>
+        </div>
+        <div class="se-tuner-toolbar">
+          <button type="button" id="resetDefaults" class="se-tuner-button">Reset to defaults</button>
+          <button type="button" id="copyLink" class="se-tuner-button">Copy link</button>
+        </div>
+        <p class="se-tuner-hint">Hodnoty držíme v bezpečném rozsahu a URL se synchronizuje bez reloadu.</p>
+      </div>
+    </form>
+    <section class="se-tuner-stage">
+      <div id="se-root"></div>
+    </section>
+  </div>
+</div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const get = (id) => document.getElementById(id);
+    const numericFields = ["potential", "floor", "peakAge", "k", "peakRetention", "d1", "d2", "d3"];
+    const toggleFields = [
+      { id: "showFanChart", keys: ["fan", "showFanChart"] },
+      { id: "showCohort", keys: ["cohort", "showCohort"] },
+    ];
+    const defaults = {
+      showFanChart: false,
+      showCohort: false,
+      potential: 94,
+      floor: 38,
+      peakAge: 27.5,
+      k: 0.41,
+      peakRetention: 1,
+      d1: 0.03,
+      d2: 0.055,
+      d3: 0.09,
+    };
+
+    const scriptEl = document.getElementById("squash-engine-bundle");
+    const root = get("se-root");
+    const form = document.getElementById("se-controls");
+
+    const debounce = (fn, delay) => {
+      let timer;
+      return (...args) => {
+        clearTimeout(timer);
+        timer = window.setTimeout(() => fn.apply(null, args), delay);
+      };
+    };
+
+    const parseBoolean = (value) => {
+      if (value === null) return undefined;
+      const normalized = value.toLowerCase();
+      if (value === "1" || normalized === "true" || normalized === "yes" || normalized === "on") return true;
+      if (value === "0" || normalized === "false" || normalized === "no" || normalized === "off") return false;
+      return undefined;
+    };
+
+    const applyDefaults = () => {
+      toggleFields.forEach(({ id }) => {
+        const el = get(id);
+        if (el) el.checked = defaults[id];
+      });
+      numericFields.forEach((field) => {
+        const el = get(field);
+        if (el) el.value = `${defaults[field]}`;
+      });
+    };
+
+    let mounted = null;
+    const mountEngine = (options) => {
+      if (!root || !window.SquashEngine || typeof window.SquashEngine.mountPlayerGrowth !== "function") {
+        return;
+      }
+      if (mounted && typeof mounted.unmount === "function") {
+        mounted.unmount();
+      }
+      mounted = window.SquashEngine.mountPlayerGrowth(root, options);
+    };
+
+    const readOptionsFromForm = () => {
+      const params = {};
+      numericFields.forEach((field) => {
+        const input = get(field);
+        if (!(input instanceof HTMLInputElement)) return;
+        const value = parseFloat(input.value);
+        if (!Number.isNaN(value)) {
+          params[field] = value;
+        }
+      });
+      return {
+        showFanChart: !!get("showFanChart")?.checked,
+        showCohort: !!get("showCohort")?.checked,
+        params,
+      };
+    };
+
+    const remount = () => mountEngine(readOptionsFromForm());
+    const debouncedRemount = debounce(remount, 120);
+
+    const prefillFromUrl = () => {
+      const search = new URLSearchParams(window.location.search);
+      toggleFields.forEach(({ id, keys }) => {
+        const el = get(id);
+        if (!(el instanceof HTMLInputElement)) return;
+        let parsed;
+        for (const key of keys) {
+          parsed = parseBoolean(search.get(key));
+          if (parsed !== undefined) break;
+        }
+        el.checked = parsed ?? defaults[id];
+      });
+      const numericAliases = {
+        peakRetention: ["peakRetention", "plateau", "retention"],
+      };
+      numericFields.forEach((field) => {
+        const el = get(field);
+        if (!(el instanceof HTMLInputElement)) return;
+        const keys = numericAliases[field] || [field];
+        let value;
+        for (const key of keys) {
+          const raw = search.get(key);
+          if (raw !== null) {
+            const parsed = Number(raw);
+            if (Number.isFinite(parsed)) {
+              value = parsed;
+              break;
+            }
+          }
+        }
+        el.value = value !== undefined ? `${value}` : `${defaults[field]}`;
+      });
+    };
+
+    if (form) {
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+      });
+    }
+
+    document.querySelectorAll('[data-bind="param"]').forEach((node) => {
+      if (!(node instanceof HTMLInputElement)) return;
+      node.addEventListener("input", debouncedRemount);
+      node.addEventListener("change", remount);
+    });
+    document.querySelectorAll('[data-bind="toggle"]').forEach((node) => {
+      if (!(node instanceof HTMLInputElement)) return;
+      node.addEventListener("change", remount);
+    });
+
+    const resetBtn = get("resetDefaults");
+    if (resetBtn) {
+      resetBtn.addEventListener("click", (event) => {
+        event.preventDefault();
+        applyDefaults();
+        const url = new URL(window.location.href);
+        url.search = "";
+        const next = `${url.pathname}${url.search}${url.hash}`;
+        window.history.replaceState(null, document.title, next);
+        mountEngine();
+      });
+    }
+
+    const copyBtn = get("copyLink");
+    if (copyBtn) {
+      copyBtn.addEventListener("click", async (event) => {
+        event.preventDefault();
+        const resetLabel = () => {
+          window.setTimeout(() => {
+            copyBtn.textContent = "Copy link";
+          }, 1200);
+        };
+        try {
+          await navigator.clipboard.writeText(window.location.href);
+          copyBtn.textContent = "Copied!";
+          resetLabel();
+        } catch (error) {
+          copyBtn.textContent = "Copy failed";
+          resetLabel();
+        }
+      });
+    }
+
+    window.addEventListener("popstate", () => {
+      prefillFromUrl();
+      remount();
+    });
+
+    prefillFromUrl();
+
+    const ensureInitialMount = () => {
+      remount();
+    };
+
+    if (window.SquashEngine && typeof window.SquashEngine.mountPlayerGrowth === "function") {
+      ensureInitialMount();
+    } else if (scriptEl) {
+      scriptEl.addEventListener("load", ensureInitialMount, { once: true });
+    } else {
+      window.addEventListener("load", ensureInitialMount, { once: true });
+    }
+  });
+</script>
+{% endblock %}

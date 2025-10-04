@@ -1,13 +1,6 @@
-export type CurveParams = {
-  potential: number;
-  floor: number;
-  peakAge: number;
-  k: number;
-  peakRetention: number; // v letech
-  d1: number; // 28–32 (ročně)
-  d2: number; // 33–36
-  d3: number; // 37+
-};
+import type { CurveParams } from "../types";
+
+export type { CurveParams } from "../types";
 
 export type Point = { age: number; ovr: number };
 
