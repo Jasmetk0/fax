@@ -22,9 +22,10 @@ from msa.models import (
 )
 from tests.woorld_helpers import woorld_date
 
+pytestmark = pytest.mark.django_db
+
 
 @pytest.fixture
-@pytest.mark.django_db
 def sample_tournament():
     season = Season.objects.create(
         name="2025/01",
